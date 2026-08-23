@@ -1,18 +1,20 @@
-name: Compilar APK Flutter
+name: Compilar APK React Native
 on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-node@v4
         with:
-          channel: 'stable'
-      - run: flutter pub get
-      - run: flutter build apk --split-per-abi
+          node-version: 18
+      - run: npm install
+      - name: Compilar Android
+        run: |
+          cd android
+          ./gradlew assembleRelease
       - name: Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-flutter-apk
-          path: build/app/outputs/flutter-apk/*.apk
-
+          name: app-react-native-apk
+          path: android/app/build/outputs/apk/release/*.apk
