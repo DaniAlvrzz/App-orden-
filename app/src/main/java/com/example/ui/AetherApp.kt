@@ -131,10 +131,8 @@ fun AetherApp(
                         },
                         onAddTaskClick = { viewModel.setShowQuickAdd(true) },
                         onToggleTimeBlock = { viewModel.toggleTimeBlock(it) },
-                        onAddTimeBlockClick = {
-                            val defaultTitle = if (state.currentLanguage == AppLanguage.SPANISH) "Admin & Triaje en Bloque" else "Admin & Triage Batch"
-                            viewModel.addTimeBlock("16:30", "17:30", com.example.data.model.BlockType.ADMIN_SLOT, defaultTitle)
-                        },
+                        onAddTimeBlockClick = { viewModel.setShowAddTimeBlock(true) },
+                        onDeleteTimeBlock = { viewModel.deleteTimeBlock(it.id) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenSettings = { viewModel.openSettings() },
                         onOpenTutorial = { viewModel.openTutorial(0) },
@@ -158,6 +156,8 @@ fun AetherApp(
                     2 -> NutritionScreen(
                         state = state,
                         onToggleMeal = { viewModel.toggleMeal(it) },
+                        onDeleteMeal = { viewModel.deleteMeal(it) },
+                        onOpenAddMeal = { viewModel.setShowAddMeal(true) },
                         onTogglePantryStock = { id, inStock -> viewModel.togglePantryStock(id, inStock) },
                         onDeletePantryItem = { viewModel.deletePantryItem(it) },
                         onOpenAddPantry = { viewModel.setShowPantryAdd(true) }
@@ -201,6 +201,28 @@ fun AetherApp(
                 )
             }
 
+            // Add TimeBlock Dialog
+            if (state.showAddTimeBlockDialog) {
+                AddTimeBlockDialog(
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setShowAddTimeBlock(false) },
+                    onSave = { start, end, type, title, notes ->
+                        viewModel.addTimeBlock(start, end, type, title, notes)
+                    }
+                )
+            }
+
+            // Add Custom Meal Dialog
+            if (state.showAddMealDialog) {
+                AddMealDialog(
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setShowAddMeal(false) },
+                    onSave = { slot, title, desc, prepTime, ings, usesBatch, inStock, impact ->
+                        viewModel.addCustomMeal(slot, title, desc, prepTime, ings, usesBatch, inStock, impact)
+                    }
+                )
+            }
+
             // Cognitive Reframe Dialog
             if (state.showReframeDialog) {
                 CognitiveReframeDialog(
@@ -223,8 +245,11 @@ fun AetherApp(
                         viewModel.closeSettings()
                         viewModel.openTutorial(0)
                     },
-                    onResetDemoData = {
-                        viewModel.resetDemoData()
+                    onResetToCleanSlate = {
+                        viewModel.resetToCleanSlate()
+                    },
+                    onLoadDemoData = {
+                        viewModel.loadDemoData()
                     },
                     onDismiss = { viewModel.closeSettings() }
                 )

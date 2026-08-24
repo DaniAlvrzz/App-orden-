@@ -420,3 +420,297 @@ fun CognitiveReframeDialog(
         containerColor = AetherSurfaceElevated
     )
 }
+
+@Composable
+fun AddTimeBlockDialog(
+    language: AppLanguage = AppLanguage.SPANISH,
+    onDismiss: () -> Unit,
+    onSave: (startTime: String, endTime: String, blockType: BlockType, title: String, notes: String) -> Unit
+) {
+    val strings = remember(language) { StringsProvider(language) }
+    var startTime by remember { mutableStateOf("09:00") }
+    var endTime by remember { mutableStateOf("10:30") }
+    var blockType by remember { mutableStateOf(BlockType.DEEP_WORK) }
+    var title by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Default.Schedule, contentDescription = null, tint = AetherCyan)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = strings.addTimeBlockTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(strings.blockTitleLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Ej: Bloque de Trabajo Profundo" else "e.g. Deep Architecture Focus")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = startTime,
+                        onValueChange = { startTime = it },
+                        label = { Text(strings.blockStartTimeLabel) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = endTime,
+                        onValueChange = { endTime = it },
+                        label = { Text(strings.blockEndTimeLabel) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Text(
+                    text = strings.blockTypeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(BlockType.DEEP_WORK, BlockType.MEAL, BlockType.COGNITIVE_RECOVERY_BUFFER).forEach { bType ->
+                            val label = when (bType) {
+                                BlockType.DEEP_WORK -> if (language == AppLanguage.SPANISH) "Deep Work" else "Deep Work"
+                                BlockType.MEAL -> if (language == AppLanguage.SPANISH) "Comida" else "Meal"
+                                BlockType.COGNITIVE_RECOVERY_BUFFER -> if (language == AppLanguage.SPANISH) "Pausa" else "Recovery"
+                                else -> bType.name
+                            }
+                            FilterChip(
+                                selected = blockType == bType,
+                                onClick = { blockType = bType },
+                                label = { Text(label, fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(BlockType.MEETING, BlockType.ADMIN_SLOT, BlockType.HABIT_ANCHOR).forEach { bType ->
+                            val label = when (bType) {
+                                BlockType.MEETING -> if (language == AppLanguage.SPANISH) "Reunión" else "Meeting"
+                                BlockType.ADMIN_SLOT -> if (language == AppLanguage.SPANISH) "Admin" else "Admin"
+                                BlockType.HABIT_ANCHOR -> if (language == AppLanguage.SPANISH) "Anclaje" else "Anchor"
+                                else -> bType.name
+                            }
+                            FilterChip(
+                                selected = blockType == bType,
+                                onClick = { blockType = bType },
+                                label = { Text(label, fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text(strings.blockNotesLabel) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(startTime, endTime, blockType, title, notes)
+                    }
+                },
+                enabled = title.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D))
+            ) {
+                Text(strings.btnSave, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(strings.btnCancel, color = AetherTextSecondary) }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}
+
+@Composable
+fun AddMealDialog(
+    language: AppLanguage = AppLanguage.SPANISH,
+    onDismiss: () -> Unit,
+    onSave: (slot: MealSlot, title: String, desc: String, prepTime: Int, ingredients: List<String>, usesBatch: Boolean, inStock: Boolean, bioImpact: BioGlycemicImpact) -> Unit
+) {
+    val strings = remember(language) { StringsProvider(language) }
+    var slot by remember { mutableStateOf(MealSlot.LUNCH) }
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var prepTimeMinutes by remember { mutableIntStateOf(10) }
+    var ingredientsRaw by remember { mutableStateOf("") }
+    var usesBatchCookedBase by remember { mutableStateOf(false) }
+    var allIngredientsInStock by remember { mutableStateOf(true) }
+    var bioImpact by remember { mutableStateOf(BioGlycemicImpact.MODERATE_STEADY) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Default.Restaurant, contentDescription = null, tint = AetherAmber)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = strings.addMealTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(strings.mealTitleLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Ej: Bowl de Quinoa y Salmón" else "e.g. Quinoa Salmon Power Bowl")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(strings.mealDescLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Ej: Energía constante sin pico de glucosa" else "e.g. Steady dopamine release")
+                    },
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    text = strings.mealSlotLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    MealSlot.entries.forEach { mSlot ->
+                        val slotLabel = when (mSlot) {
+                            MealSlot.BREAKFAST -> if (language == AppLanguage.SPANISH) "Desayuno" else "Breakfast"
+                            MealSlot.LUNCH -> if (language == AppLanguage.SPANISH) "Almuerzo" else "Lunch"
+                            MealSlot.DINNER -> if (language == AppLanguage.SPANISH) "Cena" else "Dinner"
+                            MealSlot.SNACK -> if (language == AppLanguage.SPANISH) "Snack" else "Snack"
+                        }
+                        FilterChip(
+                            selected = slot == mSlot,
+                            onClick = { slot = mSlot },
+                            label = { Text(slotLabel, fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = ingredientsRaw,
+                    onValueChange = { ingredientsRaw = it },
+                    label = { Text(strings.mealIngredientsLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Huevos, Espinacas, Aceite de Oliva" else "Eggs, Spinach, Olive Oil")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = strings.mealUsesBatchBase,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = usesBatchCookedBase,
+                        onCheckedChange = { usesBatchCookedBase = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AetherCyan)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = strings.mealInStockCheck,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = allIngredientsInStock,
+                        onCheckedChange = { allIngredientsInStock = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = AetherEmerald)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        val ings = ingredientsRaw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                        onSave(slot, title, description, prepTimeMinutes, ings, usesBatchCookedBase, allIngredientsInStock, bioImpact)
+                    }
+                },
+                enabled = title.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3B2D00))
+            ) {
+                Text(strings.btnSave, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(strings.btnCancel, color = AetherTextSecondary) }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}

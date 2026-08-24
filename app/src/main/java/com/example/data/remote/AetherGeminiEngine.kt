@@ -7,7 +7,6 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 class AetherGeminiEngine {
 
@@ -19,14 +18,15 @@ class AetherGeminiEngine {
 
     /**
      * Orchestrates daily plan using Gemini API or intelligent deterministic fallback.
+     * Returns an [AetherEngineResult] containing the plan, the [AiStatus], and error details if any.
      */
     suspend fun orchestratePlan(
         readinessScore: Int,
         chronotype: Chronotype,
         existingTasks: List<TaskItem>,
         pantryItems: List<PantryItem>,
-        todayDate: String = "2026-08-22"
-    ): AetherDailyPlan = withContext(Dispatchers.IO) {
+        todayDate: String = com.example.data.util.AetherDateUtils.getTodayIso()
+    ): AetherEngineResult = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         val isRecovery = readinessScore < 60
 
@@ -60,16 +60,31 @@ class AetherGeminiEngine {
                 if (!rawJson.isNullOrEmpty()) {
                     val parsed = parsePlanJson(rawJson)
                     if (parsed != null) {
-                        return@withContext parsed
+                        return@withContext AetherEngineResult(
+                            plan = parsed,
+                            status = AiStatus.LIVE,
+                            errorMessage = null
+                        )
                     }
                 }
             } catch (e: Exception) {
                 Log.e("AetherGeminiEngine", "Gemini API call failed, using deterministic engine: ${e.message}")
+                val fallbackPlan = generateDeterministicPlan(readinessScore, chronotype, existingTasks, pantryItems, todayDate, isRecovery)
+                return@withContext AetherEngineResult(
+                    plan = fallbackPlan,
+                    status = AiStatus.FALLBACK,
+                    errorMessage = e.localizedMessage ?: "Gemini API error"
+                )
             }
         }
 
-        // Deterministic High-Fidelity Engine
-        return@withContext generateDeterministicPlan(readinessScore, chronotype, existingTasks, pantryItems, todayDate, isRecovery)
+        // Deterministic High-Fidelity Engine (No API Key or Offline)
+        val plan = generateDeterministicPlan(readinessScore, chronotype, existingTasks, pantryItems, todayDate, isRecovery)
+        return@withContext AetherEngineResult(
+            plan = plan,
+            status = AiStatus.FALLBACK,
+            errorMessage = null
+        )
     }
 
     suspend fun generateCognitiveReframe(
@@ -79,7 +94,7 @@ class AetherGeminiEngine {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (!apiKey.isNullOrEmpty() && apiKey != "MY_GEMINI_API_KEY") {
             try {
-                val prompt = "User statement: '$userFeeling'. User readiness score: $readinessScore/100. Provide a 2-3 sentence cognitive reframing based on biological regulation, zero guilt, and graceful adjustment. Do not lecture."
+                val prompt = "User statement: '$userFeeling'. User readiness score: $readinessScore/100. Provide a 2-3 sentence cognitive reframing based on biological regulation, zero guilt, and graceful adjustment in Spanish. Do not lecture."
                 val request = GeminiRequest(
                     contents = listOf(GeminiContent(role = "user", parts = listOf(GeminiPart(text = prompt)))),
                     generationConfig = GeminiGenerationConfig(temperature = 0.5f, responseMimeType = "text/plain")
@@ -92,11 +107,11 @@ class AetherGeminiEngine {
             }
         }
 
-        // Deterministic Compassionate Reframes
+        // Deterministic Compassionate Reframes (Spanish)
         return@withContext when {
-            readinessScore < 60 -> "Your nervous system is signaling genuine physiological fatigue, not a lack of willpower. Switching to Recovery Protocol protects tomorrow's performance."
-            userFeeling.contains("guilt", ignoreCase = true) || userFeeling.contains("failed", ignoreCase = true) -> "A missed session is simply data, not identity. Grace Days exist to maintain long-term compliance without neuroticism."
-            else -> "Energy naturally fluctuates in 90-minute ultradian cycles. Downshift to a 5-minute Type C micro-task to break inertia without taxing executive function."
+            readinessScore < 60 -> "Tu sistema nervioso está señalando fatiga fisiológica real, no falta de fuerza de voluntad. Cambiar al Protocolo de Recuperación protege el rendimiento de mañana."
+            userFeeling.contains("culpa", ignoreCase = true) || userFeeling.contains("fallé", ignoreCase = true) || userFeeling.contains("guilt", ignoreCase = true) -> "Una sesión omitida es simplemente un dato biológico, no tu identidad. Los Días de Gracia existen para mantener la adherencia a largo plazo sin neurosis."
+            else -> "La energía fluctúa de forma natural en ciclos ultradianos de 90 minutos. Cambia a una micro-tarea Tipo C de 5 minutos para romper la inercia sin sobrecargar la función ejecutiva."
         }
     }
 
@@ -152,89 +167,79 @@ class AetherGeminiEngine {
             EnergyCurvePoint("22:00", 20)
         )
 
+        // Only select a real task if present in user backlog (never invent fake tasks)
         val frogTask = if (isRecovery) {
             null
         } else {
             tasks.firstOrNull { it.isFrog || it.energyLevel == EnergyLevel.HIGH }
-                ?: TaskItem(
-                    id = "frog-auto-1",
-                    title = "Deep Focus: Complete Primary System Module",
-                    description = "Protected high-demand focus slot.",
-                    energyLevel = EnergyLevel.HIGH,
-                    priorityType = PriorityType.FROG,
-                    estimatedMinutes = 90,
-                    isFrog = true,
-                    category = "Deep Work"
-                )
         }
 
         val mediumTasks = if (isRecovery) {
-            listOf(
-                TaskItem("rec-1", "Gentle Hydration & Zone 1 Walk", "Parasympathetic activation", EnergyLevel.LOW, PriorityType.MEDIUM, 25, false, false, "10:30 AM", "Recovery"),
-                TaskItem("rec-2", "Low-Cognitive Inbox Sweep", "Sort emails without responding", EnergyLevel.LOW, PriorityType.MEDIUM, 15, false, false, "02:00 PM", "Admin")
-            )
+            tasks.filter { !it.isFrog && (it.energyLevel == EnergyLevel.LOW || it.energyLevel == EnergyLevel.MEDIUM) }.take(2)
         } else {
-            listOf(
-                TaskItem("med-1", "Review System Specifications & Test Coverage", "Examine metrics", EnergyLevel.MEDIUM, PriorityType.MEDIUM, 40, false, false, "11:30 AM", "Review"),
-                TaskItem("med-2", "Assemble Batch Base Quinoa & Protein Dinner", "Relational nutrition prep", EnergyLevel.MEDIUM, PriorityType.MEDIUM, 30, false, false, "06:00 PM", "Nutrition"),
-                TaskItem("med-3", "Async Project Coordination & Review", "Team alignment ping", EnergyLevel.MEDIUM, PriorityType.MEDIUM, 30, false, false, "03:30 PM", "Admin")
-            )
+            tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }.take(3)
         }
 
-        val quickWins = listOf(
-            TaskItem("qk-1", "Archive 5 stale tabs", "", EnergyLevel.LOW, PriorityType.QUICK, 5, false, false, null, "Admin"),
-            TaskItem("qk-2", "Refill electrolyte flask", "", EnergyLevel.LOW, PriorityType.QUICK, 3, true, false, null, "Habit"),
-            TaskItem("qk-3", "Log morning readiness score", "", EnergyLevel.LOW, PriorityType.QUICK, 2, true, false, null, "Bio"),
-            TaskItem("qk-4", "Check pantry staples", "", EnergyLevel.LOW, PriorityType.QUICK, 5, false, false, null, "Pantry"),
-            TaskItem("qk-5", "10-minute eye relaxation protocol", "", EnergyLevel.LOW, PriorityType.QUICK, 10, false, false, null, "Recovery")
-        )
+        val quickWins = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.LOW }.take(5)
 
         val timeBlocks = if (isRecovery) {
             listOf(
-                TimeBlock("tb-1", "07:30", "08:30", BlockType.HABIT_ANCHOR, "Gentle Sunlight & Mineral Hydration"),
-                TimeBlock("tb-2", "08:30", "09:15", BlockType.MEAL, "Warm Anti-Inflammatory Breakfast"),
-                TimeBlock("tb-3", "09:30", "10:45", BlockType.COGNITIVE_RECOVERY_BUFFER, "Restorative Buffer / Gentle Reading"),
-                TimeBlock("tb-4", "11:00", "12:00", BlockType.ADMIN_SLOT, "Low-Demand Admin & Filing"),
-                TimeBlock("tb-5", "12:30", "13:30", BlockType.MEAL, "Nourishing Warm Broth & Quinoa Bowl"),
-                TimeBlock("tb-6", "14:00", "15:00", BlockType.COGNITIVE_RECOVERY_BUFFER, "Zone 1 Nature Stroll & Audio"),
-                TimeBlock("tb-7", "16:00", "17:00", BlockType.ADMIN_SLOT, "Passive Sorting / Light Logistics"),
-                TimeBlock("tb-8", "21:30", "22:30", BlockType.SLEEP, "Early Biological Sleep Prep")
+                TimeBlock("tb-1", "07:30", "08:30", BlockType.HABIT_ANCHOR, "Luz Solar Suave & Hidratación Mineral"),
+                TimeBlock("tb-2", "08:30", "09:15", BlockType.MEAL, "Desayuno Templado Antiinflamatorio"),
+                TimeBlock("tb-3", "09:30", "10:45", BlockType.COGNITIVE_RECOVERY_BUFFER, "Buffer Restaurador / Lectura Suave"),
+                TimeBlock("tb-4", "11:00", "12:00", BlockType.ADMIN_SLOT, "Administración de Baja Demanda"),
+                TimeBlock("tb-5", "12:30", "13:30", BlockType.MEAL, "Caldo Nutritivo & Bowl Ligero"),
+                TimeBlock("tb-6", "14:00", "15:00", BlockType.COGNITIVE_RECOVERY_BUFFER, "Paseo en Naturaleza Zona 1"),
+                TimeBlock("tb-7", "16:00", "17:00", BlockType.ADMIN_SLOT, "Organización Pasiva / Logística Ligera"),
+                TimeBlock("tb-8", "21:30", "22:30", BlockType.SLEEP, "Preparación Biológica Temprana para el Sueño")
             )
         } else {
             listOf(
-                TimeBlock("tb-1", "07:00", "08:00", BlockType.HABIT_ANCHOR, "Photonic Sunlight & Hydration Charge", true),
-                TimeBlock("tb-2", "08:00", "08:45", BlockType.MEAL, "Low-Glycemic Sustained Fuel Breakfast", true),
-                TimeBlock("tb-3", "09:00", "10:45", BlockType.DEEP_WORK, "🔥 FROG FOCUS: ${frogTask?.title ?: "Deep Work"}", false, frogTask?.id),
-                TimeBlock("tb-4", "10:45", "11:15", BlockType.COGNITIVE_RECOVERY_BUFFER, "Active Eye-Rest & Hydration"),
-                TimeBlock("tb-5", "11:15", "12:15", BlockType.DEEP_WORK, "Secondary Deep Block: System Architecture", false),
-                TimeBlock("tb-6", "12:30", "13:30", BlockType.MEAL, "Batch Base Quinoa Power Bowl"),
-                TimeBlock("tb-7", "14:00", "15:00", BlockType.MEETING, "Async Sync & Coordination"),
-                TimeBlock("tb-8", "15:30", "16:30", BlockType.ADMIN_SLOT, "Admin Triage & Zero-Inbox"),
-                TimeBlock("tb-9", "22:00", "23:00", BlockType.HABIT_ANCHOR, "Digital Sunset & Melatonin Buffer")
+                TimeBlock("tb-1", "07:00", "08:00", BlockType.HABIT_ANCHOR, "Anclaje Fotónico & Carga de Hidratación", true),
+                TimeBlock("tb-2", "08:00", "08:45", BlockType.MEAL, "Desayuno de Bajo Impacto Glucémico (Combustible Estable)", true),
+                TimeBlock(
+                    id = "tb-3",
+                    startTime = "09:00",
+                    endTime = "10:45",
+                    blockType = BlockType.DEEP_WORK,
+                    title = if (frogTask != null) "🔥 ENFOQUE FROG: ${frogTask.title}" else "🔥 Trabajo Profundo: Bloque de Máximo Foco",
+                    isCompleted = false,
+                    linkedTaskId = frogTask?.id
+                ),
+                TimeBlock("tb-4", "10:45", "11:15", BlockType.COGNITIVE_RECOVERY_BUFFER, "Descanso Ocular Activo & Hidratación"),
+                TimeBlock("tb-5", "11:15", "12:15", BlockType.DEEP_WORK, "Bloque Secundario de Trabajo Profundo", false),
+                TimeBlock("tb-6", "12:30", "13:30", BlockType.MEAL, "Almuerzo Relacional / Bowl Energético"),
+                TimeBlock("tb-7", "14:00", "15:00", BlockType.MEETING, "Alineación Asíncrona & Coordinación"),
+                TimeBlock("tb-8", "15:30", "16:30", BlockType.ADMIN_SLOT, "Triaje Administrativo & Inbox Zero"),
+                TimeBlock("tb-9", "22:00", "23:00", BlockType.HABIT_ANCHOR, "Atardecer Digital & Disociación de Pantallas")
             )
         }
+
+        val inStockProteins = pantry.filter { it.category == PantryCategory.PROTEIN && it.inStock }.map { it.name }
+        val inStockCarbs = pantry.filter { it.category == PantryCategory.CARB_BASE && it.inStock }.map { it.name }
+        val inStockFats = pantry.filter { it.category == PantryCategory.HEALTHY_FAT && it.inStock }.map { it.name }
 
         val meals = DailyMealsPlan(
             breakfast = MealItem(
                 id = "m-b",
                 slot = MealSlot.BREAKFAST,
-                title = "Avocado & Pastured Egg Scramble",
-                description = "Low-glycemic dopamine baseline.",
+                title = if (inStockProteins.isNotEmpty()) "Desayuno con ${inStockProteins.first()} y Grasas Saludables" else "Revuelto de Huevos y Aguacate",
+                description = "Línea base de dopamina sin pico glucémico.",
                 prepTimeMinutes = 10,
-                ingredients = listOf("Organic Eggs", "Baby Spinach", "Avocados"),
+                ingredients = (inStockProteins.take(1) + inStockFats.take(1)).ifEmpty { listOf("Huevos", "Aguacate") },
                 usesBatchCookedBase = false,
                 allIngredientsInStock = true,
                 bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-                isCompleted = true
+                isCompleted = false
             ),
             lunch = MealItem(
                 id = "m-l",
                 slot = MealSlot.LUNCH,
-                title = "Batch Base Quinoa Bowl with Wild Salmon",
-                description = "Pre-cooked base eliminates cooking overhead.",
+                title = if (inStockCarbs.isNotEmpty()) "Bowl Base de ${inStockCarbs.first()}" else "Bowl Energético de Base Cocinada",
+                description = "Aprovecha la base cocinada para eliminar fricción.",
                 prepTimeMinutes = 8,
-                ingredients = listOf("Cooked Tricolor Quinoa", "Wild Salmon Fillet", "Olive Oil"),
-                usesBatchCookedBase = true,
+                ingredients = (inStockCarbs.take(1) + inStockProteins.take(1)).ifEmpty { listOf("Quinoa", "Proteína") },
+                usesBatchCookedBase = inStockCarbs.isNotEmpty(),
                 allIngredientsInStock = true,
                 bioImpact = BioGlycemicImpact.MODERATE_STEADY,
                 isCompleted = false
@@ -242,11 +247,11 @@ class AetherGeminiEngine {
             dinner = MealItem(
                 id = "m-d",
                 slot = MealSlot.DINNER,
-                title = "Roasted Sweet Potato Base & Steamed Greens",
-                description = "Complex carbohydrate replenishment.",
+                title = "Recarga Ligera & Hojas Verdes",
+                description = "Carbohidratos complejos para activación parasimpática.",
                 prepTimeMinutes = 12,
-                ingredients = listOf("Roasted Sweet Potatoes", "Baby Spinach", "Chia Seeds"),
-                usesBatchCookedBase = true,
+                ingredients = inStockCarbs.take(1).ifEmpty { listOf("Verduras", "Grasas Saludables") },
+                usesBatchCookedBase = inStockCarbs.isNotEmpty(),
                 allIngredientsInStock = true,
                 bioImpact = BioGlycemicImpact.DEEP_RECOVERY,
                 isCompleted = false
@@ -254,10 +259,10 @@ class AetherGeminiEngine {
             snack = MealItem(
                 id = "m-s",
                 slot = MealSlot.SNACK,
-                title = "Polyphenol Green Matcha & Walnuts",
-                description = "Clean steady mental stamina.",
+                title = "Polifenoles & Frutos Secos",
+                description = "Energía cerebral estable y limpia.",
                 prepTimeMinutes = 3,
-                ingredients = listOf("Chia Seeds"),
+                ingredients = inStockFats.take(1).ifEmpty { listOf("Nueces / Infusión") },
                 usesBatchCookedBase = false,
                 allIngredientsInStock = true,
                 bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
@@ -265,7 +270,13 @@ class AetherGeminiEngine {
             )
         )
 
-        val totalDeepWork = if (isRecovery) 0 else 165 // 105 + 60 = 165 min (< 210 min limit)
+        val totalDeepWork = if (isRecovery) 0 else 165
+
+        val cognitiveMessage = when {
+            tasks.isEmpty() -> "Horario circadiano optimizado. Captura tu primera tarea Frog (Tipo A) en el Backlog para anclarla en tu bloque de trabajo profundo."
+            isRecovery -> "Protocolo de recuperación activado. Las tareas de alta demanda se han pospuesto sin fricción. Hoy el foco es la restauración fisiológica."
+            else -> "Cenit de energía sincronizado. Protege tu bloque de máxima demanda durante el pico de cortisol matutino."
+        }
 
         return AetherDailyPlan(
             date = date,
@@ -293,11 +304,8 @@ class AetherGeminiEngine {
             daily_meals = meals,
             deep_work_minutes_allocated = totalDeepWork,
             max_cognitive_ceiling_minutes = 210,
-            active_mode_label = if (isRecovery) "Recovery Protocol Mode" else "Balanced Circadian Mode",
-            cognitive_reframing_message = if (isRecovery)
-                "Recovery mode engaged. High-demand tasks deferred without friction. Today is for physiological restoration."
-            else
-                "Energy zenith synchronized. Protect your 1 Frog task during morning cortisol peak."
+            active_mode_label = if (isRecovery) "Modo Protocolo de Recuperación" else "Modo Circadiano Balanceado",
+            cognitive_reframing_message = cognitiveMessage
         )
     }
 }

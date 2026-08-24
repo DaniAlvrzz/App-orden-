@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AiStatus
 import com.example.data.model.Chronotype
 import com.example.data.model.SystemMode
 import com.example.data.model.TaskItem
@@ -40,6 +44,7 @@ fun NexusScreen(
     onAddTaskClick: () -> Unit,
     onToggleTimeBlock: (TimeBlock) -> Unit,
     onAddTimeBlockClick: () -> Unit,
+    onDeleteTimeBlock: (TimeBlock) -> Unit = {},
     onOpenReframe: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTutorial: () -> Unit,
@@ -47,15 +52,16 @@ fun NexusScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
+    val isSpanish = state.currentLanguage == AppLanguage.SPANISH
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp)
     ) {
-        // App Header with Aether OS Status & Action Icons (Tutorial, Settings, Language Toggle)
+        // App Header & Top Bar
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -80,7 +86,7 @@ fun NexusScreen(
                         )
                     }
                     Text(
-                        text = "${strings.engineSub} • ${state.dailyPlan?.date ?: "2026-08-22"}",
+                        text = "${strings.engineSub} • ${com.example.data.util.AetherDateUtils.getTodayIso()}",
                         style = MaterialTheme.typography.labelSmall,
                         color = AetherTextMuted
                     )
@@ -172,6 +178,77 @@ fun NexusScreen(
             }
         }
 
+        // AI Engine Source & Orchestration Status Banner
+        item {
+            val statusColor = when (state.aiEngineStatus) {
+                AiStatus.LIVE -> AetherEmerald
+                AiStatus.FALLBACK -> AetherAmber
+                AiStatus.ERROR -> Color(0xFFEF4444)
+                AiStatus.IDLE -> AetherTextMuted
+            }
+
+            val statusBg = when (state.aiEngineStatus) {
+                AiStatus.LIVE -> AetherEmerald.copy(alpha = 0.12f)
+                AiStatus.FALLBACK -> AetherAmber.copy(alpha = 0.12f)
+                AiStatus.ERROR -> Color(0xFFEF4444).copy(alpha = 0.12f)
+                AiStatus.IDLE -> AetherSurfaceElevated
+            }
+
+            val statusIcon = when (state.aiEngineStatus) {
+                AiStatus.LIVE -> Icons.Default.AutoAwesome
+                AiStatus.FALLBACK -> Icons.Default.Bolt
+                AiStatus.ERROR -> Icons.Default.Warning
+                AiStatus.IDLE -> Icons.Default.Memory
+            }
+
+            val statusLabel = when (state.aiEngineStatus) {
+                AiStatus.LIVE -> if (isSpanish) "Sintetizado en Vivo con Gemini AI" else "Live Gemini AI Synthesis"
+                AiStatus.FALLBACK -> if (isSpanish) "Motor Circadiano de Respaldo Determinista" else "Deterministic Circadian Fallback"
+                AiStatus.ERROR -> if (isSpanish) "Modo Respaldo (Error de Servicio IA)" else "Fallback Mode (AI Service Error)"
+                AiStatus.IDLE -> if (isSpanish) "Motor Circadiano Listo" else "Circadian Engine Ready"
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = statusBg),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().testTag("ai_engine_status_card")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (state.isOrchestrating) {
+                        CircularProgressIndicator(
+                            color = AetherCyan,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isSpanish) "Sintetizando cronobiología con Gemini AI..." else "Synthesizing chronobiology with Gemini AI...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AetherCyan,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Icon(
+                            imageVector = statusIcon,
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = statusLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
         // Cognitive Reframing / Grace Day Banner if active
         if (state.biometric.systemMode == SystemMode.RECOVERY || state.biometric.graceDayActive) {
             item {
@@ -251,7 +328,9 @@ fun NexusScreen(
             TimeBlockTimeline(
                 blocks = state.timeBlocks,
                 onToggleBlock = onToggleTimeBlock,
-                onAddBlockClick = onAddTimeBlockClick
+                onAddBlockClick = onAddTimeBlockClick,
+                onDeleteBlock = onDeleteTimeBlock,
+                language = state.currentLanguage
             )
         }
     }

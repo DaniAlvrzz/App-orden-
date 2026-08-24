@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Chronotype
 import com.example.data.model.SystemMode
+import com.example.ui.components.ExportShareCard
+import com.example.ui.components.OfflineAiNoticeCard
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
 import com.example.ui.theme.*
@@ -76,6 +78,34 @@ fun AetherAiScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = AetherTextMuted
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        color = when (state.aiEngineStatus) {
+                            com.example.data.model.AiStatus.LIVE -> AetherEmerald.copy(alpha = 0.15f)
+                            com.example.data.model.AiStatus.FALLBACK -> AetherAmber.copy(alpha = 0.15f)
+                            com.example.data.model.AiStatus.ERROR -> Color(0xFFEF4444).copy(alpha = 0.15f)
+                            com.example.data.model.AiStatus.IDLE -> AetherBorderLight.copy(alpha = 0.15f)
+                        },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = when (state.aiEngineStatus) {
+                                com.example.data.model.AiStatus.LIVE -> if (state.currentLanguage == AppLanguage.SPANISH) "● Gemini AI en Vivo" else "● Gemini AI Live"
+                                com.example.data.model.AiStatus.FALLBACK -> if (state.currentLanguage == AppLanguage.SPANISH) "● Motor Circadiano Respaldo" else "● Deterministic Fallback"
+                                com.example.data.model.AiStatus.ERROR -> if (state.currentLanguage == AppLanguage.SPANISH) "● Error IA / En Respaldo" else "● AI Error / Fallback"
+                                com.example.data.model.AiStatus.IDLE -> if (state.currentLanguage == AppLanguage.SPANISH) "● Motor Listo" else "● Engine Ready"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when (state.aiEngineStatus) {
+                                com.example.data.model.AiStatus.LIVE -> AetherEmerald
+                                com.example.data.model.AiStatus.FALLBACK -> AetherAmber
+                                com.example.data.model.AiStatus.ERROR -> Color(0xFFEF4444)
+                                com.example.data.model.AiStatus.IDLE -> AetherTextSecondary
+                            },
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
                 FilledTonalButton(
@@ -91,6 +121,29 @@ fun AetherAiScreen(
                     Text(strings.btnReplan)
                 }
             }
+        }
+
+        // FEATURE 5: Explicit Offline Notice Card if fallback or offline
+        item {
+            OfflineAiNoticeCard(
+                aiStatus = state.aiEngineStatus,
+                language = state.currentLanguage,
+                onRetryClick = onOrchestrate
+            )
+        }
+
+        // FEATURE 3: Share & Export Daily Plan Card (Intent ACTION_SEND & Save File)
+        item {
+            ExportShareCard(
+                jsonContent = rawJson,
+                language = state.currentLanguage,
+                onCopyJson = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("AetherDailyPlan", rawJson)
+                    clipboard.setPrimaryClip(clip)
+                    copiedFeedback = true
+                }
+            )
         }
 
         // Operational Laws Card

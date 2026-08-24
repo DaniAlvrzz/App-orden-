@@ -125,6 +125,15 @@ interface BiometricDao {
     @Query("SELECT * FROM biometrics WHERE date = :date LIMIT 1")
     fun getBiometric(date: String): Flow<BiometricEntity?>
 
+    @Query("SELECT * FROM biometrics ORDER BY date DESC, id DESC LIMIT 1")
+    fun getLatestBiometric(): Flow<BiometricEntity?>
+
+    @Query("SELECT * FROM biometrics ORDER BY date DESC LIMIT :limit")
+    fun getRecentBiometrics(limit: Int = 30): Flow<List<BiometricEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBiometric(biometric: BiometricEntity)
+
+    @Query("DELETE FROM biometrics")
+    suspend fun clearAllBiometrics()
 }

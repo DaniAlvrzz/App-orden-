@@ -124,9 +124,9 @@ fun FocusTimerCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = activeTask?.title ?: strings.focusDefaultTask,
+                text = activeTask?.title ?: strings.focusNoTaskSelected,
                 style = MaterialTheme.typography.bodyMedium,
-                color = AetherTextSecondary,
+                color = if (activeTask != null) AetherTextPrimary else AetherTextMuted,
                 maxLines = 1
             )
 

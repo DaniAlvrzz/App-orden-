@@ -26,7 +26,7 @@ data class DailyMealsPlan(
 
 @JsonClass(generateAdapter = true)
 data class AetherDailyPlan(
-    val date: String, // e.g. "2026-08-22"
+    val date: String, // Dynamic ISO-8601 Date (yyyy-MM-dd)
     val biometric_baseline: BiometricBaseline,
     val top_3_priorities_1_3_5: Top3Priorities,
     val time_blocks: List<TimeBlock>,

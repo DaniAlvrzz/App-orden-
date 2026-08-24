@@ -30,7 +30,8 @@ fun SettingsDialog(
     currentLanguage: AppLanguage,
     onLanguageSelected: (AppLanguage) -> Unit,
     onOpenTutorial: () -> Unit,
-    onResetDemoData: () -> Unit,
+    onResetToCleanSlate: () -> Unit,
+    onLoadDemoData: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val strings = remember(currentLanguage) { StringsProvider(currentLanguage) }
@@ -226,33 +227,61 @@ fun SettingsDialog(
                         }
                     }
 
-                    // 4. Demo Data Reset
+                    // 4. Data State Management (Clean Slate vs Demo Mode)
                     Card(
                         colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             Text(
                                 text = strings.demoDataSection,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = AetherTextSecondary,
+                                color = AetherCyan,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            OutlinedButton(
-                                onClick = onResetDemoData,
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = AetherCoral
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("reset_demo_btn")
+                            Text(
+                                text = strings.cleanSlateDesc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AetherTextSecondary
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.btnResetDemoData, fontWeight = FontWeight.SemiBold)
+                                OutlinedButton(
+                                    onClick = onResetToCleanSlate,
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = AetherCoral
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("reset_clean_slate_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(strings.btnCleanSlate, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = onLoadDemoData,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AetherSurfaceCard,
+                                        contentColor = AetherCyan
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("load_demo_data_btn")
+                                ) {
+                                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(strings.btnLoadDemo, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

@@ -1,9 +1,13 @@
 package com.example.data.repository
 
+import android.content.Context
 import com.example.data.local.*
+import com.example.data.mapper.*
 import com.example.data.model.*
 import com.example.data.remote.AetherGeminiEngine
+import com.example.service.AetherNotificationScheduler
 import com.example.ui.i18n.AppLanguage
+import com.example.widget.FrogTaskWidgetProvider
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.*
@@ -11,7 +15,8 @@ import java.util.UUID
 
 class AetherRepository(
     private val database: AetherDatabase,
-    private val geminiEngine: AetherGeminiEngine = AetherGeminiEngine()
+    private val geminiEngine: AetherGeminiEngine,
+    private val appContext: Context? = null
 ) {
     private val taskDao = database.taskDao()
     private val timeBlockDao = database.timeBlockDao()
@@ -43,13 +48,18 @@ class AetherRepository(
         list.map { it.toModel() }
     }
 
-    val biometric: Flow<BiometricBaseline> = biometricDao.getBiometric("2026-08-22").map { entity ->
+    val biometric: Flow<BiometricBaseline> = biometricDao.getLatestBiometric().map { entity ->
         entity?.toModel() ?: BiometricBaseline(readinessScore = 75, chronotype = Chronotype.BEAR)
+    }
+
+    val recentBiometrics: Flow<List<BiometricBaseline>> = biometricDao.getRecentBiometrics(30).map { list ->
+        list.map { it.toModel() }
     }
 
     suspend fun resetDataToLanguage(language: AppLanguage) {
         AetherDatabase.clearAllAetherData(database)
         AetherDatabase.populateInitialAetherData(database, language)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
     }
 
     // --- Task Operations ---
@@ -75,22 +85,28 @@ class AetherRepository(
             estimatedMinutes = estimatedMinutes,
             isCompleted = false,
             isFrog = makeFrog || priorityType == PriorityType.FROG,
-            category = category
+            scheduledTime = null,
+            category = category.ifBlank { "General" }
         )
         taskDao.insertTask(entity)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
     }
 
     suspend fun toggleTaskComplete(task: TaskItem) {
-        taskDao.updateTask(task.toEntity().copy(isCompleted = !task.isCompleted))
+        val updated = task.copy(isCompleted = !task.isCompleted)
+        taskDao.updateTask(updated.toEntity())
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
     }
 
     suspend fun setTaskAsFrog(taskId: String) {
         taskDao.clearFrogStatus()
         taskDao.setFrogTask(taskId)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
     }
 
     suspend fun deleteTask(taskId: String) {
         taskDao.deleteTask(taskId)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
     }
 
     // --- TimeBlock Operations ---
@@ -108,14 +124,16 @@ class AetherRepository(
             endTime = endTime,
             blockType = blockType,
             title = title,
+            isCompleted = false,
             notes = notes,
-            sortOrder = 10
+            sortOrder = 99
         )
         timeBlockDao.insertTimeBlock(entity)
     }
 
     suspend fun toggleTimeBlockComplete(block: TimeBlock) {
-        timeBlockDao.updateTimeBlock(block.toEntity().copy(isCompleted = !block.isCompleted))
+        val updated = block.copy(isCompleted = !block.isCompleted)
+        timeBlockDao.updateTimeBlock(updated.toEntity())
     }
 
     suspend fun deleteTimeBlock(id: String) {
@@ -123,25 +141,70 @@ class AetherRepository(
     }
 
     // --- Pantry Operations ---
-    suspend fun addPantryItem(name: String, category: PantryCategory, inStock: Boolean, isBatchBase: Boolean, qty: String) {
-        val id = "p-" + UUID.randomUUID().toString().take(6)
-        pantryDao.insertItem(PantryEntity(id, name, category, inStock, isBatchBase, qty))
+    suspend fun addPantryItem(
+        name: String,
+        category: PantryCategory,
+        inStock: Boolean,
+        isBatchBase: Boolean,
+        quantityDescription: String
+    ) {
+        val id = "pantry-" + UUID.randomUUID().toString().take(8)
+        val entity = PantryEntity(
+            id = id,
+            name = name,
+            category = category,
+            inStock = inStock,
+            isBatchBase = isBatchBase,
+            quantityDesc = quantityDescription
+        )
+        pantryDao.insertItem(entity)
     }
 
-    suspend fun togglePantryStock(id: String, currentInStock: Boolean) {
-        pantryDao.setStockStatus(id, !currentInStock)
+    suspend fun togglePantryStock(id: String, inStock: Boolean) {
+        pantryDao.setStockStatus(id, inStock)
     }
 
     suspend fun deletePantryItem(id: String) {
         pantryDao.deleteItem(id)
     }
 
-    // --- Meal Operations ---
-    suspend fun toggleMealComplete(meal: MealItem) {
-        mealDao.updateMeal(meal.toEntity().copy(isCompleted = !meal.isCompleted))
+    // --- Meals Operations ---
+    suspend fun addMeal(
+        slot: MealSlot,
+        title: String,
+        description: String,
+        prepTimeMinutes: Int,
+        ingredients: List<String>,
+        usesBatchCookedBase: Boolean,
+        allIngredientsInStock: Boolean,
+        bioImpact: BioGlycemicImpact
+    ) {
+        val id = "meal-" + UUID.randomUUID().toString().take(8)
+        val entity = MealEntity(
+            id = id,
+            slot = slot,
+            title = title,
+            description = description,
+            prepTimeMinutes = prepTimeMinutes,
+            ingredients = ingredients,
+            usesBatchCookedBase = usesBatchCookedBase,
+            allIngredientsInStock = allIngredientsInStock,
+            bioImpact = bioImpact,
+            isCompleted = false
+        )
+        mealDao.insertMeal(entity)
     }
 
-    // --- Habit Operations ---
+    suspend fun toggleMealComplete(meal: MealItem) {
+        val updated = meal.copy(isCompleted = !meal.isCompleted)
+        mealDao.updateMeal(updated.toEntity())
+    }
+
+    suspend fun deleteMeal(id: String) {
+        mealDao.deleteMeal(id)
+    }
+
+    // --- Habit & Grace Operations ---
     suspend fun toggleHabitComplete(habit: HabitAnchor) {
         val newCompleted = !habit.isCompleted
         val newStreak = if (newCompleted) habit.streakDays + 1 else maxOf(0, habit.streakDays - 1)
@@ -155,9 +218,10 @@ class AetherRepository(
     // --- Biometric Updates ---
     suspend fun updateReadiness(score: Int) {
         val isRecovery = score < 60
+        val today = com.example.data.util.AetherDateUtils.getTodayIso()
         biometricDao.insertBiometric(
             BiometricEntity(
-                date = "2026-08-22",
+                date = today,
                 readinessScore = score,
                 perceivedEnergy = score,
                 sleepHours = 7.5,
@@ -170,9 +234,10 @@ class AetherRepository(
     }
 
     suspend fun updateChronotype(chronotype: Chronotype, currentReadiness: Int) {
+        val today = com.example.data.util.AetherDateUtils.getTodayIso()
         biometricDao.insertBiometric(
             BiometricEntity(
-                date = "2026-08-22",
+                date = today,
                 readinessScore = currentReadiness,
                 perceivedEnergy = currentReadiness,
                 chronotype = chronotype,
@@ -183,9 +248,10 @@ class AetherRepository(
     }
 
     suspend fun setRecoveryMode(enabled: Boolean, currentScore: Int) {
+        val today = com.example.data.util.AetherDateUtils.getTodayIso()
         biometricDao.insertBiometric(
             BiometricEntity(
-                date = "2026-08-22",
+                date = today,
                 readinessScore = if (enabled) 45 else maxOf(65, currentScore),
                 perceivedEnergy = if (enabled) 40 else maxOf(65, currentScore),
                 chronotype = Chronotype.BEAR,
@@ -195,14 +261,24 @@ class AetherRepository(
         )
     }
 
+    suspend fun resetToCleanSlate(language: AppLanguage) {
+        AetherDatabase.populateCleanSlate(database, language)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
+    }
+
+    suspend fun populateDemoData(language: AppLanguage) {
+        AetherDatabase.populateInitialAetherData(database, language)
+        appContext?.let { FrogTaskWidgetProvider.updateAllWidgets(it) }
+    }
+
     // --- AI Orchestration & Plan Synthesis ---
     suspend fun orchestrateDailyPlan(
         readiness: Int,
         chronotype: Chronotype,
         currentTasks: List<TaskItem>,
         currentPantry: List<PantryItem>
-    ): AetherDailyPlan {
-        val plan = geminiEngine.orchestratePlan(
+    ): AetherEngineResult {
+        val result = geminiEngine.orchestratePlan(
             readinessScore = readiness,
             chronotype = chronotype,
             existingTasks = currentTasks,
@@ -211,11 +287,17 @@ class AetherRepository(
 
         // Sync TimeBlocks into Database
         timeBlockDao.clearAllTimeBlocks()
-        timeBlockDao.insertTimeBlocks(plan.time_blocks.mapIndexed { index, b ->
+        timeBlockDao.insertTimeBlocks(result.plan.time_blocks.mapIndexed { index, b ->
             b.toEntity().copy(sortOrder = index)
         })
 
-        return plan
+        // Schedule local alarms for time blocks if context available
+        appContext?.let { ctx ->
+            AetherNotificationScheduler.scheduleTimeBlockAlerts(ctx, result.plan.time_blocks)
+            FrogTaskWidgetProvider.updateAllWidgets(ctx)
+        }
+
+        return result
     }
 
     suspend fun getCognitiveReframe(userFeeling: String, readinessScore: Int): String {
@@ -225,120 +307,4 @@ class AetherRepository(
     fun exportPlanAsJson(plan: AetherDailyPlan): String {
         return planAdapter.toJson(plan)
     }
-
-    // Extension Mappers
-    private fun TaskEntity.toModel() = TaskItem(
-        id = id,
-        title = title,
-        description = description,
-        energyLevel = energyLevel,
-        priorityType = priorityType,
-        estimatedMinutes = estimatedMinutes,
-        isCompleted = isCompleted,
-        isFrog = isFrog,
-        scheduledTime = scheduledTime,
-        category = category
-    )
-
-    private fun TaskItem.toEntity() = TaskEntity(
-        id = id,
-        title = title,
-        description = description,
-        energyLevel = energyLevel,
-        priorityType = priorityType,
-        estimatedMinutes = estimatedMinutes,
-        isCompleted = isCompleted,
-        isFrog = isFrog,
-        scheduledTime = scheduledTime,
-        category = category
-    )
-
-    private fun TimeBlockEntity.toModel() = TimeBlock(
-        id = id,
-        startTime = startTime,
-        endTime = endTime,
-        blockType = blockType,
-        title = title,
-        isCompleted = isCompleted,
-        linkedTaskId = linkedTaskId,
-        notes = notes
-    )
-
-    private fun TimeBlock.toEntity() = TimeBlockEntity(
-        id = id,
-        startTime = startTime,
-        endTime = endTime,
-        blockType = blockType,
-        title = title,
-        isCompleted = isCompleted,
-        linkedTaskId = linkedTaskId,
-        notes = notes
-    )
-
-    private fun PantryEntity.toModel() = PantryItem(
-        id = id,
-        name = name,
-        category = category,
-        inStock = inStock,
-        isBatchBase = isBatchBase,
-        quantityDesc = quantityDesc
-    )
-
-    private fun MealEntity.toModel() = MealItem(
-        id = id,
-        slot = slot,
-        title = title,
-        description = description,
-        prepTimeMinutes = prepTimeMinutes,
-        ingredients = ingredients,
-        usesBatchCookedBase = usesBatchCookedBase,
-        allIngredientsInStock = allIngredientsInStock,
-        bioImpact = bioImpact,
-        isCompleted = isCompleted
-    )
-
-    private fun MealItem.toEntity() = MealEntity(
-        id = id,
-        slot = slot,
-        title = title,
-        description = description,
-        prepTimeMinutes = prepTimeMinutes,
-        ingredients = ingredients,
-        usesBatchCookedBase = usesBatchCookedBase,
-        allIngredientsInStock = allIngredientsInStock,
-        bioImpact = bioImpact,
-        isCompleted = isCompleted
-    )
-
-    private fun HabitEntity.toModel() = HabitAnchor(
-        id = id,
-        title = title,
-        description = description,
-        anchor = anchor,
-        isCompleted = isCompleted,
-        streakDays = streakDays,
-        graceDaysUsed = graceDaysUsed,
-        reframingTip = reframingTip
-    )
-
-    private fun HabitAnchor.toEntity() = HabitEntity(
-        id = id,
-        title = title,
-        description = description,
-        anchor = anchor,
-        isCompleted = isCompleted,
-        streakDays = streakDays,
-        graceDaysUsed = graceDaysUsed,
-        reframingTip = reframingTip
-    )
-
-    private fun BiometricEntity.toModel() = BiometricBaseline(
-        readinessScore = readinessScore,
-        perceivedEnergy = perceivedEnergy,
-        sleepHours = sleepHours,
-        sleepQuality = sleepQuality,
-        chronotype = chronotype,
-        recoveryModeTriggered = recoveryModeTriggered,
-        graceDayActive = graceDayActive
-    )
 }

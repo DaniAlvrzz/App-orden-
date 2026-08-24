@@ -264,6 +264,60 @@ class StringsProvider(val language: AppLanguage) {
     val law3Text: String get() = if (language == AppLanguage.SPANISH) "3. Protocolo de Recuperación: Con energía < 60%, se suprimen tareas Tipo A." else "3. Recovery Protocol: Below 60% energy, Type A tasks are eliminated."
     val law4Text: String get() = if (language == AppLanguage.SPANISH) "4. Nutrición Relacional: Prioriza ingredientes en stock y bases batch cooking." else "4. Relational Nutrition: Prioritizes in-stock items and batch cooking bases."
 
+    // Focus Timer
+    val focusNoTaskSelected: String get() = if (language == AppLanguage.SPANISH) 
+        "Sin tarea asignada — Toca cualquier tarea para sesión de foco" 
+    else 
+        "No task selected — Tap any task to start deep focus"
+
+    // TimeBlock Dialog
+    val addTimeBlockTitle: String get() = if (language == AppLanguage.SPANISH) "Añadir Bloque de Tiempo" else "Add Time Block"
+    val blockStartTimeLabel: String get() = if (language == AppLanguage.SPANISH) "Hora de Inicio (ej: 09:00)" else "Start Time (e.g. 09:00)"
+    val blockEndTimeLabel: String get() = if (language == AppLanguage.SPANISH) "Hora de Fin (ej: 10:30)" else "End Time (e.g. 10:30)"
+    val blockTypeLabel: String get() = if (language == AppLanguage.SPANISH) "Tipo de Bloque" else "Block Type"
+    val blockTitleLabel: String get() = if (language == AppLanguage.SPANISH) "Título del Bloque" else "Block Title"
+    val blockNotesLabel: String get() = if (language == AppLanguage.SPANISH) "Notas / Enlace opcional" else "Notes / Optional link"
+
+    // Meal Dialog
+    val addMealTitle: String get() = if (language == AppLanguage.SPANISH) "Añadir Comida Personalizada" else "Add Custom Meal"
+    val mealTitleLabel: String get() = if (language == AppLanguage.SPANISH) "Nombre del Plato" else "Meal Title"
+    val mealDescLabel: String get() = if (language == AppLanguage.SPANISH) "Descripción / Propósito" else "Description / Purpose"
+    val mealSlotLabel: String get() = if (language == AppLanguage.SPANISH) "Momento del Día" else "Meal Slot"
+    val mealPrepTimeLabel: String get() = if (language == AppLanguage.SPANISH) "Tiempo de Preparación (min)" else "Prep Time (min)"
+    val mealIngredientsLabel: String get() = if (language == AppLanguage.SPANISH) "Ingredientes (separados por coma)" else "Ingredients (comma separated)"
+    val mealUsesBatchBase: String get() = if (language == AppLanguage.SPANISH) "Usa Base de Batch Cooking (<8 min)" else "Uses Batch Base (<8 min)"
+    val mealInStockCheck: String get() = if (language == AppLanguage.SPANISH) "Todos los ingredientes disponibles" else "All ingredients in stock"
+    val mealBioImpactLabel: String get() = if (language == AppLanguage.SPANISH) "Impacto Glucémico" else "Glycemic Bio-Impact"
+
+    // Clean Slate & Demo Mode
+    val btnCleanSlate: String get() = if (language == AppLanguage.SPANISH) "🧹 Empezar de Cero (Modo Limpio)" else "🧹 Reset to Clean Slate"
+    val btnLoadDemo: String get() = if (language == AppLanguage.SPANISH) "📦 Cargar Datos de Ejemplo (Demo)" else "📦 Load Demo Sample Data"
+    val cleanSlateDesc: String get() = if (language == AppLanguage.SPANISH) 
+        "Vacía todas las tareas, comidas y bloques de prueba para usar Aether OS con tus datos reales." 
+    else 
+        "Clears all demo tasks, meals and blocks to start using Aether OS with your real data."
+
+    // Empty States
+    val emptyBacklogClean: String get() = if (language == AppLanguage.SPANISH) 
+        "Tu bandeja de energía está limpia. Pulsa '+' para capturar tu primera tarea sin fricción." 
+    else 
+        "Your energy backlog is clean. Tap '+' to capture your first friction-free task."
+
+    val emptyMealsClean: String get() = if (language == AppLanguage.SPANISH) 
+        "No hay comidas registradas hoy. Pulsa '+ Comida' o toca 'Orquestar' para sincronizar con tu despensa." 
+    else 
+        "No meals registered today. Tap '+ Meal' or tap 'Orchestrate' to sync with your pantry."
+
+    val emptyPantryClean: String get() = if (language == AppLanguage.SPANISH) 
+        "Tu despensa está vacía. Añade tus ingredientes y bases cocinadas con '+ Añadir'." 
+    else 
+        "Your pantry is empty. Add your ingredients and batch bases with '+ Add'."
+
+    val emptyTimeBlocksClean: String get() = if (language == AppLanguage.SPANISH) 
+        "No hay bloques programados hoy. Pulsa '+' para añadir un bloque o 'Orquestar' para generar el horario circadiano." 
+    else 
+        "No time blocks scheduled today. Tap '+' to add a block or 'Orchestrate' to generate circadian schedule."
+
     // Quick Task Dialog
     val quickAddTitle: String get() = if (language == AppLanguage.SPANISH) "Captura Rápida de Tarea" else "Quick Task Capture"
     val taskTitleLabel: String get() = if (language == AppLanguage.SPANISH) "Título de la Tarea" else "Task Title"

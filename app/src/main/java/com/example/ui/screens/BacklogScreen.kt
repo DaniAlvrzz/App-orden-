@@ -192,14 +192,41 @@ fun BacklogScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(
-                        text = strings.emptyBacklog,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AetherTextSecondary,
-                        modifier = Modifier.padding(24.dp)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = AetherCyan.copy(alpha = 0.8f),
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = if (state.tasks.isEmpty()) strings.emptyBacklogClean else strings.emptyBacklog,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AetherTextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        if (state.tasks.isEmpty()) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = onOpenQuickAdd,
+                                colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.btnAddTask, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         } else {

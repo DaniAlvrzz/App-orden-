@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CircadianAnchor
 import com.example.data.model.HabitAnchor
+import com.example.ui.components.BioHistoryAnalyticsCard
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
 import com.example.ui.theme.*
@@ -40,6 +41,7 @@ fun HabitsScreen(
     val completedCount = state.habits.count { it.isCompleted }
     val totalCount = state.habits.size
     val totalGraceDays = state.habits.sumOf { it.graceDaysUsed }
+    val consistencyPct = if (totalCount > 0) ((completedCount + totalGraceDays).coerceAtMost(totalCount) * 100 / totalCount) else 0
 
     LazyColumn(
         modifier = modifier
@@ -143,7 +145,7 @@ fun HabitsScreen(
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "100%",
+                            text = "${consistencyPct}%",
                             style = MaterialTheme.typography.headlineSmall,
                             color = AetherAmber,
                             fontWeight = FontWeight.Bold
@@ -156,6 +158,15 @@ fun HabitsScreen(
                     }
                 }
             }
+        }
+
+        // FEATURE 4: Bioenergetic History & Trends (7d / 30d Readiness & Habit Streaks)
+        item {
+            BioHistoryAnalyticsCard(
+                recentBiometrics = state.recentBiometrics,
+                habits = state.habits,
+                language = state.currentLanguage
+            )
         }
 
         // Philosophy Card

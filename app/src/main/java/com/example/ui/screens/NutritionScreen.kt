@@ -29,6 +29,8 @@ import com.example.ui.viewmodel.AetherUiState
 fun NutritionScreen(
     state: AetherUiState,
     onToggleMeal: (MealItem) -> Unit,
+    onDeleteMeal: (String) -> Unit = {},
+    onOpenAddMeal: () -> Unit = {},
     onTogglePantryStock: (String, Boolean) -> Unit,
     onDeletePantryItem: (String) -> Unit,
     onOpenAddPantry: () -> Unit,
@@ -69,17 +71,34 @@ fun NutritionScreen(
                     )
                 }
 
-                FilledTonalButton(
-                    onClick = onOpenAddPantry,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = AetherCyan.copy(alpha = 0.15f),
-                        contentColor = AetherCyan
-                    ),
-                    modifier = Modifier.testTag("add_pantry_btn")
-                ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(strings.btnAddPantry)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (selectedSection == 0) {
+                        FilledTonalButton(
+                            onClick = onOpenAddMeal,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = AetherAmber.copy(alpha = 0.2f),
+                                contentColor = AetherAmber
+                            ),
+                            modifier = Modifier.testTag("add_meal_btn")
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(strings.addMealTitle)
+                        }
+                    } else {
+                        FilledTonalButton(
+                            onClick = onOpenAddPantry,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = AetherCyan.copy(alpha = 0.15f),
+                                contentColor = AetherCyan
+                            ),
+                            modifier = Modifier.testTag("add_pantry_btn")
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(strings.btnAddPantry)
+                        }
+                    }
                 }
             }
         }
@@ -113,12 +132,54 @@ fun NutritionScreen(
 
         // SECTION 0: DAILY MEALS
         if (selectedSection == 0) {
-            items(state.meals, key = { it.id }) { meal ->
-                MealCard(
-                    meal = meal,
-                    language = state.currentLanguage,
-                    onToggle = { onToggleMeal(meal) }
-                )
+            if (state.meals.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Restaurant,
+                                contentDescription = null,
+                                tint = AetherAmber.copy(alpha = 0.8f),
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = strings.emptyMealsClean,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AetherTextSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = onOpenAddMeal,
+                                colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3B2D00)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(strings.addMealTitle, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            } else {
+                items(state.meals, key = { it.id }) { meal ->
+                    MealCard(
+                        meal = meal,
+                        language = state.currentLanguage,
+                        onToggle = { onToggleMeal(meal) },
+                        onDelete = { onDeleteMeal(meal.id) }
+                    )
+                }
             }
         }
 
@@ -211,7 +272,8 @@ fun NutritionScreen(
 fun MealCard(
     meal: MealItem,
     language: AppLanguage,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
     val strings = remember(language) { StringsProvider(language) }
     val isSpanish = language == AppLanguage.SPANISH
@@ -271,11 +333,25 @@ fun MealCard(
                     }
                 }
 
-                Text(
-                    text = "${meal.prepTimeMinutes}m ${strings.prepMinutesSuffix}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AetherTextMuted
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${meal.prepTimeMinutes}m ${strings.prepMinutesSuffix}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete Meal",
+                            tint = AetherTextMuted.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

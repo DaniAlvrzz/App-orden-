@@ -2,15 +2,23 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.AetherApplication
 import com.example.data.local.AetherDatabase
 import com.example.data.model.*
+import com.example.data.remote.AetherGeminiEngine
 import com.example.data.repository.AetherRepository
 import com.example.ui.i18n.AppLanguage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.LocalTime
+import java.util.Locale
 
 data class AetherUiState(
     val tasks: List<TaskItem> = emptyList(),
@@ -19,8 +27,10 @@ data class AetherUiState(
     val meals: List<MealItem> = emptyList(),
     val habits: List<HabitAnchor> = emptyList(),
     val biometric: BiometricBaseline = BiometricBaseline(),
+    val recentBiometrics: List<BiometricBaseline> = emptyList(),
     val dailyPlan: AetherDailyPlan? = null,
     val isOrchestrating: Boolean = false,
+    val aiEngineStatus: AiStatus = AiStatus.IDLE,
     val reframeResponse: String? = null,
     val isReframing: Boolean = false,
     val filterEnergyLevel: EnergyLevel? = null,
@@ -33,6 +43,8 @@ data class AetherUiState(
     val showPantryAddDialog: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val showTutorialDialog: Boolean = false,
+    val showAddTimeBlockDialog: Boolean = false,
+    val showAddMealDialog: Boolean = false,
     val tutorialStepIndex: Int = 0,
     val currentLanguage: AppLanguage = AppLanguage.SPANISH,
     val statusMessage: String? = null,
@@ -65,24 +77,47 @@ data class AetherUiState(
 
     private fun calculateMinutesBetween(start: String, end: String): Int {
         return try {
-            val sParts = start.split(":").map { it.toInt() }
-            val eParts = end.split(":").map { it.toInt() }
-            val sMin = sParts[0] * 60 + sParts[1]
-            val eMin = eParts[0] * 60 + eParts[1]
-            if (eMin >= sMin) eMin - sMin else 60
+            val sTime = parseFlexibleLocalTime(start)
+            val eTime = parseFlexibleLocalTime(end)
+            val minutes = Duration.between(sTime, eTime).toMinutes().toInt()
+            if (minutes > 0) minutes else 60
         } catch (e: Exception) {
             60
         }
     }
+
+    private fun parseFlexibleLocalTime(timeStr: String): LocalTime {
+        val clean = timeStr.trim().uppercase(Locale.US)
+        val timeOnly = clean.replace(Regex("[^0-9:]"), "")
+        val parts = timeOnly.split(":")
+        var hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        if (clean.contains("PM") && hour < 12) hour += 12
+        if (clean.contains("AM") && hour == 12) hour = 0
+        return LocalTime.of(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+    }
 }
 
-class AetherViewModel(application: Application) : AndroidViewModel(application) {
+class AetherViewModel(
+    application: Application,
+    private val repository: AetherRepository = (application as? AetherApplication)?.container?.repository
+        ?: AetherRepository(
+            AetherDatabase.getDatabase(application),
+            AetherGeminiEngine(),
+            application
+        )
+) : AndroidViewModel(application) {
 
-    private val repository: AetherRepository
-
-    init {
-        val database = AetherDatabase.getDatabase(application)
-        repository = AetherRepository(database)
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val app = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AetherApplication)
+                AetherViewModel(
+                    application = app,
+                    repository = app.container.repository
+                )
+            }
+        }
     }
 
     private val _uiState = MutableStateFlow(AetherUiState())
@@ -105,6 +140,8 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
             ) { tasks, timeBlocks, pantry, meals, habits ->
                 Tuple5(tasks, timeBlocks, pantry, meals, habits)
             }.combine(repository.biometric) { (tasks, timeBlocks, pantry, meals, habits), bio ->
+                Tuple6(tasks, timeBlocks, pantry, meals, habits, bio)
+            }.combine(repository.recentBiometrics) { (tasks, timeBlocks, pantry, meals, habits, bio), recents ->
                 val totalDeepWork = timeBlocks
                     .filter { it.blockType == BlockType.DEEP_WORK }
                     .sumOf { 60 } // Default estimation
@@ -121,7 +158,7 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
                 val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
 
                 val synthesizedPlan = AetherDailyPlan(
-                    date = "2026-08-22",
+                    date = com.example.data.util.AetherDateUtils.getTodayIso(),
                     biometric_baseline = bio,
                     top_3_priorities_1_3_5 = Top3Priorities(
                         frog_task = if (bio.systemMode == SystemMode.RECOVERY) null else frog,
@@ -159,6 +196,7 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
                     meals = meals,
                     habits = habits,
                     biometric = bio,
+                    recentBiometrics = recents,
                     dailyPlan = synthesizedPlan
                 )
             }.collect { newState ->
@@ -168,11 +206,11 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private data class Tuple5<A, B, C, D, E>(
-        val a: A,
-        val b: B,
-        val c: C,
-        val d: D,
-        val e: E
+        val a: A, val b: B, val c: C, val d: D, val e: E
+    )
+
+    private data class Tuple6<A, B, C, D, E, F>(
+        val a: A, val b: B, val c: C, val d: D, val e: E, val f: F
     )
 
     fun selectTab(tabIndex: Int) {
@@ -257,19 +295,29 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
             try {
                 val state = _uiState.value
-                val newPlan = repository.orchestrateDailyPlan(
+                val engineResult = repository.orchestrateDailyPlan(
                     readiness = state.biometric.readinessScore,
                     chronotype = state.biometric.chronotype,
                     currentTasks = state.tasks,
                     currentPantry = state.pantryItems
                 )
                 _uiState.value = _uiState.value.copy(
-                    dailyPlan = newPlan,
+                    dailyPlan = engineResult.plan,
+                    aiEngineStatus = engineResult.status,
                     isOrchestrating = false
                 )
-                showFeedback(if (isSpanish) "✨ ¡Aether OS orquestó tu jornada con éxito!" else "✨ Aether OS orchestrated your day successfully!")
+                val statusText = when (engineResult.status) {
+                    AiStatus.LIVE -> if (isSpanish) "✨ ¡Plan circadiano sintetizado en vivo con Gemini AI!" else "✨ Circadian plan synthesized live with Gemini AI!"
+                    AiStatus.FALLBACK -> if (isSpanish) "⚡ Plan circadiano generado con Motor de Respaldo Determinista." else "⚡ Circadian plan generated with Deterministic Engine."
+                    AiStatus.ERROR -> if (isSpanish) "⚠️ Error en servicio IA: Usando motor circadiano de respaldo." else "⚠️ AI service error: Deterministic fallback engaged."
+                    AiStatus.IDLE -> ""
+                }
+                showFeedback(statusText)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isOrchestrating = false)
+                _uiState.value = _uiState.value.copy(
+                    isOrchestrating = false,
+                    aiEngineStatus = AiStatus.FALLBACK
+                )
                 showFeedback(if (isSpanish) "Orquestación actualizada con reglas biológicas." else "Orchestration refreshed with bio-rules.")
             }
         }
@@ -335,11 +383,19 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addTimeBlock(startTime: String, endTime: String, blockType: BlockType, title: String) {
+    // --- TimeBlock Actions ---
+    fun addTimeBlock(
+        startTime: String,
+        endTime: String,
+        blockType: BlockType,
+        title: String,
+        notes: String = ""
+    ) {
         viewModelScope.launch {
-            repository.addTimeBlock(startTime, endTime, blockType, title)
+            repository.addTimeBlock(startTime, endTime, blockType, title, notes)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(if (isSpanish) "Bloque temporal anclado: $title" else "Time block anchored: $title")
+            _uiState.value = _uiState.value.copy(showAddTimeBlockDialog = false)
+            showFeedback(if (isSpanish) "Bloque circadiano agregado al timeline." else "Circadian block added to timeline.")
         }
     }
 
@@ -352,6 +408,28 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteTimeBlock(id: String) {
         viewModelScope.launch {
             repository.deleteTimeBlock(id)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "Bloque eliminado del timeline." else "Block removed from timeline.")
+        }
+    }
+
+    fun setShowAddTimeBlock(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showAddTimeBlockDialog = show)
+    }
+
+    // --- Pantry Actions ---
+    fun addPantryItem(
+        name: String,
+        category: PantryCategory,
+        inStock: Boolean,
+        isBatchBase: Boolean,
+        quantity: String
+    ) {
+        viewModelScope.launch {
+            repository.addPantryItem(name, category, inStock, isBatchBase, quantity)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(showPantryAddDialog = false)
+            showFeedback(if (isSpanish) "Ingrediente $name añadido a la despensa." else "Pantry item $name added.")
         }
     }
 
@@ -361,18 +439,39 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun addPantryItem(name: String, category: PantryCategory, inStock: Boolean, isBatchBase: Boolean, qty: String) {
-        viewModelScope.launch {
-            repository.addPantryItem(name, category, inStock, isBatchBase, qty)
-            _uiState.value = _uiState.value.copy(showPantryAddDialog = false)
-            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(if (isSpanish) "Inventario de despensa actualizado: $name" else "Pantry inventory updated: $name")
-        }
-    }
-
     fun deletePantryItem(id: String) {
         viewModelScope.launch {
             repository.deletePantryItem(id)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "Ingrediente eliminado de la despensa." else "Item deleted from pantry.")
+        }
+    }
+
+    // --- Meals Actions ---
+    fun addCustomMeal(
+        slot: MealSlot,
+        title: String,
+        description: String,
+        prepTimeMinutes: Int,
+        ingredients: List<String>,
+        usesBatchCookedBase: Boolean,
+        allIngredientsInStock: Boolean,
+        bioImpact: BioGlycemicImpact
+    ) {
+        viewModelScope.launch {
+            repository.addMeal(
+                slot = slot,
+                title = title,
+                description = description,
+                prepTimeMinutes = prepTimeMinutes,
+                ingredients = ingredients,
+                usesBatchCookedBase = usesBatchCookedBase,
+                allIngredientsInStock = allIngredientsInStock,
+                bioImpact = bioImpact
+            )
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(showAddMealDialog = false)
+            showFeedback(if (isSpanish) "Comida planificada agregada con éxito." else "Meal plan entry added.")
         }
     }
 
@@ -382,6 +481,44 @@ class AetherViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun deleteMeal(id: String) {
+        viewModelScope.launch {
+            repository.deleteMeal(id)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "Comida eliminada del plan." else "Meal removed from plan.")
+        }
+    }
+
+    fun setShowAddMeal(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showAddMealDialog = show)
+    }
+
+    // --- Clean Slate & Demo Data Handlers ---
+    fun resetToCleanSlate() {
+        viewModelScope.launch {
+            val lang = _uiState.value.currentLanguage
+            repository.resetToCleanSlate(lang)
+            closeSettings()
+            showFeedback(
+                if (lang == AppLanguage.SPANISH) "🌿 Base de datos vaciada. Listo para tus propios datos."
+                else "🌿 Clean slate initialized. Ready for your own data."
+            )
+        }
+    }
+
+    fun loadDemoData() {
+        viewModelScope.launch {
+            val lang = _uiState.value.currentLanguage
+            repository.populateDemoData(lang)
+            closeSettings()
+            showFeedback(
+                if (lang == AppLanguage.SPANISH) "🚀 Datos de demostración bioenergéticos cargados."
+                else "🚀 Bioenergetic demo data populated."
+            )
+        }
+    }
+
+    // --- Habit Actions ---
     fun toggleHabit(habit: HabitAnchor) {
         viewModelScope.launch {
             repository.toggleHabitComplete(habit)

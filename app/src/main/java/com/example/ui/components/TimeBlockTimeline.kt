@@ -31,6 +31,7 @@ fun TimeBlockTimeline(
     blocks: List<TimeBlock>,
     onToggleBlock: (TimeBlock) -> Unit,
     onAddBlockClick: () -> Unit,
+    onDeleteBlock: (TimeBlock) -> Unit = {},
     language: AppLanguage = AppLanguage.SPANISH,
     modifier: Modifier = Modifier
 ) {
@@ -71,19 +72,31 @@ fun TimeBlockTimeline(
                 colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = strings.emptyTimeBlocks,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AetherTextSecondary,
-                    modifier = Modifier.padding(16.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = AetherCyan.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = strings.emptyTimeBlocksClean,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextSecondary
+                    )
+                }
             }
         } else {
             blocks.forEach { block ->
                 TimeBlockItemRow(
                     block = block,
                     language = language,
-                    onToggle = { onToggleBlock(block) }
+                    onToggle = { onToggleBlock(block) },
+                    onDelete = { onDeleteBlock(block) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -95,7 +108,8 @@ fun TimeBlockTimeline(
 fun TimeBlockItemRow(
     block: TimeBlock,
     language: AppLanguage,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
     val isSpanish = language == AppLanguage.SPANISH
 
@@ -208,6 +222,23 @@ fun TimeBlockItemRow(
                     fontWeight = FontWeight.Medium
                 )
             }
+
+            // Trash Button for deleting time block
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag("delete_timeblock_${block.id}")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = if (isSpanish) "Eliminar Bloque" else "Delete Block",
+                    tint = AetherTextMuted.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
 
             Checkbox(
                 checked = block.isCompleted,

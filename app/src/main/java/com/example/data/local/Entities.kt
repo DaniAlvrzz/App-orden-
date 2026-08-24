@@ -68,9 +68,13 @@ data class HabitEntity(
     val reframingTip: String = "Biological consistency is a pattern of return, not perfection."
 )
 
-@Entity(tableName = "biometrics")
+@Entity(
+    tableName = "biometrics",
+    indices = [androidx.room.Index(value = ["date"], unique = true)]
+)
 data class BiometricEntity(
-    @PrimaryKey val date: String, // e.g. "2026-08-22"
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val date: String,
     val readinessScore: Int = 75,
     val perceivedEnergy: Int = 75,
     val sleepHours: Double = 7.5,
