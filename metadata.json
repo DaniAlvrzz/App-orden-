@@ -1,0 +1,7 @@
+{
+  "name": "Aether OS",
+  "description": "Life Management Engine - Bioenergetic planning, cognitive ceiling tracking, and decision fatigue elimination",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
