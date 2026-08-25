@@ -57,6 +57,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             dailySummaryDao = database.dailySummaryDao(),
             habitDao = database.habitDao(),
             mealDao = database.mealDao(),
+            quickNoteDao = database.quickNoteDao(),
+            focusSessionDao = database.focusSessionDao(),
             geminiEngine = geminiEngine,
             widgetUpdater = widgetUpdater
         )

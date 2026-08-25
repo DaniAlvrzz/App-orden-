@@ -108,7 +108,17 @@ data class AetherUiState(
     // Archived Tasks
     val archivedTasks: List<TaskItem> = emptyList(),
     // Daily Rollover Notice
-    val dailyRolloverNotice: DailyRolloverResult? = null
+    val dailyRolloverNotice: DailyRolloverResult? = null,
+    // Section 4-6 Features
+    val yesterdayUnfinishedHabits: List<HabitAnchor> = emptyList(),
+    val yesterdayUnfinishedTasks: List<TaskItem> = emptyList(),
+    val showMorningCheckInDialog: Boolean = false,
+    val compassionModeState: CompassionModeState = CompassionModeState(),
+    val showBreathworkDialog: Boolean = false,
+    val quickNotes: List<QuickNoteItem> = emptyList(),
+    val pomodoroPhase: FocusPhase = FocusPhase.WORK,
+    val currentPomodoroRound: Int = 1,
+    val totalFocusMinutes: Int = 0
 ) {
     val deepWorkMinutesAllocated: Int
         get() = timeBlocks
@@ -234,6 +244,7 @@ class AetherViewModel(
 
     init {
         performDailyRolloverCheck()
+        checkMorningRetroactiveCheckIn()
         observeData()
     }
 
@@ -251,11 +262,39 @@ class AetherViewModel(
         }
     }
 
+    private fun checkMorningRetroactiveCheckIn() {
+        val taskRepo = (getApplication() as? AetherApplication)?.container?.taskRepository ?: return
+        viewModelScope.launch {
+            val (habits, tasks) = taskRepo.getYesterdayUnfinishedItems()
+            if (habits.isNotEmpty() || tasks.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    yesterdayUnfinishedHabits = habits,
+                    yesterdayUnfinishedTasks = tasks,
+                    showMorningCheckInDialog = true
+                )
+            }
+        }
+    }
+
     fun dismissDailyRolloverNotice() {
         _uiState.value = _uiState.value.copy(dailyRolloverNotice = null)
     }
 
     private fun observeData() {
+        val taskRepo = (getApplication() as? AetherApplication)?.container?.taskRepository
+        if (taskRepo != null) {
+            viewModelScope.launch {
+                taskRepo.quickNotes.collect { notes ->
+                    _uiState.value = _uiState.value.copy(quickNotes = notes)
+                }
+            }
+            viewModelScope.launch {
+                taskRepo.totalFocusMinutes.collect { mins ->
+                    _uiState.value = _uiState.value.copy(totalFocusMinutes = mins)
+                }
+            }
+        }
+
         viewModelScope.launch {
             repository.getLanguage().distinctUntilChanged().collect { savedLang ->
                 _uiState.value = _uiState.value.copy(currentLanguage = savedLang)
@@ -390,7 +429,19 @@ class AetherViewModel(
     }
 
     // --- History Navigation ---
-    fun openHistory() { _uiState.value = _uiState.value.copy(showHistoryDialog = true) }
+    fun openHistory() {
+        val today = LocalDate.now()
+        val todayIso = today.toString()
+        _uiState.value = _uiState.value.copy(
+            showHistoryDialog = true,
+            selectedHistoryYear = today.year,
+            selectedHistoryMonth = today.monthValue,
+            selectedHistoryDateIso = todayIso,
+            historyViewMode = HistoryViewMode.MONTH
+        )
+        loadLogsForSelectedDate(todayIso)
+    }
+
     fun closeHistory() { _uiState.value = _uiState.value.copy(showHistoryDialog = false) }
     fun setHistoryViewMode(mode: HistoryViewMode) { _uiState.value = _uiState.value.copy(historyViewMode = mode) }
 
@@ -399,7 +450,12 @@ class AetherViewModel(
     }
 
     fun selectHistoryMonth(year: Int, month: Int) {
-        val dateIso = String.format(Locale.US, "%04d-%02d-01", year, month)
+        val today = LocalDate.now()
+        val dateIso = if (year == today.year && month == today.monthValue) {
+            today.toString()
+        } else {
+            String.format(Locale.US, "%04d-%02d-01", year, month)
+        }
         _uiState.value = _uiState.value.copy(
             selectedHistoryYear = year,
             selectedHistoryMonth = month,
@@ -412,6 +468,25 @@ class AetherViewModel(
     fun selectHistoryDate(dateIso: String) {
         _uiState.value = _uiState.value.copy(selectedHistoryDateIso = dateIso, historyViewMode = HistoryViewMode.DAY)
         loadLogsForSelectedDate(dateIso)
+    }
+
+    // --- Quick Notes & Retroactive Logging ---
+    fun addQuickNote(content: String) = tasksDelegate.addQuickNote(content)
+    fun deleteQuickNote(id: String) = tasksDelegate.deleteQuickNote(id)
+    fun convertQuickNoteToTask(note: QuickNoteItem) = tasksDelegate.convertQuickNoteToTask(note)
+    fun confirmRetroactiveHabit(habit: HabitAnchor) = tasksDelegate.confirmRetroactiveHabit(habit)
+    fun confirmRetroactiveTask(task: TaskItem) = tasksDelegate.confirmRetroactiveTask(task)
+    fun dismissMorningCheckIn() = tasksDelegate.dismissMorningCheckIn()
+
+    // --- Compassion Mode & Breathwork ---
+    fun activateCompassionMode() {
+        _uiState.value = _uiState.value.copy(compassionModeState = CompassionModeState(isActive = true))
+    }
+    fun dismissCompassionMode() {
+        _uiState.value = _uiState.value.copy(compassionModeState = CompassionModeState(isActive = false))
+    }
+    fun setShowBreathwork(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showBreathworkDialog = show)
     }
 
     private fun loadLogsForSelectedDate(dateIso: String) {

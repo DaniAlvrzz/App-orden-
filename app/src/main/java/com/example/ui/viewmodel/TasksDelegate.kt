@@ -222,7 +222,7 @@ class TasksDelegate(
         }
     }
 
-    // --- Focus Timer Engine ---
+    // --- Focus Timer Engine (25/5/15 Pomodoro Cycles) ---
     fun startFocusTimer(task: TaskItem? = null) {
         val currentTask = task ?: uiState.value.frogTask ?: uiState.value.tasks.firstOrNull { !it.isCompleted }
         uiState.value = uiState.value.copy(
@@ -237,9 +237,44 @@ class TasksDelegate(
                 uiState.value = uiState.value.copy(focusSecondsRemaining = remaining)
                 if (remaining <= 0) {
                     uiState.value = uiState.value.copy(isFocusTimerRunning = false)
-                    unlockAchievement(AchievementId.FOCUS_25)
                     val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
-                    showFeedback(if (isSpanish) "⏳ ¡Sesión de Enfoque Profundo finalizada!" else "⏳ Deep Focus session completed!")
+                    val currentPhase = uiState.value.pomodoroPhase
+                    val currentRound = uiState.value.currentPomodoroRound
+
+                    if (currentPhase == FocusPhase.WORK) {
+                        unlockAchievement(AchievementId.FOCUS_25)
+                        scope.launch {
+                            taskRepository.recordFocusSession(
+                                FocusSession(
+                                    id = java.util.UUID.randomUUID().toString().take(8),
+                                    taskTitle = currentTask?.title ?: "Bloque de Enfoque",
+                                    durationMinutes = 25,
+                                    roundNumber = currentRound
+                                )
+                            )
+                        }
+                        if (currentRound < 4) {
+                            uiState.value = uiState.value.copy(
+                                pomodoroPhase = FocusPhase.SHORT_BREAK,
+                                focusSecondsRemaining = 5 * 60
+                            )
+                            showFeedback(if (isSpanish) "⏳ ¡Enfoque completado! Tómate 5 min de descanso." else "⏳ Focus completed! Take a 5 min break.")
+                        } else {
+                            uiState.value = uiState.value.copy(
+                                pomodoroPhase = FocusPhase.LONG_BREAK,
+                                focusSecondsRemaining = 15 * 60
+                            )
+                            showFeedback(if (isSpanish) "🏆 ¡4 Rondas completadas! Descanso largo de 15 min." else "🏆 4 Rounds completed! Take a 15 min long break.")
+                        }
+                    } else {
+                        val nextRound = if (currentRound >= 4) 1 else currentRound + 1
+                        uiState.value = uiState.value.copy(
+                            pomodoroPhase = FocusPhase.WORK,
+                            currentPomodoroRound = nextRound,
+                            focusSecondsRemaining = 25 * 60
+                        )
+                        showFeedback(if (isSpanish) "🚀 ¡Descanso terminado! Iniciando Ronda $nextRound." else "🚀 Break over! Starting Round $nextRound.")
+                    }
                     break
                 }
             }
@@ -255,8 +290,66 @@ class TasksDelegate(
         timerJob?.cancel()
         uiState.value = uiState.value.copy(
             isFocusTimerRunning = false,
-            focusSecondsRemaining = minutes * 60
+            focusSecondsRemaining = minutes * 60,
+            pomodoroPhase = FocusPhase.WORK,
+            currentPomodoroRound = 1
         )
+    }
+
+    // --- Quick Notes / Brain Dump ---
+    fun addQuickNote(content: String) {
+        scope.launch {
+            taskRepository.addQuickNote(content)
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "💡 Idea capturada en bandeja." else "💡 Thought captured in inbox.")
+        }
+    }
+
+    fun deleteQuickNote(id: String) {
+        scope.launch {
+            taskRepository.deleteQuickNote(id)
+        }
+    }
+
+    fun convertQuickNoteToTask(note: QuickNoteItem) {
+        scope.launch {
+            taskRepository.convertQuickNoteToTask(note)
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "✅ Convertido a tarea en Backlog." else "✅ Converted to backlog task.")
+        }
+    }
+
+    // --- Retroactive Morning Check-In ---
+    fun confirmRetroactiveHabit(habit: HabitAnchor) {
+        scope.launch {
+            taskRepository.logRetroactiveCompletion(CompletionItemType.HABIT, habit.id, habit.title)
+            val remainingHabits = uiState.value.yesterdayUnfinishedHabits.filter { it.id != habit.id }
+            val shouldClose = remainingHabits.isEmpty() && uiState.value.yesterdayUnfinishedTasks.isEmpty()
+            uiState.value = uiState.value.copy(
+                yesterdayUnfinishedHabits = remainingHabits,
+                showMorningCheckInDialog = !shouldClose
+            )
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "✨ Hábito de anoche registrado y racha protegida." else "✨ Habit logged for yesterday, streak shielded.")
+        }
+    }
+
+    fun confirmRetroactiveTask(task: TaskItem) {
+        scope.launch {
+            taskRepository.logRetroactiveCompletion(CompletionItemType.TASK, task.id, task.title)
+            val remainingTasks = uiState.value.yesterdayUnfinishedTasks.filter { it.id != task.id }
+            val shouldClose = remainingTasks.isEmpty() && uiState.value.yesterdayUnfinishedHabits.isEmpty()
+            uiState.value = uiState.value.copy(
+                yesterdayUnfinishedTasks = remainingTasks,
+                showMorningCheckInDialog = !shouldClose
+            )
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "✨ Tarea de anoche registrada en tu historial." else "✨ Task logged for yesterday in your history.")
+        }
+    }
+
+    fun dismissMorningCheckIn() {
+        uiState.value = uiState.value.copy(showMorningCheckInDialog = false)
     }
 
     private fun celebrateFrogCompletion(title: String) {

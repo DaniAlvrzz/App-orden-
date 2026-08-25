@@ -192,6 +192,42 @@ fun HabitAnchor.toEntity() = HabitEntity(
     reframingTip = reframingTip
 )
 
+fun QuickNoteEntity.toModel() = QuickNoteItem(
+    id = id,
+    content = content,
+    createdAt = createdAt,
+    isProcessed = isProcessed,
+    convertedToTaskId = convertedToTaskId
+)
+
+fun QuickNoteItem.toEntity() = QuickNoteEntity(
+    id = id,
+    content = content,
+    createdAt = createdAt,
+    isProcessed = isProcessed,
+    convertedToTaskId = convertedToTaskId
+)
+
+fun FocusSessionEntity.toModel() = FocusSession(
+    id = id,
+    taskTitle = taskTitle,
+    durationMinutes = durationMinutes,
+    timestamp = timestamp,
+    isCompleted = isCompleted,
+    linkedTaskId = linkedTaskId,
+    roundNumber = roundNumber
+)
+
+fun FocusSession.toEntity() = FocusSessionEntity(
+    id = id,
+    taskTitle = taskTitle,
+    durationMinutes = durationMinutes,
+    timestamp = timestamp,
+    isCompleted = isCompleted,
+    linkedTaskId = linkedTaskId,
+    roundNumber = roundNumber
+)
+
 fun BiometricEntity.toModel(): BiometricBaseline {
     val curve = BiometricBaseline.generateDynamicEnergyCurve(
         readiness = readinessScore,

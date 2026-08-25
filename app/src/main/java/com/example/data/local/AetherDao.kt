@@ -222,3 +222,42 @@ interface AiMessageDao {
     suspend fun clearAllMessages()
 }
 
+@Dao
+interface QuickNoteDao {
+    @Query("SELECT * FROM quick_notes WHERE isProcessed = 0 ORDER BY createdAt DESC")
+    fun getActiveNotes(): Flow<List<QuickNoteEntity>>
+
+    @Query("SELECT * FROM quick_notes ORDER BY createdAt DESC")
+    fun getAllNotes(): Flow<List<QuickNoteEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNote(note: QuickNoteEntity)
+
+    @Update
+    suspend fun updateNote(note: QuickNoteEntity)
+
+    @Query("DELETE FROM quick_notes WHERE id = :id")
+    suspend fun deleteNote(id: String)
+
+    @Query("DELETE FROM quick_notes")
+    suspend fun clearAllNotes()
+}
+
+@Dao
+interface FocusSessionDao {
+    @Query("SELECT * FROM focus_sessions ORDER BY timestamp DESC")
+    fun getAllSessions(): Flow<List<FocusSessionEntity>>
+
+    @Query("SELECT * FROM focus_sessions WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
+    fun getSessionsSince(sinceTimestamp: Long): Flow<List<FocusSessionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSession(session: FocusSessionEntity)
+
+    @Query("SELECT SUM(durationMinutes) FROM focus_sessions WHERE isCompleted = 1")
+    fun getTotalFocusMinutes(): Flow<Int?>
+
+    @Query("DELETE FROM focus_sessions")
+    suspend fun clearAllSessions()
+}
+

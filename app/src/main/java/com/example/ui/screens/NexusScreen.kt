@@ -53,11 +53,35 @@ fun NexusScreen(
     onOpenTutorial: () -> Unit,
     onToggleLanguage: () -> Unit,
     onSaveBiometric: (BiometricBaseline) -> Unit = {},
+    onConfirmRetroactiveHabit: (com.example.data.model.HabitAnchor) -> Unit = {},
+    onConfirmRetroactiveTask: (TaskItem) -> Unit = {},
+    onDismissMorningCheckIn: () -> Unit = {},
+    onOpenBreathwork: () -> Unit = {},
+    onDismissBreathwork: () -> Unit = {},
+    onDismissCompassionMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val isSpanish = state.currentLanguage == AppLanguage.SPANISH
     var showSmartCheckInDialog by remember { mutableStateOf(false) }
+
+    if (state.showMorningCheckInDialog) {
+        com.example.ui.components.MorningCheckInDialog(
+            unfinishedHabits = state.yesterdayUnfinishedHabits,
+            unfinishedTasks = state.yesterdayUnfinishedTasks,
+            language = state.currentLanguage,
+            onConfirmHabit = onConfirmRetroactiveHabit,
+            onConfirmTask = onConfirmRetroactiveTask,
+            onDismiss = onDismissMorningCheckIn
+        )
+    }
+
+    if (state.showBreathworkDialog) {
+        com.example.ui.components.BreathworkDialog(
+            language = state.currentLanguage,
+            onDismiss = onDismissBreathwork
+        )
+    }
 
     if (showSmartCheckInDialog) {
         SmartCheckInDialog(
@@ -103,7 +127,7 @@ fun NexusScreen(
                         )
                     }
                     Text(
-                        text = "${strings.engineSub} • ${com.example.data.util.AetherDateUtils.getTodayIso()}",
+                        text = "${strings.engineSub} • ${com.example.data.util.AetherDateUtils.getFormattedToday(state.currentLanguage)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = AetherTextMuted
                     )
@@ -319,6 +343,17 @@ fun NexusScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // Compassion Mode Banner
+        if (state.compassionModeState.isActive || state.biometric.readinessScore < 50) {
+            item {
+                com.example.ui.components.CompassionModeBanner(
+                    language = state.currentLanguage,
+                    onOpenBreathwork = onOpenBreathwork,
+                    onDismissMode = onDismissCompassionMode
+                )
             }
         }
 

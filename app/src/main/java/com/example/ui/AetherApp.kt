@@ -165,7 +165,13 @@ fun AetherApp(
                             val nextLang = if (state.currentLanguage == AppLanguage.SPANISH) AppLanguage.ENGLISH else AppLanguage.SPANISH
                             viewModel.setLanguage(nextLang)
                         },
-                        onSaveBiometric = { viewModel.saveBiometricBaseline(it) }
+                        onSaveBiometric = { viewModel.saveBiometricBaseline(it) },
+                        onConfirmRetroactiveHabit = { viewModel.confirmRetroactiveHabit(it) },
+                        onConfirmRetroactiveTask = { viewModel.confirmRetroactiveTask(it) },
+                        onDismissMorningCheckIn = { viewModel.dismissMorningCheckIn() },
+                        onOpenBreathwork = { viewModel.setShowBreathwork(true) },
+                        onDismissBreathwork = { viewModel.setShowBreathwork(false) },
+                        onDismissCompassionMode = { viewModel.dismissCompassionMode() }
                     )
                     1 -> BacklogScreen(
                         state = state,
@@ -180,7 +186,10 @@ fun AetherApp(
                         onPauseFocusTimer = { viewModel.pauseFocusTimer() },
                         onResetFocusTimer = { viewModel.resetFocusTimer() },
                         onOpenQuickAdd = { viewModel.setShowQuickAdd(true) },
-                        onOpenHistory = { viewModel.openHistory() }
+                        onOpenHistory = { viewModel.openHistory() },
+                        onAddQuickNote = { viewModel.addQuickNote(it) },
+                        onDeleteQuickNote = { viewModel.deleteQuickNote(it) },
+                        onConvertQuickNoteToTask = { viewModel.convertQuickNoteToTask(it) }
                     )
                     2 -> NutritionScreen(
                         state = state,

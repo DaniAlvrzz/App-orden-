@@ -48,6 +48,9 @@ fun BacklogScreen(
     onOpenQuickAdd: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onPermissionDenied: () -> Unit = {},
+    onAddQuickNote: (String) -> Unit = {},
+    onDeleteQuickNote: (String) -> Unit = {},
+    onConvertQuickNoteToTask: (com.example.data.model.QuickNoteItem) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
@@ -113,12 +116,12 @@ fun BacklogScreen(
                     FilledTonalButton(
                         onClick = onOpenQuickAdd,
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = AetherCyan.copy(alpha = 0.2f),
-                            contentColor = AetherCyan
+                            containerColor = AetherCyan,
+                            contentColor = Color(0xFF00363D)
                         ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        modifier = Modifier.testTag("quick_capture_btn")
+                        modifier = Modifier.testTag("backlog_capture_btn")
                     ) {
                         Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -126,6 +129,17 @@ fun BacklogScreen(
                     }
                 }
             }
+        }
+
+        // Quick Notes / Brain Dump Inbox
+        item {
+            com.example.ui.components.QuickNotesInboxCard(
+                notes = state.quickNotes,
+                language = state.currentLanguage,
+                onAddNote = onAddQuickNote,
+                onDeleteNote = onDeleteQuickNote,
+                onConvertToTask = onConvertQuickNoteToTask
+            )
         }
 
         // Focus Timer Module
@@ -137,6 +151,9 @@ fun BacklogScreen(
                 onStart = { onStartFocusTimer(state.activeFocusTask) },
                 onPause = onPauseFocusTimer,
                 onReset = onResetFocusTimer,
+                currentRound = state.currentPomodoroRound,
+                pomodoroPhase = state.pomodoroPhase,
+                totalFocusMinutes = state.totalFocusMinutes,
                 language = state.currentLanguage,
                 onPermissionDenied = onPermissionDenied
             )

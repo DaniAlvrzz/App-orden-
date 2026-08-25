@@ -782,4 +782,37 @@ class StringsProvider(val language: AppLanguage) {
             )
         }
     }
+
+    // --- Morning Retroactive Check-in Strings ---
+    val morningCheckInTitle: String get() = if (language == AppLanguage.SPANISH) "🌅 Registro Matutino de Anoche" else "🌅 Morning Check-in from Last Night"
+    val morningCheckInSub: String get() = if (language == AppLanguage.SPANISH) "¿Completaste alguno de estos hábitos o tareas anoche antes de dormir?" else "Did you complete any of these habits or tasks last night before sleep?"
+    val morningCheckInConfirm: String get() = if (language == AppLanguage.SPANISH) "✅ Sí, lo completé anoche" else "✅ Yes, I completed it last night"
+    val morningCheckInDismiss: String get() = if (language == AppLanguage.SPANISH) "Omitir por hoy" else "Skip for today"
+    val morningCheckInSuccess: String get() = if (language == AppLanguage.SPANISH) "✨ ¡Registrado para ayer! Tu racha y estadísticas han sido protegidas." else "✨ Logged for yesterday! Your streak and stats have been preserved."
+
+    // --- Compassion Mode Strings ---
+    val compassionModeTitle: String get() = if (language == AppLanguage.SPANISH) "💛 Modo Compasivo Activado" else "💛 Compassion Mode Active"
+    val compassionModeDesc: String get() = if (language == AppLanguage.SPANISH) "Tu energía biológica es baja hoy. Hemos reducido la carga a micro-pasos amables y protegido tus rachas." else "Your readiness is low today. We've scaled tasks to gentle micro-steps and shielded your streaks."
+    val compassionModeBtnBreath: String get() = if (language == AppLanguage.SPANISH) "🌬️ Respiración 3 min" else "🌬️ 3 min Breathwork"
+    val compassionModeBtnDismiss: String get() = if (language == AppLanguage.SPANISH) "Modo Estándar" else "Standard Mode"
+
+    // --- Breathwork Grounding Dialog Strings ---
+    val breathworkTitle: String get() = if (language == AppLanguage.SPANISH) "Respiración 4-7-8 Calmante" else "Calming 4-7-8 Breathwork"
+    val breathworkInhale: String get() = if (language == AppLanguage.SPANISH) "Inhala profundamente por la nariz..." else "Inhale deeply through your nose..."
+    val breathworkHold: String get() = if (language == AppLanguage.SPANISH) "Sostén el aire con calma..." else "Hold your breath calmly..."
+    val breathworkExhale: String get() = if (language == AppLanguage.SPANISH) "Exhala suavemente por la boca..." else "Exhale gently through your mouth..."
+    val breathworkDone: String get() = if (language == AppLanguage.SPANISH) "🌱 Sistema nervioso regulado. Tómate el día con amabilidad." else "🌱 Nervous system grounded. Take today with kindness."
+
+    // --- Pomodoro Cycles Strings ---
+    val pomodoroWorkPhase: String get() = if (language == AppLanguage.SPANISH) "Bloque de Enfoque" else "Deep Focus Block"
+    val pomodoroShortBreak: String get() = if (language == AppLanguage.SPANISH) "Descanso Corto (5 min)" else "Short Break (5 min)"
+    val pomodoroLongBreak: String get() = if (language == AppLanguage.SPANISH) "Descanso Largo (15 min)" else "Long Break (15 min)"
+    val pomodoroRoundLabel: String get() = if (language == AppLanguage.SPANISH) "Ronda" else "Round"
+    val pomodoroTotalFocused: String get() = if (language == AppLanguage.SPANISH) "Total enfocado hoy" else "Total focus today"
+
+    // --- Brain Dump / Quick Notes Strings ---
+    val quickNotesTitle: String get() = if (language == AppLanguage.SPANISH) "🧠 Bandeja de Entrada (Brain Dump)" else "🧠 Inbox (Brain Dump)"
+    val quickNotesHint: String get() = if (language == AppLanguage.SPANISH) "Captura una idea rápida o pensamiento..." else "Capture a quick thought or idea..."
+    val quickNotesConvertToTask: String get() = if (language == AppLanguage.SPANISH) "Convertir en Tarea" else "Convert to Task"
+    val quickNotesEmpty: String get() = if (language == AppLanguage.SPANISH) "Mente despejada. Captura pensamientos aquí para no olvidarlos." else "Clear mind. Capture quick thoughts here to process later."
 }

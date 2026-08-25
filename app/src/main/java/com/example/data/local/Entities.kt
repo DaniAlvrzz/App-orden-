@@ -145,3 +145,26 @@ data class AiMessageEntity(
     val timestamp: Long,
     val isFavorite: Boolean = false
 )
+
+@Entity(tableName = "quick_notes")
+data class QuickNoteEntity(
+    @PrimaryKey val id: String,
+    val content: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val isProcessed: Boolean = false,
+    val convertedToTaskId: String? = null
+)
+
+@Entity(
+    tableName = "focus_sessions",
+    indices = [Index(value = ["timestamp"])]
+)
+data class FocusSessionEntity(
+    @PrimaryKey val id: String,
+    val taskTitle: String,
+    val durationMinutes: Int,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isCompleted: Boolean = true,
+    val linkedTaskId: String? = null,
+    val roundNumber: Int = 1
+)

@@ -24,9 +24,11 @@ import java.time.LocalDate
         BiometricEntity::class,
         CompletionLogEntity::class,
         DailySummaryEntity::class,
-        AiMessageEntity::class
+        AiMessageEntity::class,
+        QuickNoteEntity::class,
+        FocusSessionEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -40,6 +42,8 @@ abstract class AetherDatabase : RoomDatabase() {
     abstract fun completionLogDao(): CompletionLogDao
     abstract fun dailySummaryDao(): DailySummaryDao
     abstract fun aiMessageDao(): AiMessageDao
+    abstract fun quickNoteDao(): QuickNoteDao
+    abstract fun focusSessionDao(): FocusSessionDao
 
     companion object {
         @Volatile
@@ -195,6 +199,40 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v7 to v8:
+         * Creates `quick_notes` and `focus_sessions` tables.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `quick_notes` (
+                        `id` TEXT PRIMARY KEY NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `isProcessed` INTEGER NOT NULL DEFAULT 0,
+                        `convertedToTaskId` TEXT DEFAULT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `focus_sessions` (
+                        `id` TEXT PRIMARY KEY NOT NULL,
+                        `taskTitle` TEXT NOT NULL,
+                        `durationMinutes` INTEGER NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `isCompleted` INTEGER NOT NULL DEFAULT 1,
+                        `linkedTaskId` TEXT DEFAULT NULL,
+                        `roundNumber` INTEGER NOT NULL DEFAULT 1
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_focus_sessions_timestamp` ON `focus_sessions` (`timestamp`)")
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -202,7 +240,7 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
                 // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
                 // Every schema version bump must ship an explicit Migration, or real user

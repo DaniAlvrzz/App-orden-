@@ -27,6 +27,9 @@ interface TaskRepository {
     val tasks: Flow<List<TaskItem>>
     val archivedTasks: Flow<List<TaskItem>>
     val timeBlocks: Flow<List<TimeBlock>>
+    val quickNotes: Flow<List<QuickNoteItem>>
+    val focusSessions: Flow<List<FocusSession>>
+    val totalFocusMinutes: Flow<Int>
 
     suspend fun addTask(
         title: String,
@@ -57,6 +60,14 @@ interface TaskRepository {
     suspend fun toggleTimeBlockComplete(block: TimeBlock)
     suspend fun deleteTimeBlock(id: String)
 
+    suspend fun addQuickNote(content: String)
+    suspend fun deleteQuickNote(id: String)
+    suspend fun convertQuickNoteToTask(note: QuickNoteItem): TaskItem
+    suspend fun recordFocusSession(session: FocusSession)
+
+    suspend fun getYesterdayUnfinishedItems(): Pair<List<HabitAnchor>, List<TaskItem>>
+    suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String)
+
     suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage): List<String>
     suspend fun recalculateDailySummary(dateIso: String = AetherDateUtils.getTodayIso())
 }
@@ -68,6 +79,8 @@ class TaskRepositoryImpl(
     private val dailySummaryDao: DailySummaryDao,
     private val habitDao: HabitDao,
     private val mealDao: MealDao,
+    private val quickNoteDao: com.example.data.local.QuickNoteDao? = null,
+    private val focusSessionDao: com.example.data.local.FocusSessionDao? = null,
     private val geminiEngine: AetherGeminiEngine,
     private val widgetUpdater: WidgetUpdater = NoOpWidgetUpdater
 ) : TaskRepository {
@@ -83,6 +96,18 @@ class TaskRepositoryImpl(
     override val timeBlocks: Flow<List<TimeBlock>> = timeBlockDao.getAllTimeBlocks().map { list ->
         list.map { it.toModel() }
     }
+
+    override val quickNotes: Flow<List<QuickNoteItem>> = quickNoteDao?.getActiveNotes()?.map { list ->
+        list.map { it.toModel() }
+    } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override val focusSessions: Flow<List<FocusSession>> = focusSessionDao?.getAllSessions()?.map { list ->
+        list.map { it.toModel() }
+    } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override val totalFocusMinutes: Flow<Int> = focusSessionDao?.getTotalFocusMinutes()?.map {
+        it ?: 0
+    } ?: kotlinx.coroutines.flow.flowOf(0)
 
     override suspend fun addTask(
         title: String,
@@ -234,6 +259,90 @@ class TaskRepositoryImpl(
                 ratio = ratio
             )
         )
+    }
+
+    override suspend fun addQuickNote(content: String) {
+        if (content.isBlank()) return
+        val id = "note-" + UUID.randomUUID().toString().take(8)
+        quickNoteDao?.insertNote(
+            com.example.data.local.QuickNoteEntity(
+                id = id,
+                content = content.trim(),
+                createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    override suspend fun deleteQuickNote(id: String) {
+        quickNoteDao?.deleteNote(id)
+    }
+
+    override suspend fun convertQuickNoteToTask(note: QuickNoteItem): TaskItem {
+        val taskId = "task-" + UUID.randomUUID().toString().take(8)
+        val task = TaskEntity(
+            id = taskId,
+            title = note.content,
+            description = "Creado desde Notas Rápidas",
+            energyLevel = EnergyLevel.MEDIUM,
+            priorityType = PriorityType.QUICK,
+            estimatedMinutes = 15,
+            category = "Inbox",
+            createdAt = System.currentTimeMillis()
+        )
+        taskDao.insertTask(task)
+        quickNoteDao?.updateNote(
+            note.toEntity().copy(isProcessed = true, convertedToTaskId = taskId)
+        )
+        return task.toModel()
+    }
+
+    override suspend fun recordFocusSession(session: FocusSession) {
+        focusSessionDao?.insertSession(session.toEntity())
+    }
+
+    override suspend fun getYesterdayUnfinishedItems(): Pair<List<HabitAnchor>, List<TaskItem>> {
+        val yesterdayIso = java.time.LocalDate.now().minusDays(1).toString()
+        val yesterdayLogs = completionLogDao.getLogsByDate(yesterdayIso).first()
+        val loggedItemIds = yesterdayLogs.map { it.itemId }.toSet()
+
+        val allHabits = habitDao.getAllHabits().first().map { it.toModel() }
+        val allTasks = taskDao.getAllTasks().first().filter { !it.isArchived }.map { it.toModel() }
+
+        val unfinishedHabits = allHabits.filter { !loggedItemIds.contains(it.id) }
+        val unfinishedTasks = allTasks.filter { !loggedItemIds.contains(it.id) }
+
+        return Pair(unfinishedHabits, unfinishedTasks)
+    }
+
+    override suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String) {
+        val yesterdayIso = java.time.LocalDate.now().minusDays(1).toString()
+        val log = CompletionLogEntity(
+            dateIso = yesterdayIso,
+            itemType = itemType,
+            itemId = itemId,
+            title = title,
+            status = CompletionStatus.COMPLETED,
+            timestamp = System.currentTimeMillis()
+        )
+        completionLogDao.insertLog(log)
+        recalculateDailySummary(yesterdayIso)
+
+        if (itemType == CompletionItemType.HABIT) {
+            val habit = habitDao.getAllHabits().first().find { it.id == itemId }
+            if (habit != null) {
+                habitDao.updateHabit(
+                    habit.copy(
+                        streakDays = habit.streakDays + 1,
+                        lastCompletedDate = yesterdayIso
+                    )
+                )
+            }
+        } else if (itemType == CompletionItemType.TASK) {
+            val task = taskDao.getAllTasks().first().find { it.id == itemId }
+            if (task != null) {
+                taskDao.updateTask(task.copy(isCompleted = true, completedDate = yesterdayIso))
+            }
+        }
     }
 
     private suspend fun logActionAndRecalculate(
