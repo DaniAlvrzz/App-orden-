@@ -149,17 +149,24 @@ class MealRepositoryImpl(
     }
 
     override suspend fun toggleMealComplete(meal: MealItem) {
+        val today = AetherDateUtils.getTodayIso()
         val newCompleted = !meal.isCompleted
         val updated = meal.copy(isCompleted = newCompleted)
         mealDao.updateMeal(updated.toEntity())
 
         if (newCompleted) {
-            logActionAndRecalculate(CompletionItemType.MEAL, meal.id, meal.title, CompletionStatus.COMPLETED)
+            logActionAndRecalculate(CompletionItemType.MEAL, meal.id, meal.title, CompletionStatus.COMPLETED, today)
+        } else {
+            completionLogDao.deleteLogForItemAndDate(meal.id, today)
+            recalculateDailySummary(today)
         }
     }
 
     override suspend fun deleteMeal(id: String) {
+        val today = AetherDateUtils.getTodayIso()
         mealDao.deleteMeal(id)
+        completionLogDao.deleteLogForItemAndDate(id, today)
+        recalculateDailySummary(today)
     }
 
     override suspend fun addPantryItem(
@@ -204,6 +211,7 @@ class MealRepositoryImpl(
         status: CompletionStatus,
         dateIso: String = AetherDateUtils.getTodayIso()
     ) {
+        completionLogDao.deleteLogForItemAndDate(itemId, dateIso)
         val log = CompletionLogEntity(
             dateIso = dateIso,
             itemType = itemType,

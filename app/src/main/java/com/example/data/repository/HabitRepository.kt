@@ -75,7 +75,10 @@ class HabitRepositoryImpl(
     }
 
     override suspend fun deleteHabit(id: String) {
+        val today = AetherDateUtils.getTodayIso()
         habitDao.deleteHabit(id)
+        completionLogDao.deleteLogForItemAndDate(id, today)
+        recalculateDailySummary(today)
     }
 
     override suspend fun restoreHabit(habit: HabitAnchor) {
@@ -109,7 +112,10 @@ class HabitRepositoryImpl(
         )
 
         if (newCompleted) {
-            logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.COMPLETED)
+            logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.COMPLETED, today)
+        } else {
+            completionLogDao.deleteLogForItemAndDate(habit.id, today)
+            recalculateDailySummary(today)
         }
     }
 
@@ -131,7 +137,7 @@ class HabitRepositoryImpl(
             graceDayLastUsedDate = today
         )
         habitDao.updateHabit(updatedHabit)
-        logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.PARTIAL)
+        logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.PARTIAL, today)
         return Result.success(Unit)
     }
 
@@ -146,6 +152,7 @@ class HabitRepositoryImpl(
         status: CompletionStatus,
         dateIso: String = AetherDateUtils.getTodayIso()
     ) {
+        completionLogDao.deleteLogForItemAndDate(itemId, dateIso)
         val log = CompletionLogEntity(
             dateIso = dateIso,
             itemType = itemType,

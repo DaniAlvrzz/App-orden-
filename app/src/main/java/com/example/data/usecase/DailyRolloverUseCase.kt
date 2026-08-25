@@ -90,9 +90,12 @@ class DailyRolloverUseCase(
                     }
                 }
 
+                val isMonday = try { java.time.LocalDate.parse(today).dayOfWeek == java.time.DayOfWeek.MONDAY } catch (e: Exception) { false }
+
                 // 2. Process Habits for previous day
                 habits.forEach { habit ->
                     val isGraceProtected = habit.graceDayLastUsedDate == lastDate
+                    val updatedGraceDaysUsed = if (isMonday) 0 else habit.graceDaysUsed
                     if (habit.isCompleted) {
                         completedHabits++
                         val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
@@ -109,13 +112,13 @@ class DailyRolloverUseCase(
                                 )
                             )
                         }
-                        habitDao.updateHabit(habit.copy(isCompleted = false))
+                        habitDao.updateHabit(habit.copy(isCompleted = false, graceDaysUsed = updatedGraceDaysUsed))
                     } else if (isGraceProtected) {
                         // Protected by Grace Day: Keep streak intact
-                        habitDao.updateHabit(habit.copy(isCompleted = false))
+                        habitDao.updateHabit(habit.copy(isCompleted = false, graceDaysUsed = updatedGraceDaysUsed))
                     } else {
                         // Missed without grace day: reset streak to 0
-                        habitDao.updateHabit(habit.copy(isCompleted = false, streakDays = 0))
+                        habitDao.updateHabit(habit.copy(isCompleted = false, streakDays = 0, graceDaysUsed = updatedGraceDaysUsed))
                     }
                 }
 

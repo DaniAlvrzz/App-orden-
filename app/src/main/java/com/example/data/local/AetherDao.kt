@@ -161,6 +161,12 @@ interface CompletionLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLogs(logs: List<CompletionLogEntity>)
 
+    @Query("DELETE FROM completion_logs WHERE itemId = :itemId AND dateIso = :dateIso")
+    suspend fun deleteLogForItemAndDate(itemId: String, dateIso: String)
+
+    @Query("DELETE FROM completion_logs WHERE itemId = :itemId")
+    suspend fun deleteLogsForItem(itemId: String)
+
     @Query("DELETE FROM completion_logs WHERE id = :id")
     suspend fun deleteLog(id: Int)
 

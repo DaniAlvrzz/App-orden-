@@ -160,13 +160,20 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun toggleTaskComplete(task: TaskItem) {
+        val today = AetherDateUtils.getTodayIso()
         val newCompleted = !task.isCompleted
-        val updated = task.copy(isCompleted = newCompleted)
+        val updated = task.copy(
+            isCompleted = newCompleted,
+            completedDate = if (newCompleted) today else ""
+        )
         taskDao.updateTask(updated.toEntity())
         widgetUpdater.updateWidgets()
 
         if (newCompleted) {
-            logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED)
+            logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+        } else {
+            completionLogDao.deleteLogForItemAndDate(task.id, today)
+            recalculateDailySummary(today)
         }
     }
 
@@ -177,7 +184,10 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun deleteTask(taskId: String) {
+        val today = AetherDateUtils.getTodayIso()
         taskDao.deleteTask(taskId)
+        completionLogDao.deleteLogForItemAndDate(taskId, today)
+        recalculateDailySummary(today)
         widgetUpdater.updateWidgets()
     }
 
@@ -221,17 +231,24 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun toggleTimeBlockComplete(block: TimeBlock) {
+        val today = AetherDateUtils.getTodayIso()
         val newCompleted = !block.isCompleted
         val updated = block.copy(isCompleted = newCompleted)
         timeBlockDao.updateTimeBlock(updated.toEntity())
 
         if (newCompleted) {
-            logActionAndRecalculate(CompletionItemType.TIME_BLOCK, block.id, block.title, CompletionStatus.COMPLETED)
+            logActionAndRecalculate(CompletionItemType.TIME_BLOCK, block.id, block.title, CompletionStatus.COMPLETED, today)
+        } else {
+            completionLogDao.deleteLogForItemAndDate(block.id, today)
+            recalculateDailySummary(today)
         }
     }
 
     override suspend fun deleteTimeBlock(id: String) {
+        val today = AetherDateUtils.getTodayIso()
         timeBlockDao.deleteTimeBlock(id)
+        completionLogDao.deleteLogForItemAndDate(id, today)
+        recalculateDailySummary(today)
     }
 
     override suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage): List<String> {
@@ -352,6 +369,7 @@ class TaskRepositoryImpl(
         status: CompletionStatus,
         dateIso: String = AetherDateUtils.getTodayIso()
     ) {
+        completionLogDao.deleteLogForItemAndDate(itemId, dateIso)
         val log = CompletionLogEntity(
             dateIso = dateIso,
             itemType = itemType,
