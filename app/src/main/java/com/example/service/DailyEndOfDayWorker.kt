@@ -147,30 +147,34 @@ class DailyEndOfDayWorker(
         const val WORK_NAME = "aether_daily_end_of_day_work"
 
         fun scheduleDailyEndOfDayWork(context: Context) {
-            val now = LocalDateTime.now()
-            var target = now.with(LocalTime.of(23, 55, 0))
-            if (now.isAfter(target)) {
-                target = target.plusDays(1)
-            }
+            try {
+                val now = LocalDateTime.now()
+                var target = now.with(LocalTime.of(23, 55, 0))
+                if (now.isAfter(target)) {
+                    target = target.plusDays(1)
+                }
 
-            val delayMinutes = Duration.between(now, target).toMinutes().coerceAtLeast(1)
+                val delayMinutes = Duration.between(now, target).toMinutes().coerceAtLeast(1)
 
-            val workRequest = OneTimeWorkRequestBuilder<DailyEndOfDayWorker>()
-                .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiresBatteryNotLow(false)
-                        .build()
+                val workRequest = OneTimeWorkRequestBuilder<DailyEndOfDayWorker>()
+                    .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiresBatteryNotLow(false)
+                            .build()
+                    )
+                    .addTag(TAG)
+                    .build()
+
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
                 )
-                .addTag(TAG)
-                .build()
-
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                workRequest
-            )
-            Log.d(TAG, "Scheduled DailyEndOfDayWorker in $delayMinutes minutes (at 23:55).")
+                Log.d(TAG, "Scheduled DailyEndOfDayWorker in $delayMinutes minutes (at 23:55).")
+            } catch (e: Exception) {
+                Log.w(TAG, "WorkManager unavailable or not initialized in this environment: ${e.message}")
+            }
         }
     }
 }

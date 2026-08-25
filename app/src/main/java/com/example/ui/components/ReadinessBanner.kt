@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +32,7 @@ fun ReadinessBanner(
     onChronotypeChanged: (Chronotype) -> Unit,
     onToggleRecoveryMode: () -> Unit,
     onOrchestrateClick: () -> Unit,
+    onOpenSmartCheckIn: () -> Unit = {},
     language: AppLanguage = AppLanguage.SPANISH,
     modifier: Modifier = Modifier
 ) {
@@ -70,7 +70,7 @@ fun ReadinessBanner(
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            // Mode Header Row
+            // Mode Header Row & Action Chips
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -93,35 +93,64 @@ fun ReadinessBanner(
                     )
                 }
 
-                // Recovery Mode Quick Switch
-                FilterChip(
-                    selected = mode == SystemMode.RECOVERY,
-                    onClick = onToggleRecoveryMode,
-                    label = {
-                        Text(
-                            text = if (mode == SystemMode.RECOVERY) strings.recoveryModeChipActive else strings.recoveryModeChipInactive,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    },
-                    leadingIcon = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Smart Check-in Button
+                    FilledTonalButton(
+                        onClick = onOpenSmartCheckIn,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = AetherCyan.copy(alpha = 0.15f),
+                            contentColor = AetherCyan
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.testTag("smart_checkin_trigger_btn")
+                    ) {
                         Icon(
-                            imageVector = if (mode == SystemMode.RECOVERY) Icons.Default.Spa else Icons.Default.Bedtime,
+                            imageVector = Icons.Default.Tune,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (mode == SystemMode.RECOVERY) AetherEmerald else AetherTextSecondary
+                            modifier = Modifier.size(14.dp)
                         )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AetherEmerald.copy(alpha = 0.2f),
-                        selectedLabelColor = AetherEmerald
-                    ),
-                    modifier = Modifier.testTag("recovery_mode_toggle")
-                )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = strings.btnSmartCheckIn,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Recovery Mode Quick Switch
+                    FilterChip(
+                        selected = mode == SystemMode.RECOVERY,
+                        onClick = onToggleRecoveryMode,
+                        label = {
+                            Text(
+                                text = if (mode == SystemMode.RECOVERY) strings.recoveryModeChipActive else strings.recoveryModeChipInactive,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (mode == SystemMode.RECOVERY) Icons.Default.Spa else Icons.Default.Bedtime,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = if (mode == SystemMode.RECOVERY) AetherEmerald else AetherTextSecondary
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AetherEmerald.copy(alpha = 0.2f),
+                            selectedLabelColor = AetherEmerald
+                        ),
+                        modifier = Modifier.testTag("recovery_mode_toggle")
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Score & Slider Row
+            // Score & Quick Metrics Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -134,20 +163,48 @@ fun ReadinessBanner(
                         color = AetherTextMuted,
                         fontSize = 10.sp
                     )
-                    Text(
-                        text = "${sliderValue.toInt()}",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = modeColor,
-                        fontWeight = FontWeight.Black
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "${sliderValue.toInt()}",
+                            style = MaterialTheme.typography.displaySmall,
+                            color = modeColor,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = " / 100",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AetherTextMuted,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
                 }
 
-                Text(
-                    text = modeDesc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AetherTextSecondary,
-                    modifier = Modifier.widthIn(max = 200.dp)
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Surface(
+                        color = AetherSurfaceCard,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🎯 Techo Dinámico: ${(biometric.dynamicCognitiveCeilingMinutes / 60.0)}h",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherTextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "🛌 ${String.format("%.1f", biometric.sleepHours)}h (⭐${biometric.sleepQuality}) • ⚡ Estrés: ${biometric.stressLevel}/10",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextSecondary
+                    )
+                }
             }
 
             Slider(

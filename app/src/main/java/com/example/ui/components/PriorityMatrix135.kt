@@ -46,32 +46,52 @@ fun PriorityMatrix135(
     modifier: Modifier = Modifier
 ) {
     val strings = remember(language) { StringsProvider(language) }
+    val isSpanish = language == AppLanguage.SPANISH
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // --- Header Section ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = strings.prioritiesMatrixTitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = AetherCyan,
-                letterSpacing = 1.1.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            IconButton(
+            Column {
+                Text(
+                    text = strings.prioritiesMatrixTitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    letterSpacing = 1.1.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (isSpanish) "Arquitectura Circadiana 1-3-5" else "1-3-5 Circadian Architecture",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherTextMuted,
+                    fontSize = 10.sp
+                )
+            }
+            FilledTonalButton(
                 onClick = onAddTaskClick,
                 modifier = Modifier
-                    .size(36.dp)
-                    .testTag("add_task_priority_btn")
+                    .height(36.dp)
+                    .testTag("add_task_priority_btn"),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = AetherCyan.copy(alpha = 0.15f),
+                    contentColor = AetherCyan
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.AddCircle,
+                    imageVector = Icons.Default.Add,
                     contentDescription = strings.btnAddTask,
-                    tint = AetherCyan,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = strings.btnAddTask,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -240,10 +260,12 @@ fun PriorityMatrix135(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
                     .combinedClickable(
                         onClick = { onAddTaskClick() },
                         onLongClick = {}
-                    ),
+                    )
+                    .testTag("assign_frog_card"),
                 colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -265,65 +287,157 @@ fun PriorityMatrix135(
         Spacer(modifier = Modifier.height(14.dp))
 
         // --- 3 MEDIUM TASKS (TIPO B) ---
-        Text(
-            text = strings.mediumTasksHeader,
-            style = MaterialTheme.typography.labelSmall,
-            color = AetherTextSecondary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-
-        val displayMedium = mediumTasks.take(3)
-        displayMedium.forEachIndexed { index, task ->
-            AetherSwipeToDismissContainer(
-                onDismiss = { onDeleteTask(task) },
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${strings.mediumTasksHeader} (${mediumTasks.size})",
+                style = MaterialTheme.typography.labelSmall,
+                color = AetherTextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            IconButton(
+                onClick = onAddTaskClick,
+                modifier = Modifier.size(24.dp)
             ) {
-                TaskCompactRow(
-                    task = task,
-                    canMoveUp = index > 0,
-                    canMoveDown = index < displayMedium.lastIndex,
-                    onToggle = { onToggleTask(task) },
-                    onEdit = { onEditTask(task) },
-                    onDelete = { onDeleteTask(task) },
-                    onMoveUp = { onMoveMediumTask(index, index - 1) },
-                    onMoveDown = { onMoveMediumTask(index, index + 1) },
-                    onStartTimer = { onStartFocus(task) }
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = strings.btnAddTask,
+                    tint = AetherTextMuted,
+                    modifier = Modifier.size(16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (mediumTasks.isEmpty()) {
+            OutlinedCard(
+                onClick = onAddTaskClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = AetherSurfaceCard.copy(alpha = 0.4f)),
+                border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(AetherBorderLight.copy(alpha = 0.5f)))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = AetherTextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isSpanish) "+ Añadir tarea media (30-45 min)" else "+ Add medium task (30-45 min)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextMuted
+                    )
+                }
+            }
+        } else {
+            mediumTasks.forEachIndexed { index, task ->
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeleteTask(task) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TaskCompactRow(
+                        task = task,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < mediumTasks.lastIndex,
+                        onToggle = { onToggleTask(task) },
+                        onEdit = { onEditTask(task) },
+                        onDelete = { onDeleteTask(task) },
+                        onMoveUp = { onMoveMediumTask(index, index - 1) },
+                        onMoveDown = { onMoveMediumTask(index, index + 1) },
+                        onStartTimer = { onStartFocus(task) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // --- 5 QUICK WINS (TIPO C) ---
-        Text(
-            text = strings.quickWinsHeader,
-            style = MaterialTheme.typography.labelSmall,
-            color = AetherTextMuted,
-            fontSize = 11.sp
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-
-        val displayQuick = quickWins.take(5)
-        displayQuick.forEachIndexed { index, task ->
-            AetherSwipeToDismissContainer(
-                onDismiss = { onDeleteTask(task) },
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${strings.quickWinsHeader} (${quickWins.size})",
+                style = MaterialTheme.typography.labelSmall,
+                color = AetherTextMuted,
+                fontSize = 11.sp
+            )
+            IconButton(
+                onClick = onAddTaskClick,
+                modifier = Modifier.size(24.dp)
             ) {
-                TaskMicroRow(
-                    task = task,
-                    canMoveUp = index > 0,
-                    canMoveDown = index < displayQuick.lastIndex,
-                    onToggle = { onToggleTask(task) },
-                    onEdit = { onEditTask(task) },
-                    onDelete = { onDeleteTask(task) },
-                    onMoveUp = { onMoveQuickTask(index, index - 1) },
-                    onMoveDown = { onMoveQuickTask(index, index + 1) }
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = strings.btnAddTask,
+                    tint = AetherTextMuted,
+                    modifier = Modifier.size(16.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+
+        if (quickWins.isEmpty()) {
+            OutlinedCard(
+                onClick = onAddTaskClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = AetherSurfaceCard.copy(alpha = 0.4f)),
+                border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(AetherBorderLight.copy(alpha = 0.5f)))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = AetherTextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isSpanish) "+ Añadir micro-victoria (5-15 min)" else "+ Add quick win (5-15 min)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextMuted
+                    )
+                }
+            }
+        } else {
+            quickWins.forEachIndexed { index, task ->
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeleteTask(task) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TaskMicroRow(
+                        task = task,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < quickWins.lastIndex,
+                        onToggle = { onToggleTask(task) },
+                        onEdit = { onEditTask(task) },
+                        onDelete = { onDeleteTask(task) },
+                        onMoveUp = { onMoveQuickTask(index, index - 1) },
+                        onMoveDown = { onMoveQuickTask(index, index + 1) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
         }
     }
 }

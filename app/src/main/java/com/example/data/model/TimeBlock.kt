@@ -9,7 +9,8 @@ enum class BlockType(val displayName: String, val iconName: String) {
     MEAL("Relational Meal", "restaurant"),
     HABIT_ANCHOR("Habit Anchor", "wb_sunny"),
     COGNITIVE_RECOVERY_BUFFER("Recovery Buffer", "spa"),
-    SLEEP("Biological Sleep", "bedtime")
+    SLEEP("Biological Sleep", "bedtime"),
+    CUSTOM("Custom / Personalizado", "tune")
 }
 
 @JsonClass(generateAdapter = true)

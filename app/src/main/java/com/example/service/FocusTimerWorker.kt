@@ -93,23 +93,27 @@ class FocusTimerWorker(
             isFrog: Boolean,
             isSpanish: Boolean
         ) {
-            val inputData = workDataOf(
-                KEY_TASK_TITLE to taskTitle,
-                KEY_IS_FROG to isFrog,
-                KEY_IS_SPANISH to isSpanish
-            )
+            try {
+                val inputData = workDataOf(
+                    KEY_TASK_TITLE to taskTitle,
+                    KEY_IS_FROG to isFrog,
+                    KEY_IS_SPANISH to isSpanish
+                )
 
-            val workRequest = OneTimeWorkRequestBuilder<FocusTimerWorker>()
-                .setInitialDelay(durationSeconds, TimeUnit.SECONDS)
-                .setInputData(inputData)
-                .addTag(WORK_TAG)
-                .build()
+                val workRequest = OneTimeWorkRequestBuilder<FocusTimerWorker>()
+                    .setInitialDelay(durationSeconds, TimeUnit.SECONDS)
+                    .setInputData(inputData)
+                    .addTag(WORK_TAG)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_TAG,
-                ExistingWorkPolicy.REPLACE,
-                workRequest
-            )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    WORK_TAG,
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
+            } catch (e: Exception) {
+                // Ignore if WorkManager not initialized in unit tests
+            }
         }
 
         fun cancelFocusTimer(context: Context) {

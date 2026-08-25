@@ -67,6 +67,36 @@ class Converters {
     }
 
     @TypeConverter
+    fun fromWakeUpFeeling(value: WakeUpFeeling?): String = value?.name ?: WakeUpFeeling.RESTED.name
+
+    @TypeConverter
+    fun toWakeUpFeeling(value: String?): WakeUpFeeling = try {
+        WakeUpFeeling.valueOf(value ?: WakeUpFeeling.RESTED.name)
+    } catch (e: Exception) {
+        WakeUpFeeling.RESTED
+    }
+
+    @TypeConverter
+    fun fromCaffeineIntake(value: CaffeineIntake?): String = value?.name ?: CaffeineIntake.MODERATE.name
+
+    @TypeConverter
+    fun toCaffeineIntake(value: String?): CaffeineIntake = try {
+        CaffeineIntake.valueOf(value ?: CaffeineIntake.MODERATE.name)
+    } catch (e: Exception) {
+        CaffeineIntake.MODERATE
+    }
+
+    @TypeConverter
+    fun fromMealRegularity(value: MealRegularity?): String = value?.name ?: MealRegularity.REGULAR.name
+
+    @TypeConverter
+    fun toMealRegularity(value: String?): MealRegularity = try {
+        MealRegularity.valueOf(value ?: MealRegularity.REGULAR.name)
+    } catch (e: Exception) {
+        MealRegularity.REGULAR
+    }
+
+    @TypeConverter
     fun fromPantryCategory(value: PantryCategory?): String = value?.name ?: PantryCategory.PROTEIN.name
 
     @TypeConverter

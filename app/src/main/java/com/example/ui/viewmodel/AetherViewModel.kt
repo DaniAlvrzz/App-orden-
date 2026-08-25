@@ -12,6 +12,7 @@ import com.example.data.model.*
 import com.example.data.remote.AetherGeminiEngine
 import com.example.data.repository.AchievementRepository
 import com.example.data.repository.AetherRepository
+import com.example.data.repository.DailyRolloverResult
 import com.example.data.util.AetherDateUtils
 import com.example.service.FocusTimerWorker
 import com.example.ui.i18n.AppLanguage
@@ -98,7 +99,12 @@ data class AetherUiState(
     val isAiStreaming: Boolean = false,
     val isAiThinking: Boolean = false,
     val activeStreamingMessageId: String? = null,
-    val activeStreamingContent: String = ""
+    val activeStreamingContent: String = "",
+    // Módulo 6: Importación Externa de Dietas desde IA
+    val showImportDietDialog: Boolean = false,
+    val isImportingDiet: Boolean = false,
+    // Módulo 2: Aviso de Reinicio Diario Inteligente
+    val dailyRolloverNotice: DailyRolloverResult? = null
 ) {
     // Cognitive ceiling computation: Deep work sum
     val deepWorkMinutesAllocated: Int
@@ -116,6 +122,7 @@ data class AetherUiState(
     val frogTask: TaskItem?
         get() = tasks.firstOrNull { it.isFrog } ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH }
 
+    // Dynamic full lists without artificial rendering caps
     val mediumTasks: List<TaskItem>
         get() = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }
 
@@ -177,7 +184,26 @@ class AetherViewModel @JvmOverloads constructor(
     private var historyLogsJob: Job? = null
 
     init {
+        performDailyRolloverCheck()
         observeData()
+    }
+
+    private fun performDailyRolloverCheck() {
+        viewModelScope.launch {
+            val rolloverResult = repository.checkAndPerformDailyRollover()
+            if (rolloverResult != null) {
+                _uiState.value = _uiState.value.copy(dailyRolloverNotice = rolloverResult)
+                val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+                showFeedback(
+                    if (isSpanish) "🌅 ¡Nuevo día iniciado! Tareas y hábitos desmarcados para hoy. Historial del día anterior guardado."
+                    else "🌅 New day started! Tasks & habits reset for today. Previous day logged in history."
+                )
+            }
+        }
+    }
+
+    fun dismissDailyRolloverNotice() {
+        _uiState.value = _uiState.value.copy(dailyRolloverNotice = null)
     }
 
     private fun observeData() {
@@ -264,8 +290,8 @@ class AetherViewModel @JvmOverloads constructor(
                     .sumOf { 60 } // Default estimation
 
                 val frog = tasks.firstOrNull { it.isFrog } ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH }
-                val mediums = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }.take(3)
-                val quicks = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.LOW }.take(5)
+                val mediums = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }
+                val quicks = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.LOW }
 
                 val bFast = meals.firstOrNull { it.slot == MealSlot.BREAKFAST }
                 val lUnch = meals.firstOrNull { it.slot == MealSlot.LUNCH }
@@ -279,8 +305,8 @@ class AetherViewModel @JvmOverloads constructor(
                     biometric_baseline = bio,
                     top_3_priorities_1_3_5 = Top3Priorities(
                         frog_task = if (bio.systemMode == SystemMode.RECOVERY) null else frog,
-                        medium_tasks = mediums,
-                        quick_wins = quicks
+                        medium_tasks = mediums.take(3),
+                        quick_wins = quicks.take(5)
                     ),
                     time_blocks = timeBlocks,
                     suggested_tasks_by_energy_menu = SuggestedEnergyMenu(
@@ -563,6 +589,8 @@ class AetherViewModel @JvmOverloads constructor(
         }
     }
 
+    // --- Task Actions ---
+
     fun quickAddTask(
         title: String,
         description: String,
@@ -716,6 +744,7 @@ class AetherViewModel @JvmOverloads constructor(
     }
 
     // --- TimeBlock Actions ---
+
     fun addTimeBlock(
         startTime: String,
         endTime: String,
@@ -796,6 +825,7 @@ class AetherViewModel @JvmOverloads constructor(
     }
 
     // --- Pantry Actions ---
+
     fun addPantryItem(
         name: String,
         category: PantryCategory,
@@ -856,7 +886,8 @@ class AetherViewModel @JvmOverloads constructor(
         }
     }
 
-    // --- Meals Actions ---
+    // --- Meals & External AI Diet Importer ---
+
     fun addCustomMeal(
         slot: MealSlot,
         title: String,
@@ -900,7 +931,7 @@ class AetherViewModel @JvmOverloads constructor(
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
             val isToday = targetOffsetDays == 0
             repository.duplicateMeal(meal, targetDateIso = targetDate, copySuffix = isToday)
-            
+
             val dayDesc = when (targetOffsetDays) {
                 0 -> if (isSpanish) "para hoy" else "for today"
                 1 -> if (isSpanish) "para mañana" else "for tomorrow"
@@ -959,7 +990,37 @@ class AetherViewModel @JvmOverloads constructor(
         _uiState.value = _uiState.value.copy(showAddMealDialog = show)
     }
 
+    fun setShowImportDiet(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showImportDietDialog = show)
+    }
+
+    fun importMealsFromExternalAI(rawTextOrJson: String) {
+        val clean = rawTextOrJson.trim()
+        if (clean.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isImportingDiet = true)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            val result = repository.importMealsFromExternalAI(clean)
+            _uiState.value = _uiState.value.copy(isImportingDiet = false, showImportDietDialog = false)
+
+            if (result.isSuccess) {
+                val count = result.getOrDefault(0)
+                showFeedback(
+                    if (isSpanish) "✅ ¡$count comidas importadas correctamente desde el plan IA!"
+                    else "✅ $count meals successfully imported from AI plan!"
+                )
+            } else {
+                showFeedback(
+                    if (isSpanish) "❌ Error al interpretar el texto: Verifica el formato del plan."
+                    else "❌ Failed to parse diet plan: Please check text format."
+                )
+            }
+        }
+    }
+
     // --- Habit Actions ---
+
     fun addHabit(
         title: String,
         description: String,
@@ -1029,13 +1090,11 @@ class AetherViewModel @JvmOverloads constructor(
 
                 unlockAchievement(AchievementId.FIRST_HABIT)
 
-                // 4.4 XP: +10 XP for completing habit
                 val xpResult = achievementRepository.addXp(10)
                 if (xpResult.didLevelUp) {
                     triggerLevelUpToast(xpResult.newLevel)
                 }
 
-                // Check if all habits are now completed -> Perfect Day Bonus (+50 XP)
                 val currentHabits = _uiState.value.habits
                 val otherHabitsCompleted = currentHabits.filter { it.id != habit.id }.all { it.isCompleted }
                 if (currentHabits.isNotEmpty() && otherHabitsCompleted) {
@@ -1067,6 +1126,7 @@ class AetherViewModel @JvmOverloads constructor(
     }
 
     // --- Undo Restore Action ---
+
     fun restoreLastDeletedItem() {
         val state = _uiState.value
         val isSpanish = state.currentLanguage == AppLanguage.SPANISH
@@ -1113,6 +1173,7 @@ class AetherViewModel @JvmOverloads constructor(
     }
 
     // --- Clean Slate & Demo Data Handlers ---
+
     fun resetToCleanSlate() {
         viewModelScope.launch {
             val lang = _uiState.value.currentLanguage
@@ -1172,7 +1233,8 @@ class AetherViewModel @JvmOverloads constructor(
         return repository.exportPlanAsJson(plan)
     }
 
-    // Focus Pomodoro Timer with WorkManager Background Alarm
+    // --- Focus Pomodoro Timer with WorkManager ---
+
     fun startFocusTimer(task: TaskItem? = null) {
         val durationMinutes = task?.estimatedMinutes ?: 25
         val durationSeconds = durationMinutes * 60
@@ -1205,38 +1267,34 @@ class AetherViewModel @JvmOverloads constructor(
                 unlockAchievement(AchievementId.FOCUS_BLOCK_DONE)
                 showFeedback(
                     if (isSpanish) "🎯 ¡Bloque de enfoque completado! Tómate una pausa de recuperación cognitiva."
-                    else "🎯 Focus Block Complete! Step away for cognitive recovery."
+                    else "🎯 Focus block completed! Take a cognitive recovery break."
                 )
             }
         }
     }
 
-    fun stopFocusTimer() {
+    fun pauseFocusTimer() {
         timerJob?.cancel()
         FocusTimerWorker.cancelFocusTimer(getApplication())
         _uiState.value = _uiState.value.copy(isFocusTimerRunning = false)
     }
 
-    fun resetFocusTimer(minutes: Int = 25) {
+    fun resetFocusTimer() {
         timerJob?.cancel()
         FocusTimerWorker.cancelFocusTimer(getApplication())
         _uiState.value = _uiState.value.copy(
             isFocusTimerRunning = false,
-            focusSecondsRemaining = minutes * 60
+            focusSecondsRemaining = (_uiState.value.activeFocusTask?.estimatedMinutes ?: 25) * 60
         )
     }
 
-    private fun triggerLevelUpToast(level: Int) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = level)
-            delay(3500)
-            if (_uiState.value.levelUpCelebrationLevel == level) {
-                _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = null)
-            }
-        }
+    // --- Achievements & Gamification ---
+
+    private fun triggerLevelUpToast(newLevel: Int) {
+        _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = newLevel)
     }
 
-    private fun unlockAchievement(id: AchievementId) {
+    fun unlockAchievement(id: AchievementId) {
         viewModelScope.launch {
             val newlyUnlocked = achievementRepository.unlockAchievement(id)
             if (newlyUnlocked) {
@@ -1245,8 +1303,13 @@ class AetherViewModel @JvmOverloads constructor(
                     newlyUnlockedAchievement = item,
                     newlyUnlockedAchievementModal = item
                 )
-                delay(3500)
-                if (_uiState.value.newlyUnlockedAchievement?.id == id) {
+                val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+                showFeedback(
+                    if (isSpanish) "🏆 ¡Logro desbloqueado: ${id.titleEs} (+${id.xpReward} XP)!"
+                    else "🏆 Achievement Unlocked: ${id.titleEn} (+${id.xpReward} XP)!"
+                )
+                viewModelScope.launch {
+                    delay(4000)
                     _uiState.value = _uiState.value.copy(newlyUnlockedAchievement = null)
                 }
             }
@@ -1269,7 +1332,7 @@ class AetherViewModel @JvmOverloads constructor(
         _uiState.value = _uiState.value.copy(statusMessage = null)
     }
 
-    // --- Phase 3 Module 5: Núcleo IA Chat, Quick Actions & Saved Favorites ---
+    // --- Phase 3 Module 5: Núcleo IA Chat & Quick Actions ---
 
     fun setAiTab(tab: Int) {
         _uiState.value = _uiState.value.copy(selectedAiTab = tab)
@@ -1347,6 +1410,18 @@ class AetherViewModel @JvmOverloads constructor(
         }
     }
 
+    fun saveBiometricBaseline(biometric: BiometricBaseline) {
+        viewModelScope.launch {
+            repository.saveBiometricBaseline(biometric)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(
+                if (isSpanish) "✅ Calibración completada: Readiness ${biometric.readinessScore}/100 • Techo ${(biometric.dynamicCognitiveCeilingMinutes / 60.0)}h"
+                else "✅ Calibration complete: Readiness ${biometric.readinessScore}/100 • Ceiling ${(biometric.dynamicCognitiveCeilingMinutes / 60.0)}h"
+            )
+            unlockAchievement(AchievementId.CIRCADIAN_SYNC)
+        }
+    }
+
     fun sendQuickAction(action: AiQuickAction) {
         val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
         val prompt = when (action) {
@@ -1354,6 +1429,12 @@ class AetherViewModel @JvmOverloads constructor(
             AiQuickAction.LOW_ENERGY -> if (isSpanish) "Tengo poca energía hoy, ¿qué debo hacer?" else "I have low energy today, what should I do?"
             AiQuickAction.WEEKLY_REVIEW -> if (isSpanish) "Haz una revisión semanal de mis hábitos y tareas" else "Do a weekly review of my habits and tasks"
             AiQuickAction.THIRTY_MIN_TASK -> if (isSpanish) "¿Qué puedo hacer ahora con 30 minutos disponibles?" else "What can I do now with 30 minutes available?"
+            AiQuickAction.BREAK_DOWN_TASK -> if (isSpanish) "Desglosa mi tarea principal (Frog) en micro-pasos de 5 a 15 min para empezar sin fricción" else "Break down my Frog task into 5-15 min micro-steps to start without friction"
+            AiQuickAction.NO_MOTIVATION -> if (isSpanish) "No tengo motivación ni ganas de hacer nada. Dame un micro-paso de 5 minutos." else "I have zero motivation today. Give me a 5-minute micro-step."
+            AiQuickAction.OVERWHELMED -> if (isSpanish) "Estoy muy saturado y abrumado con tantas cosas. Ayúdame a vaciar la mente y regularme." else "I feel overwhelmed with too many things. Help me regulate and downscale."
+            AiQuickAction.MICRO_STEP -> if (isSpanish) "¿Cuál es el mínimo micro-paso que puedo dar ahora mismo para vencer la inercia?" else "What is the smallest possible micro-step to break inertia right now?"
+            AiQuickAction.EMOTIONAL_SUPPORT -> if (isSpanish) "Necesito apoyo y desahogo personal para recuperar la calma y el enfoque." else "I need emotional support and a moment of calm grounding."
+            AiQuickAction.GENTLE_PLAN -> if (isSpanish) "Genera un plan suave y compasivo para el resto del día." else "Generate a gentle, compassionate plan for the rest of today."
         }
         sendChatMessage(prompt)
     }
@@ -1387,4 +1468,3 @@ class AetherViewModel @JvmOverloads constructor(
         }
     }
 }
-

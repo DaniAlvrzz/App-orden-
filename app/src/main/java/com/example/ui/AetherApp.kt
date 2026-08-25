@@ -163,7 +163,8 @@ fun AetherApp(
                         onToggleLanguage = {
                             val nextLang = if (state.currentLanguage == AppLanguage.SPANISH) AppLanguage.ENGLISH else AppLanguage.SPANISH
                             viewModel.setLanguage(nextLang)
-                        }
+                        },
+                        onSaveBiometric = { viewModel.saveBiometricBaseline(it) }
                     )
                     1 -> BacklogScreen(
                         state = state,
@@ -175,7 +176,7 @@ fun AetherApp(
                         onSetEnergyFilter = { viewModel.setEnergyFilter(it) },
                         onSetSearchQuery = { viewModel.setSearchQuery(it) },
                         onStartFocusTimer = { viewModel.startFocusTimer(it) },
-                        onPauseFocusTimer = { viewModel.stopFocusTimer() },
+                        onPauseFocusTimer = { viewModel.pauseFocusTimer() },
                         onResetFocusTimer = { viewModel.resetFocusTimer() },
                         onOpenQuickAdd = { viewModel.setShowQuickAdd(true) },
                         onOpenHistory = { viewModel.openHistory() }
@@ -187,6 +188,7 @@ fun AetherApp(
                         onEditMeal = { viewModel.setEditingMeal(it) },
                         onDuplicateMeal = { meal, offset -> viewModel.duplicateMeal(meal, offset) },
                         onOpenAddMeal = { viewModel.setShowAddMeal(true) },
+                        onOpenImportDiet = { viewModel.setShowImportDiet(true) },
                         onTogglePantryStock = { id, inStock -> viewModel.togglePantryStock(id, inStock) },
                         onDeletePantryItem = { viewModel.deletePantryItemWithUndo(it) },
                         onEditPantryItem = { viewModel.setEditingPantryItem(it) },
@@ -467,6 +469,16 @@ fun AetherApp(
                     achievements = state.achievements,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setShowAchievementsDialog(false) }
+                )
+            }
+
+            // 15.5 Import External AI Diet Dialog
+            if (state.showImportDietDialog) {
+                ImportDietDialog(
+                    language = state.currentLanguage,
+                    isLoading = state.isImportingDiet,
+                    onDismiss = { viewModel.setShowImportDiet(false) },
+                    onImport = { viewModel.importMealsFromExternalAI(it) }
                 )
             }
 

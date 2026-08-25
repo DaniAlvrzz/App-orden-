@@ -141,6 +141,7 @@ fun TimeBlockItemRow(
         BlockType.MEETING -> AetherViolet
         BlockType.ADMIN_SLOT -> AetherElectricBlue
         BlockType.SLEEP -> AetherPurple
+        BlockType.CUSTOM -> AetherCyan
     }
 
     val typeLabel = when (block.blockType) {
@@ -151,6 +152,7 @@ fun TimeBlockItemRow(
         BlockType.MEETING -> if (isSpanish) "COORDINACIÓN" else "MEETING"
         BlockType.ADMIN_SLOT -> if (isSpanish) "ADMIN / TRIAJE" else "ADMIN / TRIAGE"
         BlockType.SLEEP -> if (isSpanish) "SUEÑO Y DESCANSO" else "SLEEP"
+        BlockType.CUSTOM -> if (isSpanish) "PERSONALIZADO" else "CUSTOM"
     }
 
     val icon = when (block.blockType) {
@@ -161,6 +163,7 @@ fun TimeBlockItemRow(
         BlockType.MEETING -> Icons.Default.Groups
         BlockType.ADMIN_SLOT -> Icons.Default.TaskAlt
         BlockType.SLEEP -> Icons.Default.Bedtime
+        BlockType.CUSTOM -> Icons.Default.Schedule
     }
 
     Card(

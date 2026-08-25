@@ -8,8 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AiStatus
+import com.example.data.model.BiometricBaseline
 import com.example.data.model.Chronotype
 import com.example.data.model.SystemMode
 import com.example.data.model.TaskItem
@@ -52,10 +52,24 @@ fun NexusScreen(
     onOpenSettings: () -> Unit,
     onOpenTutorial: () -> Unit,
     onToggleLanguage: () -> Unit,
+    onSaveBiometric: (BiometricBaseline) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val isSpanish = state.currentLanguage == AppLanguage.SPANISH
+    var showSmartCheckInDialog by remember { mutableStateOf(false) }
+
+    if (showSmartCheckInDialog) {
+        SmartCheckInDialog(
+            currentBiometric = state.biometric,
+            language = state.currentLanguage,
+            onDismiss = { showSmartCheckInDialog = false },
+            onSave = { updatedBaseline ->
+                onSaveBiometric(updatedBaseline)
+                showSmartCheckInDialog = false
+            }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -315,7 +329,9 @@ fun NexusScreen(
                 onReadinessChanged = onReadinessChanged,
                 onChronotypeChanged = onChronotypeChanged,
                 onToggleRecoveryMode = onToggleRecoveryMode,
-                onOrchestrateClick = onOrchestrateClick
+                onOrchestrateClick = onOrchestrateClick,
+                onOpenSmartCheckIn = { showSmartCheckInDialog = true },
+                language = state.currentLanguage
             )
         }
 

@@ -26,7 +26,7 @@ import java.time.LocalDate
         DailySummaryEntity::class,
         AiMessageEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -155,6 +155,31 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v5 to v6:
+         * Adds multi-variable bioenergetic metrics, dynamic cognitive ceiling fields,
+         * and sleep/stress/motivation metrics to `biometrics` table.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `computedReadinessScore` INTEGER NOT NULL DEFAULT 75")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `sleepStartTime` TEXT NOT NULL DEFAULT '23:00'")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `sleepEndTime` TEXT NOT NULL DEFAULT '07:30'")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `sleepInterruptionsCount` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `wakeUpFeeling` TEXT NOT NULL DEFAULT 'RESTED'")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `currentEnergyLevel` INTEGER NOT NULL DEFAULT 7")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `stressLevel` INTEGER NOT NULL DEFAULT 3")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `motivationLevel` INTEGER NOT NULL DEFAULT 7")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `caffeineIntake` TEXT NOT NULL DEFAULT 'MODERATE'")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `exerciseDone` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `mealRegularity` TEXT NOT NULL DEFAULT 'REGULAR'")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `mentalOverload` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `emotionalConcern` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `dynamicCognitiveCeilingMinutes` INTEGER NOT NULL DEFAULT 180")
+                db.execSQL("ALTER TABLE `biometrics` ADD COLUMN `cognitiveCeilingReason` TEXT NOT NULL DEFAULT 'Línea base estándar ajustada por biometría.'")
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -162,7 +187,7 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
                 // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
                 // Every schema version bump must ship an explicit Migration, or real user

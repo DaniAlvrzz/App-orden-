@@ -36,6 +36,7 @@ fun NutritionScreen(
     onEditMeal: (MealItem) -> Unit = {},
     onDuplicateMeal: (MealItem, Int) -> Unit = { _, _ -> },
     onOpenAddMeal: () -> Unit = {},
+    onOpenImportDiet: () -> Unit = {},
     onTogglePantryStock: (String, Boolean) -> Unit,
     onDeletePantryItem: (PantryItem) -> Unit,
     onEditPantryItem: (PantryItem) -> Unit = {},
@@ -110,6 +111,25 @@ fun NutritionScreen(
 
                     if (selectedSection == 0) {
                         FilledTonalButton(
+                            onClick = onOpenImportDiet,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = AetherCyan.copy(alpha = 0.15f),
+                                contentColor = AetherCyan
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.testTag("import_diet_btn")
+                        ) {
+                            Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (state.currentLanguage == AppLanguage.SPANISH) "Importar IA" else "Import AI",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        FilledTonalButton(
                             onClick = onOpenAddMeal,
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = AetherAmber.copy(alpha = 0.2f),
@@ -123,7 +143,8 @@ fun NutritionScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = if (state.currentLanguage == AppLanguage.SPANISH) "+ Comida" else "+ Meal",
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp
                             )
                         }
                     } else {

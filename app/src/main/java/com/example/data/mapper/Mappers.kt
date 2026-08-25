@@ -144,23 +144,61 @@ fun HabitAnchor.toEntity() = HabitEntity(
     reframingTip = reframingTip
 )
 
-fun BiometricEntity.toModel() = BiometricBaseline(
-    readinessScore = readinessScore,
-    perceivedEnergy = perceivedEnergy,
-    sleepHours = sleepHours,
-    sleepQuality = sleepQuality,
-    chronotype = chronotype,
-    recoveryModeTriggered = recoveryModeTriggered,
-    graceDayActive = graceDayActive
-)
+fun BiometricEntity.toModel(): BiometricBaseline {
+    val curve = BiometricBaseline.generateDynamicEnergyCurve(
+        readiness = readinessScore,
+        chronotype = chronotype,
+        sleepEndTime = sleepEndTime
+    )
+    return BiometricBaseline(
+        readinessScore = readinessScore,
+        computedReadinessScore = computedReadinessScore,
+        perceivedEnergy = perceivedEnergy,
+        sleepStartTime = sleepStartTime,
+        sleepEndTime = sleepEndTime,
+        sleepHours = sleepHours,
+        sleepInterruptionsCount = sleepInterruptionsCount,
+        sleepQuality = sleepQuality,
+        wakeUpFeeling = wakeUpFeeling,
+        currentEnergyLevel = currentEnergyLevel,
+        stressLevel = stressLevel,
+        motivationLevel = motivationLevel,
+        caffeineIntake = caffeineIntake,
+        exerciseDone = exerciseDone,
+        mealRegularity = mealRegularity,
+        mentalOverload = mentalOverload,
+        emotionalConcern = emotionalConcern,
+        chronotype = chronotype,
+        dynamicCognitiveCeilingMinutes = dynamicCognitiveCeilingMinutes,
+        cognitiveCeilingReason = cognitiveCeilingReason,
+        estimatedEnergyCurve = curve,
+        recoveryModeTriggered = recoveryModeTriggered,
+        graceDayActive = graceDayActive
+    )
+}
 
 fun BiometricBaseline.toEntity(date: String = com.example.data.util.AetherDateUtils.getTodayIso()) = BiometricEntity(
     date = date,
     readinessScore = readinessScore,
+    computedReadinessScore = computedReadinessScore,
     perceivedEnergy = perceivedEnergy,
+    sleepStartTime = sleepStartTime,
+    sleepEndTime = sleepEndTime,
     sleepHours = sleepHours,
+    sleepInterruptionsCount = sleepInterruptionsCount,
     sleepQuality = sleepQuality,
+    wakeUpFeeling = wakeUpFeeling,
+    currentEnergyLevel = currentEnergyLevel,
+    stressLevel = stressLevel,
+    motivationLevel = motivationLevel,
+    caffeineIntake = caffeineIntake,
+    exerciseDone = exerciseDone,
+    mealRegularity = mealRegularity,
+    mentalOverload = mentalOverload,
+    emotionalConcern = emotionalConcern,
     chronotype = chronotype,
+    dynamicCognitiveCeilingMinutes = dynamicCognitiveCeilingMinutes,
+    cognitiveCeilingReason = cognitiveCeilingReason,
     recoveryModeTriggered = recoveryModeTriggered,
     graceDayActive = graceDayActive
 )

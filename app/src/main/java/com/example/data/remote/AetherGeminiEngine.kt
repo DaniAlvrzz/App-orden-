@@ -212,32 +212,79 @@ class AetherGeminiEngine {
         }
 
         return """
-        You are Aether OS Bioenergetic Assistant, an elite neuro-chronobiology copilot.
-        Leyes Operativas de Aether OS:
-        1. Ley del Frog: Máximo 1 tarea de Alta Demanda (Tipo A) al día.
-        2. Techo Cognitivo: Máximo 3.5h (210 min) de Deep Work diario.
-        3. Protocolo de Recuperación: Si readiness < 60, cero tareas Tipo A, asignar buffers y descanso parasimpático.
-        4. Nutrición Relacional: Priorizar comidas con ingredientes disponibles y bajo impacto glucémico.
-        5. Disciplina sin Culpa: Usar Grace Days y reencuadre compasivo ante desvíos.
+        You are Aether OS Bioenergetic Copilot, an empathetic, intelligent, neuro-chronobiological companion.
+        Tu misión: Acompañar al usuario con cercanía, rigor biológico y empatía auténtica. Cero frialdad, cero sermones robóticos.
+        
+        PRINCIPIOS CLÍNICOS Y PSICOLÓGICOS:
+        1. Desglose Atómico: Cuando una tarea parezca abrumadora o el usuario procrastine, descomponla en 3 a 5 micro-pasos de 5-15 minutos absurdamente fáciles de empezar (Ley de Activación Conductual).
+        2. Regla de los 5 Minutos y Suspiro Fisiológico: Fomenta romper la inercia con micro-acciones sin comprometerse a terminar todo de golpe.
+        3. Cero Culpa y Regulación: La fatiga, la resistencia y los días difíciles son respuestas biológicas normales del sistema nervioso. Los 'Grace Days' preservan la identidad sin culpa.
+        4. Ley del Frog y Techo Cognitivo: Máximo 1 tarea Frog (Tipo A) y límite neurobiológico de ${context.maxCognitiveCeilingMinutes / 60.0}h de Deep Work diario.
 
         CONTEXTO BIOLÓGICO REAL DEL USUARIO HOY:
         - Fecha: ${context.dateIso}
         - Biometría: Readiness Score ${context.readinessScore}/100 | Energía Percibida ${context.perceivedEnergy}/100 | Sueño: ${context.sleepHours}h (Calidad: ${context.sleepQuality}/5) | Cronotipo: ${context.chronotype.name} | Modo Recuperación: ${context.isRecoveryMode} | Grace Day Activo: ${context.isGraceDayActive}
-        - Deep Work Asignado: ${context.deepWorkMinutesAllocated}/${context.maxCognitiveCeilingMinutes} min
+        - Techo Cognitivo: ${context.deepWorkMinutesAllocated} min asignados / ${context.maxCognitiveCeilingMinutes} min presupuesto
         - Tarea FROG actual: ${frog?.title ?: "Ninguna designada"}
-        - Backlog Tareas Pendientes:
+        - Backlog Tareas:
           * Alta energía: ${highEnergyTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
           * Media energía: ${mediumTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
-          * Baja energía (Quick Wins): ${lowTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
+          * Micro-victorias (Quick Wins): ${lowTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
         - Estado de Hábitos Circadianos: $habitsInfo
         - Bloques del Cronograma: $blocksInfo
         - Ingredientes en Despensa: $pantry
 
-        REGLAS DE RESPUESTA:
+        REGLAS DE FORMATO Y TONO:
         - Idioma obligatorio: $lang
-        - Estilo: Directo, empático, basado en ritmos circadianos y evidencia biológica. Formato estructurado y visualmente limpio (con emojis moderados y listas con viñetas).
-        - Nunca des sermones moralistas. Da pautas accionables de 1 a 3 pasos con tiempos concretos.
+        - Tono: Cálido, honesto, constructivo, psicológicamente inteligente y práctico.
+        - Si el usuario pide desglosar una tarea o planificar, proporciona viñetas con formato claro: `• [10 min] Paso 1: ...`
+        - Si el usuario expresa ansiedad o frustración, valida primero su emoción antes de dar un paso concreto.
         """.trimIndent()
+    }
+
+    /**
+     * Helper to break down a high-demand task into 3-5 frictionless micro-steps.
+     */
+    suspend fun breakDownTask(
+        taskTitle: String,
+        minutes: Int,
+        language: AppLanguage
+    ): List<String> = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (!apiKey.isNullOrEmpty() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val prompt = "Desglosa la tarea '$taskTitle' ($minutes min) en 3 o 4 micro-pasos inmediatos, de 5 a 15 minutos cada uno, diseñados para vencer la procrastinación y reducir la fricción ejecutiva. Devuelve solo las líneas de los pasos con el formato: [X min] Paso."
+                val request = GeminiRequest(
+                    contents = listOf(GeminiContent(role = "user", parts = listOf(GeminiPart(text = prompt)))),
+                    generationConfig = GeminiGenerationConfig(temperature = 0.4f, responseMimeType = "text/plain")
+                )
+                val response = GeminiApiClient.service.generateContent(apiKey, request)
+                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                if (!text.isNullOrBlank()) {
+                    val steps = text.lines().map { it.trim().removePrefix("-").removePrefix("•").trim() }.filter { it.isNotEmpty() }
+                    if (steps.isNotEmpty()) return@withContext steps
+                }
+            } catch (e: Exception) {
+                Log.e("AetherGeminiEngine", "Task breakdown error: ${e.message}")
+            }
+        }
+
+        // Deterministic high-quality breakdown
+        if (language == AppLanguage.SPANISH) {
+            listOf(
+                "[5 min] Abrir el entorno/documento y escribir solo el título o esquema inicial",
+                "[15 min] Crear el primer borrador sin juzgar la calidad (Fase de Generación)",
+                "[20 min] Desarrollar la sección central o núcleo de la tarea",
+                "[10 min] Pulir, revisar detalles y marcar como completado"
+            )
+        } else {
+            listOf(
+                "[5 min] Open files/environment and write just the title or skeleton outline",
+                "[15 min] Draft the rough first version without self-critique (Generation Phase)",
+                "[20 min] Develop the primary core module/section",
+                "[10 min] Review, polish finishing touches, and mark done"
+            )
+        }
     }
 
     /**
@@ -253,8 +300,116 @@ class AetherGeminiEngine {
         val lowTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.LOW }
         val mediumTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.MEDIUM }
 
+        // Quick Action: Desglosar Frog / Tarea
+        if (lowerPrompt.contains("desglos") || lowerPrompt.contains("break down") || lowerPrompt.contains("paso a paso") || lowerPrompt.contains("subtareas")) {
+            val targetTaskName = frog?.title ?: context.pendingTasks.firstOrNull()?.title ?: if (isSpanish) "Proyecto Principal" else "Main Project"
+            return if (isSpanish) {
+                """
+                🧩 **Desglose Atómico para Reducir Fricción: '$targetTaskName'**
+
+                Cuando una tarea parece pesada, el cerebro activa resistencia límbica. Dividámosla en micro-pasos ridículamente fáciles:
+
+                • **[5 min] Paso 1: Preparación Cero Fricción:** Abre el archivo/herramienta y escribe únicamente la estructura en 3 puntos.
+                • **[15 min] Paso 2: Primer Borrador Feo:** Trabaja durante 15 minutos sin corregir nada. El objetivo es solo generar inercia.
+                • **[20 min] Paso 3: Bloque de Construcción:** Desarrolla el 50% de la parte central.
+                • **[10 min] Paso 4: Cierre y Pulido:** Revisa detalles finales y archiva.
+
+                💡 *Regla de oro: No necesitas motivación para los primeros 5 minutos, la motivación surge DESPUÉS de empezar.*
+                """.trimIndent()
+            } else {
+                """
+                🧩 **Atomic Frictionless Breakdown: '$targetTaskName'**
+
+                When a task feels daunting, your limbic system signals resistance. Let's break it down into effortless micro-actions:
+
+                • **[5 min] Step 1: Zero-Friction Setup:** Open tools and outline 3 bullet points only.
+                • **[15 min] Step 2: Ugly First Draft:** Work for 15 minutes without editing. Pure inertia generation.
+                • **[20 min] Step 3: Core Construction:** Build 50% of the core piece.
+                • **[10 min] Step 4: Polish & Wrap-up:** Final review and check off.
+
+                💡 *Golden rule: You don't need motivation for step 1; action creates motivation.*
+                """.trimIndent()
+            }
+        }
+
+        // Quick Action: Abrumado / Saturado / Ansiedad
+        if (lowerPrompt.contains("saturad") || lowerPrompt.contains("abrumad") || lowerPrompt.contains("overwhelm") || lowerPrompt.contains("ansied") || lowerPrompt.contains("stress")) {
+            return if (isSpanish) {
+                """
+                🌊 **Regulación Inmediata del Sistema Nervioso**
+
+                Te escucho. La sobrecarga no significa que seas incapaz; significa que tu corteza prefrontal tiene demasiadas variables abiertas a la vez.
+
+                **1. Reseteo Fisiológico Inmediato:**
+                Haz 3 *Suspiros Fisiológicos* ahora mismo:
+                • Inhala hondo por la nariz...
+                • Inhala un poco más arriba para abrir los alvéolos...
+                • Exhala lentamente por la boca en 6 segundos.
+
+                **2. Protocolo de Vaciado y Reducción de Carga:**
+                • Hoy no intentes hacerlo todo. Quédate solo con **1 micro-victoria**.
+                • Todo lo demás puede esperar sin consecuencias graves.
+                • Tu bienestar y tu equilibrio biológico van primero.
+
+                ✨ *¿Quieres que desactivemos la tarea Frog de hoy y dejemos solo un plan suave?*
+                """.trimIndent()
+            } else {
+                """
+                🌊 **Immediate Nervous System Down-Regulation**
+
+                I hear you. Overwhelm doesn't mean you're falling behind; it means your prefrontal bandwidth is holding too many open loops.
+
+                **1. Physiological Sigh Reset:**
+                Perform 3 Physiological Sighs right now:
+                • Deep nasal inhale...
+                • Quick top-up inhale to reinflate alveoli...
+                • Long, slow mouth exhale (6 seconds).
+
+                **2. Friction Reduction:**
+                • Don't try to clear everything today. Focus on just **1 tiny quick win**.
+                • Everything else can safely wait. Your biological baseline comes first.
+
+                ✨ *Would you like to pause the Frog task today and switch to a gentle flow?*
+                """.trimIndent()
+            }
+        }
+
+        // Quick Action: No tengo ganas / Mínimo micro-paso
+        if (lowerPrompt.contains("no tengo ganas") || lowerPrompt.contains("micro-paso") || lowerPrompt.contains("micropaso") || lowerPrompt.contains("resistencia") || lowerPrompt.contains("procrastin")) {
+            val microTask = lowTasks.firstOrNull() ?: context.pendingTasks.firstOrNull()
+            return if (isSpanish) {
+                """
+                🎯 **Estrategia de Activación de Baja Demanda (5 Minutos)**
+
+                No esperes a "tener ganas". El cerebro solo genera dopamina tras el primer avance, no antes.
+
+                **Tu Único Objetivo Ahora:**
+                • Comprométete a trabajar **solo 5 minutos de reloj**.
+                ${if (microTask != null) "• Tarea sugerida: **${microTask.title}**" else "• Elige la acción más pequeña posible."}
+                • Si a los 5 minutos quieres parar, tienes permiso total para parar.
+                • El 85% de las veces, romper la inercia es suficiente para continuar con calma.
+
+                ⚡ *Pon un temporizador de 5 minutos y empieza por el primer clic.*
+                """.trimIndent()
+            } else {
+                """
+                🎯 **Low-Friction 5-Minute Activation Strategy**
+
+                Don't wait for motivation. Dopamine follows behavioral activation, not the other way around.
+
+                **Your Single Focus Right Now:**
+                • Commit to working for **just 5 timed minutes**.
+                ${if (microTask != null) "• Recommended micro-task: **${microTask.title}**" else "• Choose the smallest possible step."}
+                • If you want to stop after 5 minutes, you have full permission to rest.
+                • 85% of the time, overcoming initial static friction unlocks smooth flow.
+
+                ⚡ *Start a 5-minute timer and take the first single step.*
+                """.trimIndent()
+            }
+        }
+
         // Quick Action 1: "Planifica mi día"
-        if (lowerPrompt.contains("planifica") || lowerPrompt.contains("plan my day") || lowerPrompt.contains("plan")) {
+        if (lowerPrompt.contains("planifica") || lowerPrompt.contains("plan my day") || lowerPrompt.contains("plan") || lowerPrompt.contains("suave")) {
             return if (isSpanish) {
                 """
                 🗓️ **Plan Circadiano Sincronizado para Hoy** (${context.dateIso})
@@ -266,8 +421,8 @@ class AetherGeminiEngine {
                    • Desayuno proteico de bajo impacto glucémico.
                 
                 2. **🔥 Bloque de Foco Profundo (09:00 - 11:30):**
-                   ${if (frog != null) "• **FROG DEL DÍA:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Trabajo en tareas de media energía sin exceder 90 min continuos."}
-                   • *Techo cognitivo asignado:* ${context.deepWorkMinutesAllocated} / 210 min.
+                   ${if (frog != null && context.readinessScore >= 60) "• **FROG DEL DÍA:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Trabajo suave en tareas ligeras sin exceder 60 min continuos."}
+                   • *Techo cognitivo asignado:* ${context.deepWorkMinutesAllocated} / ${context.maxCognitiveCeilingMinutes} min.
                 
                 3. **🥗 Recarga & Movimiento (12:30 - 16:00):**
                    • Almuerzo balanceado con bases cocinadas disponibles.
@@ -287,8 +442,8 @@ class AetherGeminiEngine {
                    • Steady-fuel protein breakfast.
                 
                 2. **🔥 Deep Work Block (09:00 - 11:30):**
-                   ${if (frog != null) "• **FROG TASK:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Focus on core priority tasks under 90-min ultradian cycles."}
-                   • *Cognitive ceiling:* ${context.deepWorkMinutesAllocated} / 210 min.
+                   ${if (frog != null && context.readinessScore >= 60) "• **FROG TASK:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Gentle focus on secondary tasks under 60-min cycles."}
+                   • *Cognitive ceiling:* ${context.deepWorkMinutesAllocated} / ${context.maxCognitiveCeilingMinutes} min.
                 
                 3. **🥗 Midday Fuel & Quick Wins (12:30 - 16:00):**
                    • Relational lunch bowl.

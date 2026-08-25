@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -14,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Chronotype
@@ -199,6 +201,47 @@ fun CircadianEnergyCanvas(
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     color = if (label.contains("Dip") || label.contains("Bajón")) AetherAmber else AetherTextMuted
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Circadian Action Windows Bar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Surface(
+                color = AetherSurfaceElevated,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "🔥 ${chronotype.peakHours}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AetherAmber, fontSize = 10.sp)
+                    Text(text = if (isSpanish) "Foco Profundo" else "Deep Focus", style = MaterialTheme.typography.labelSmall, color = AetherTextSecondary, fontSize = 9.sp)
+                }
+            }
+
+            Surface(
+                color = AetherSurfaceElevated,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "🥗 13:00 - 15:00", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AetherCyan, fontSize = 10.sp)
+                    Text(text = if (isSpanish) "Recarga & Digestión" else "Fuel & Digest", style = MaterialTheme.typography.labelSmall, color = AetherTextSecondary, fontSize = 9.sp)
+                }
+            }
+
+            Surface(
+                color = AetherSurfaceElevated,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "🌙 21:30+", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AetherEmerald, fontSize = 10.sp)
+                    Text(text = if (isSpanish) "Viento Abajo" else "Wind-down", style = MaterialTheme.typography.labelSmall, color = AetherTextSecondary, fontSize = 9.sp)
+                }
             }
         }
     }

@@ -481,6 +481,48 @@ private fun AiChatTabContent(
                         tag = "quick_action_plan_day"
                     )
                     QuickActionChip(
+                        label = strings.quickActionBreakDown,
+                        icon = Icons.Default.AccountTree,
+                        tint = AetherCyan,
+                        onClick = { onSendQuickAction(AiQuickAction.BREAK_DOWN_TASK) },
+                        tag = "quick_action_break_down"
+                    )
+                    QuickActionChip(
+                        label = strings.quickActionNoMotivation,
+                        icon = Icons.Default.Bolt,
+                        tint = AetherAmber,
+                        onClick = { onSendQuickAction(AiQuickAction.NO_MOTIVATION) },
+                        tag = "quick_action_no_motivation"
+                    )
+                    QuickActionChip(
+                        label = strings.quickActionOverwhelmed,
+                        icon = Icons.Default.Spa,
+                        tint = Color(0xFF38BDF8),
+                        onClick = { onSendQuickAction(AiQuickAction.OVERWHELMED) },
+                        tag = "quick_action_overwhelmed"
+                    )
+                    QuickActionChip(
+                        label = strings.quickActionMicroStep,
+                        icon = Icons.Default.Adjust,
+                        tint = AetherEmerald,
+                        onClick = { onSendQuickAction(AiQuickAction.MICRO_STEP) },
+                        tag = "quick_action_micro_step"
+                    )
+                    QuickActionChip(
+                        label = strings.quickActionEmotionalSupport,
+                        icon = Icons.Default.Favorite,
+                        tint = Color(0xFFF472B6),
+                        onClick = { onSendQuickAction(AiQuickAction.EMOTIONAL_SUPPORT) },
+                        tag = "quick_action_emotional_support"
+                    )
+                    QuickActionChip(
+                        label = strings.quickActionGentlePlan,
+                        icon = Icons.Default.WbSunny,
+                        tint = AetherEmerald,
+                        onClick = { onSendQuickAction(AiQuickAction.GENTLE_PLAN) },
+                        tag = "quick_action_gentle_plan"
+                    )
+                    QuickActionChip(
                         label = strings.quickActionLowEnergy,
                         icon = Icons.Default.BatteryAlert,
                         tint = AetherAmber,
