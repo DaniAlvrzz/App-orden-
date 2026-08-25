@@ -163,14 +163,19 @@ abstract class AetherDatabase : RoomDatabase() {
                     "aether_os_database"
                 )
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade
-                .fallbackToDestructiveMigration() // Fallback to avoid schema crash on dev transitions
+                .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
+                // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
+                // Every schema version bump must ship an explicit Migration, or real user
+                // data would be silently wiped on update instead of failing loudly in testing.
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
+                        // PRODUCTION: first-ever launch must start empty (Clean Slate),
+                        // never with invented demo tasks/meals/history.
+                        // Demo data is only ever loaded on-demand from Settings via loadDemoData().
                         CoroutineScope(Dispatchers.IO).launch {
                             val dbInstance = getDatabase(context.applicationContext)
-                            populateInitialAetherData(dbInstance, AppLanguage.SPANISH)
+                            populateCleanSlate(dbInstance, AppLanguage.SPANISH)
                         }
                     }
                 })
