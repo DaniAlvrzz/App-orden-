@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import com.example.data.model.EnergyLevel
 import com.example.data.model.PriorityType
 import com.example.data.model.TaskItem
 import com.example.ui.components.AetherSwipeToDismissContainer
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.FocusTimerCard
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -259,45 +261,18 @@ fun BacklogScreen(
         // Task Items List
         if (filteredTasks.isEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = AetherCyan.copy(alpha = 0.8f),
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = if (state.tasks.isEmpty()) strings.emptyBacklogClean else strings.emptyBacklog,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AetherTextSecondary,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        if (state.tasks.isEmpty()) {
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = onOpenQuickAdd,
-                                colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.btnAddTask, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
+                EmptyStateCard(
+                    icon = Icons.Default.Bolt,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    title = if (state.tasks.isEmpty()) 
+                        (if (isSpanish) "Bandeja de Tareas Vacía" else "Task Backlog Clean")
+                    else 
+                        (if (isSpanish) "Sin Resultados con este Filtro" else "No Tasks Match This Filter"),
+                    description = if (state.tasks.isEmpty()) strings.emptyBacklogClean else strings.emptyBacklog,
+                    actionLabel = if (state.tasks.isEmpty()) strings.btnAddTask else null,
+                    onAction = if (state.tasks.isEmpty()) onOpenQuickAdd else null,
+                    testTag = "empty_backlog_card"
+                )
             }
         } else {
             itemsIndexed(filteredTasks, key = { _, task -> task.id }) { index, task ->
@@ -318,6 +293,88 @@ fun BacklogScreen(
                         onMoveUp = { onMoveTask(index, index - 1) },
                         onMoveDown = { onMoveTask(index, index + 1) }
                     )
+                }
+            }
+        }
+
+        // Section for Archived Tasks from Previous Days
+        if (state.archivedTasks.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                var showArchived by remember { mutableStateOf(false) }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showArchived = !showArchived },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Archive,
+                                    contentDescription = null,
+                                    tint = AetherTextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isSpanish) "Tareas Archivadas de Días Anteriores (${state.archivedTasks.size})"
+                                    else "Archived Tasks from Previous Days (${state.archivedTasks.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = AetherTextMuted,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Icon(
+                                imageVector = if (showArchived) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = AetherTextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        if (showArchived) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            state.archivedTasks.forEach { archivedTask ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = AetherEmerald.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = archivedTask.title,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AetherTextMuted,
+                                            textDecoration = TextDecoration.LineThrough
+                                        )
+                                        if (archivedTask.completedDate.isNotBlank()) {
+                                            Text(
+                                                text = (if (isSpanish) "Completada el " else "Completed on ") + archivedTask.completedDate,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 9.sp,
+                                                color = AetherTextMuted.copy(alpha = 0.7f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -17,6 +17,8 @@ data class TaskEntity(
     val isFrog: Boolean = false,
     val scheduledTime: String? = null,
     val category: String = "General",
+    val isArchived: Boolean = false,
+    val completedDate: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -72,7 +74,10 @@ data class HabitEntity(
     val isCompleted: Boolean = false,
     val streakDays: Int = 0,
     val graceDaysUsed: Int = 0,
-    val reframingTip: String = "Biological consistency is a pattern of return, not perfection."
+    val reframingTip: String = "Biological consistency is a pattern of return, not perfection.",
+    val maxGraceDaysPerPeriod: Int = 2,
+    val graceDayLastUsedDate: String = "",
+    val lastCompletedDate: String = ""
 )
 
 @Entity(

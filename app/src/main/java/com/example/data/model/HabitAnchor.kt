@@ -17,7 +17,11 @@ data class HabitAnchor(
     val description: String,
     val anchor: CircadianAnchor,
     val isCompleted: Boolean = false,
-    val streakDays: Int = 5,
-    val graceDaysUsed: Int = 1,
-    val reframingTip: String = "Biological consistency is a pattern of return, not perfection."
+    val streakDays: Int = 0,
+    val graceDaysUsed: Int = 0,
+    val reframingTip: String = "Biological consistency is a pattern of return, not perfection.",
+    val maxGraceDaysPerPeriod: Int = 2,
+    val graceDayLastUsedDate: String = "",
+    val lastCompletedDate: String = ""
 )
+

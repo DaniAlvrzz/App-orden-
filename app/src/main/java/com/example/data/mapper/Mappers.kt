@@ -17,7 +17,9 @@ fun TaskEntity.toModel() = TaskItem(
     isCompleted = isCompleted,
     isFrog = isFrog,
     scheduledTime = scheduledTime,
-    category = category
+    category = category,
+    isArchived = isArchived,
+    completedDate = completedDate
 )
 
 fun TaskItem.toEntity() = TaskEntity(
@@ -30,7 +32,9 @@ fun TaskItem.toEntity() = TaskEntity(
     isCompleted = isCompleted,
     isFrog = isFrog,
     scheduledTime = scheduledTime,
-    category = category
+    category = category,
+    isArchived = isArchived,
+    completedDate = completedDate
 )
 
 fun TimeBlockEntity.toModel() = TimeBlock(
@@ -92,13 +96,51 @@ fun MealEntity.toModel(inStock: Boolean? = null) = MealItem(
     dateIso = dateIso
 )
 
+private val STOP_WORDS = setOf("de", "del", "la", "el", "los", "las", "un", "una", "unos", "unas", "y", "en", "con", "sin", "para", "por", "al", "a", "of", "the", "and", "in", "with", "for", "to")
+
+private fun normalizeFoodText(text: String): String {
+    val stripped = java.text.Normalizer.normalize(text.trim().lowercase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+    return stripped.replace(Regex("[^a-z0-9\\s]"), " ").replace(Regex("\\s+"), " ").trim()
+}
+
+private fun extractSignificantTokens(normalizedText: String): List<String> {
+    return normalizedText.split(" ")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !STOP_WORDS.contains(it) }
+}
+
 fun calculateMealIngredientsInStock(ingredients: List<String>, inStockPantryNames: Set<String>): Boolean {
     if (ingredients.isEmpty()) return true
+    val normalizedPantryList = inStockPantryNames.map { pantryRaw ->
+        val norm = normalizeFoodText(pantryRaw)
+        val tokens = extractSignificantTokens(norm)
+        Triple(pantryRaw, norm, tokens)
+    }
+
     return ingredients.all { ingredient ->
-        val cleanIng = ingredient.trim().lowercase(java.util.Locale.ROOT)
-        inStockPantryNames.any { pantryName ->
-            cleanIng.contains(pantryName) || pantryName.contains(cleanIng) ||
-            cleanIng.split(" ").filter { it.length > 3 }.any { pantryName.contains(it) }
+        val normIng = normalizeFoodText(ingredient)
+        val ingTokens = extractSignificantTokens(normIng).toSet()
+
+        normalizedPantryList.any { (_, normPantry, pantryTokens) ->
+            when {
+                // 1. Exact full normalized equality
+                normIng == normPantry -> true
+                // 2. Both have significant tokens and pantry is a multi-word key matching inside ingredient
+                pantryTokens.isNotEmpty() && pantryTokens.size > 1 -> {
+                    pantryTokens.all { token -> ingTokens.contains(token) }
+                }
+                // 3. Pantry is a single significant token (e.g. "sal", "huevo", "arroz")
+                pantryTokens.size == 1 -> {
+                    val singlePantryToken = pantryTokens.first()
+                    // Exact token match in ingredient's set of tokens (avoids "sal" matching "salmon" or "salsa")
+                    ingTokens.contains(singlePantryToken) ||
+                    // Plural/singular normalization: "huevos" <-> "huevo"
+                    (singlePantryToken.endsWith("s") && ingTokens.contains(singlePantryToken.dropLast(1))) ||
+                    ingTokens.any { it.endsWith("s") && it.dropLast(1) == singlePantryToken }
+                }
+                else -> false
+            }
         }
     }
 }
@@ -130,6 +172,9 @@ fun HabitEntity.toModel() = HabitAnchor(
     isCompleted = isCompleted,
     streakDays = streakDays,
     graceDaysUsed = graceDaysUsed,
+    maxGraceDaysPerPeriod = maxGraceDaysPerPeriod,
+    graceDayLastUsedDate = graceDayLastUsedDate,
+    lastCompletedDate = lastCompletedDate,
     reframingTip = reframingTip
 )
 
@@ -141,6 +186,9 @@ fun HabitAnchor.toEntity() = HabitEntity(
     isCompleted = isCompleted,
     streakDays = streakDays,
     graceDaysUsed = graceDaysUsed,
+    maxGraceDaysPerPeriod = maxGraceDaysPerPeriod,
+    graceDayLastUsedDate = graceDayLastUsedDate,
+    lastCompletedDate = lastCompletedDate,
     reframingTip = reframingTip
 )
 

@@ -10,6 +10,17 @@ val AetherSurfaceCard = Color(0xFF172033)
 val AetherBorder = Color(0xFF28354D)
 val AetherBorderLight = Color(0xFF3B4D6E)
 
+// Aether OS Light Palette
+val AetherLightBackground = Color(0xFFF8FAFC)
+val AetherLightSurface = Color(0xFFFFFFFF)
+val AetherLightSurfaceElevated = Color(0xFFF1F5F9)
+val AetherLightSurfaceCard = Color(0xFFFFFFFF)
+val AetherLightBorder = Color(0xFFE2E8F0)
+val AetherLightBorderLight = Color(0xFFCBD5E1)
+val AetherLightTextPrimary = Color(0xFF0F172A)
+val AetherLightTextSecondary = Color(0xFF475569)
+val AetherLightTextMuted = Color(0xFF64748B)
+
 // Energetic Accents
 val AetherCyan = Color(0xFF00E5FF)
 val AetherCyanDim = Color(0xFF00838F)

@@ -1,0 +1,206 @@
+package com.example.data.usecase
+
+import androidx.room.withTransaction
+import com.example.data.local.*
+import com.example.data.model.Chronotype
+import com.example.data.model.CompletionItemType
+import com.example.data.model.CompletionStatus
+import com.example.data.model.DailyRolloverResult
+import com.example.data.util.AetherDateUtils
+import com.example.data.util.NoOpWidgetUpdater
+import com.example.data.util.WidgetUpdater
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+/**
+ * UseCase implementing the midnight / new-day biological reset engine.
+ * Responsibilities:
+ * 1. Preserves completed tasks, habits, and meals into CompletionLogEntity for the previous date.
+ * 2. Recalculates and persists DailySummaryEntity for the previous date.
+ * 3. Archives completed tasks (isArchived = true) so they don't reappear as pending.
+ * 4. Resets isCompleted = false on active tasks, time blocks, and meals for the new day.
+ * 5. Evaluates habit streaks: resets to 0 only if missed and not protected by Grace Day.
+ * 6. Ensures today's biometric baseline exists.
+ * 7. Updates stored last active date and triggers widget sync.
+ */
+class DailyRolloverUseCase(
+    private val database: AetherDatabase,
+    private val taskDao: TaskDao,
+    private val timeBlockDao: TimeBlockDao,
+    private val habitDao: HabitDao,
+    private val mealDao: MealDao,
+    private val biometricDao: BiometricDao,
+    private val completionLogDao: CompletionLogDao,
+    private val dailySummaryDao: DailySummaryDao,
+    private val preferencesManager: PreferencesManager,
+    private val widgetUpdater: WidgetUpdater = NoOpWidgetUpdater
+) {
+    private val rolloverMutex = Mutex()
+
+    suspend fun execute(): DailyRolloverResult? = rolloverMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val today = AetherDateUtils.getTodayIso()
+            val lastDate = preferencesManager.getLastActiveDate()
+
+            if (lastDate == null) {
+                preferencesManager.saveLastActiveDate(today)
+                return@withContext null
+            }
+
+            if (lastDate == today) {
+                return@withContext null
+            }
+
+            var completedTasks = 0
+            var completedHabits = 0
+            var completedMeals = 0
+
+            database.withTransaction {
+                val tasks = taskDao.getAllTasks().first()
+                val habits = habitDao.getAllHabits().first()
+                val meals = mealDao.getAllMeals().first()
+                val timeBlocks = timeBlockDao.getAllTimeBlocks().first()
+
+                // 1. Process Tasks for previous day
+                tasks.forEach { task ->
+                    if (task.isCompleted && !task.isArchived) {
+                        completedTasks++
+                        val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
+                        val alreadyLogged = existingLogs.any { it.itemId == task.id && it.status == CompletionStatus.COMPLETED }
+                        if (!alreadyLogged) {
+                            completionLogDao.insertLog(
+                                CompletionLogEntity(
+                                    dateIso = lastDate,
+                                    itemType = CompletionItemType.TASK,
+                                    itemId = task.id,
+                                    title = task.title,
+                                    status = CompletionStatus.COMPLETED,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        // Archive completed task
+                        taskDao.updateTask(task.copy(isArchived = true, completedDate = lastDate))
+                    } else if (!task.isArchived) {
+                        // Preserved in backlog as uncompleted
+                        taskDao.updateTask(task.copy(isCompleted = false))
+                    }
+                }
+
+                // 2. Process Habits for previous day
+                habits.forEach { habit ->
+                    val isGraceProtected = habit.graceDayLastUsedDate == lastDate
+                    if (habit.isCompleted) {
+                        completedHabits++
+                        val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
+                        val alreadyLogged = existingLogs.any { it.itemId == habit.id && it.status == CompletionStatus.COMPLETED }
+                        if (!alreadyLogged) {
+                            completionLogDao.insertLog(
+                                CompletionLogEntity(
+                                    dateIso = lastDate,
+                                    itemType = CompletionItemType.HABIT,
+                                    itemId = habit.id,
+                                    title = habit.title,
+                                    status = CompletionStatus.COMPLETED,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        habitDao.updateHabit(habit.copy(isCompleted = false))
+                    } else if (isGraceProtected) {
+                        // Protected by Grace Day: Keep streak intact
+                        habitDao.updateHabit(habit.copy(isCompleted = false))
+                    } else {
+                        // Missed without grace day: reset streak to 0
+                        habitDao.updateHabit(habit.copy(isCompleted = false, streakDays = 0))
+                    }
+                }
+
+                // 3. Process Meals for previous day
+                meals.forEach { meal ->
+                    if (meal.isCompleted) {
+                        completedMeals++
+                        val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
+                        val alreadyLogged = existingLogs.any { it.itemId == meal.id && it.status == CompletionStatus.COMPLETED }
+                        if (!alreadyLogged) {
+                            completionLogDao.insertLog(
+                                CompletionLogEntity(
+                                    dateIso = lastDate,
+                                    itemType = CompletionItemType.MEAL,
+                                    itemId = meal.id,
+                                    title = meal.title,
+                                    status = CompletionStatus.COMPLETED,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        mealDao.updateMeal(meal.copy(isCompleted = false))
+                    }
+                }
+
+                // 4. Reset completed time blocks for new day
+                timeBlocks.forEach { block ->
+                    if (block.isCompleted) {
+                        timeBlockDao.updateTimeBlock(block.copy(isCompleted = false))
+                    }
+                }
+
+                // 5. Summarize previous day's metrics
+                recalculateDailySummary(lastDate)
+
+                // 6. Ensure baseline biometrics for today
+                val latestBio = biometricDao.getLatestBiometric().first()
+                biometricDao.insertBiometric(
+                    BiometricEntity(
+                        date = today,
+                        readinessScore = latestBio?.readinessScore ?: 75,
+                        perceivedEnergy = latestBio?.perceivedEnergy ?: 75,
+                        sleepHours = 7.5,
+                        sleepQuality = 4,
+                        chronotype = latestBio?.chronotype ?: Chronotype.BEAR,
+                        recoveryModeTriggered = false,
+                        graceDayActive = false
+                    )
+                )
+            }
+
+            // 7. Update last active date & widget sync
+            preferencesManager.saveLastActiveDate(today)
+            widgetUpdater.updateWidgets()
+
+            DailyRolloverResult(
+                previousDateIso = lastDate,
+                currentDateIso = today,
+                completedTasksCount = completedTasks,
+                completedHabitsCount = completedHabits,
+                completedMealsCount = completedMeals
+            )
+        }
+    }
+
+    private suspend fun recalculateDailySummary(dateIso: String) {
+        val logs = completionLogDao.getLogsByDate(dateIso).first()
+        val allTasks = taskDao.getAllTasks().first()
+        val allHabits = habitDao.getAllHabits().first()
+        val allMeals = mealDao.getAllMeals().first()
+
+        val activeCount = (allTasks.size + allHabits.size + allMeals.size).coerceAtLeast(logs.size)
+        val totalCount = activeCount.coerceAtLeast(1)
+        val completedCount = logs.count { it.status == CompletionStatus.COMPLETED }
+        val partialCount = logs.count { it.status == CompletionStatus.PARTIAL }
+        val ratio = ((completedCount.toFloat() + partialCount.toFloat() * 0.5f) / totalCount.toFloat()).coerceIn(0f, 1f)
+
+        dailySummaryDao.insertOrUpdateSummary(
+            DailySummaryEntity(
+                dateIso = dateIso,
+                totalCount = totalCount,
+                completedCount = completedCount,
+                partialCount = partialCount,
+                ratio = ratio
+            )
+        )
+    }
+}

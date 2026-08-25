@@ -58,6 +58,7 @@ fun HabitsScreen(
     val totalCount = state.habits.size
     val totalGraceDays = state.habits.sumOf { it.graceDaysUsed }
     val consistencyPct = if (totalCount > 0) ((completedCount + totalGraceDays).coerceAtMost(totalCount) * 100 / totalCount) else 0
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -78,76 +79,122 @@ fun HabitsScreen(
                         Text(
                             text = strings.habitsHeader,
                             style = MaterialTheme.typography.titleLarge,
-                            color = AetherCyan,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.2.sp
                         )
                         Text(
                             text = strings.habitsSub,
                             style = MaterialTheme.typography.labelSmall,
-                            color = AetherTextMuted
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        IconButton(
-                            onClick = onOpenHistory,
-                            modifier = Modifier.testTag("habits_history_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.History,
-                                contentDescription = strings.historyTitle,
-                                tint = AetherCyan
-                            )
-                        }
-
-                        IconButton(
-                            onClick = onOpenAchievements,
-                            modifier = Modifier.testTag("habits_achievements_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.EmojiEvents,
-                                contentDescription = "Logros",
-                                tint = AetherAmber
-                            )
-                        }
-
                         FilledTonalButton(
                             onClick = onOpenAddHabit,
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = AetherCyan.copy(alpha = 0.2f),
-                                contentColor = AetherCyan
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                contentColor = MaterialTheme.colorScheme.primary
                             ),
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                            modifier = Modifier.testTag("add_habit_btn")
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .height(38.dp)
+                                .testTag("add_habit_btn")
                         ) {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = if (state.currentLanguage == AppLanguage.SPANISH) "Añadir Hábito" else "Add Habit",
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = if (state.currentLanguage == AppLanguage.SPANISH) "+ Hábito" else "+ Habit",
-                                fontWeight = FontWeight.SemiBold
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
                         FilledTonalButton(
                             onClick = onOpenReframe,
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = AetherEmerald.copy(alpha = 0.18f),
+                                containerColor = AetherEmerald.copy(alpha = 0.16f),
                                 contentColor = AetherEmerald
                             ),
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                            modifier = Modifier.testTag("open_reframe_btn")
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .height(38.dp)
+                                .testTag("open_reframe_btn")
                         ) {
-                            Icon(imageVector = Icons.Default.Spa, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.Spa,
+                                contentDescription = strings.btnReframe,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.btnReframe, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = strings.btnReframe,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box {
+                            IconButton(
+                                onClick = { showOverflowMenu = true },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .testTag("habits_overflow_menu_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Opciones de hábitos",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(strings.historyTitle) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onOpenHistory()
+                                    },
+                                    modifier = Modifier.testTag("habits_history_btn")
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (state.currentLanguage == AppLanguage.SPANISH) "Logros y Gamificación" else "Achievements & Badges") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.EmojiEvents,
+                                            contentDescription = null,
+                                            tint = AetherAmber
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onOpenAchievements()
+                                    },
+                                    modifier = Modifier.testTag("habits_achievements_btn")
+                                )
+                            }
                         }
                     }
                 }
@@ -295,45 +342,18 @@ fun HabitsScreen(
             // Habit Cards
             if (state.habits.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Spa,
-                                contentDescription = null,
-                                tint = AetherEmerald.copy(alpha = 0.8f),
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = if (state.currentLanguage == AppLanguage.SPANISH) 
-                                    "No hay hábitos configurados. Añade tus hábitos circadianos personalizados." 
-                                else 
-                                    "No habit anchors configured. Add your custom circadian habits.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = AetherTextSecondary,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = onOpenAddHabit,
-                                colors = ButtonDefaults.buttonColors(containerColor = AetherEmerald, contentColor = Color(0xFF003919)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.addHabitTitle, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+                    EmptyStateCard(
+                        icon = Icons.Default.Spa,
+                        iconTint = AetherEmerald,
+                        title = if (state.currentLanguage == AppLanguage.SPANISH) "Sin Hábitos Anclados" else "No Habit Anchors",
+                        description = if (state.currentLanguage == AppLanguage.SPANISH) 
+                            "Construye micro-hábitos sincronizados con tus anclas circadianas sin culpa ni fricción." 
+                        else 
+                            "Build micro-habits synchronized with your circadian anchors without guilt or friction.",
+                        actionLabel = strings.addHabitTitle,
+                        onAction = onOpenAddHabit,
+                        testTag = "empty_habits_card"
+                    )
                 }
             } else {
                 items(state.habits, key = { it.id }) { habit ->
@@ -545,6 +565,19 @@ fun HabitAnchorCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val todayIso = remember { com.example.data.util.AetherDateUtils.getTodayIso() }
+            val isGraceUsedToday = habit.graceDayLastUsedDate == todayIso
+            val isGraceLimitReached = habit.graceDaysUsed >= habit.maxGraceDaysPerPeriod
+            val canApplyGrace = !habit.isCompleted && !isGraceUsedToday && !isGraceLimitReached
+            val remainingGrace = (habit.maxGraceDaysPerPeriod - habit.graceDaysUsed).coerceAtLeast(0)
+
+            val graceBtnText = when {
+                isGraceUsedToday -> if (isSpanish) "🛡️ Gracia Activa" else "🛡️ Grace Active"
+                isGraceLimitReached -> if (isSpanish) "🛡️ Límite (0/${habit.maxGraceDaysPerPeriod})" else "🛡️ Limit (0/${habit.maxGraceDaysPerPeriod})"
+                habit.isCompleted -> if (isSpanish) "✓ Cumplido" else "✓ Done"
+                else -> if (isSpanish) "🛡️ Usar Gracia ($remainingGrace/${habit.maxGraceDaysPerPeriod})" else "🛡️ Apply Grace ($remainingGrace/${habit.maxGraceDaysPerPeriod})"
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -560,11 +593,25 @@ fun HabitAnchorCard(
 
                 TextButton(
                     onClick = onApplyGrace,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    enabled = canApplyGrace,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = AetherEmerald,
+                        disabledContentColor = AetherTextMuted.copy(alpha = 0.6f)
+                    )
                 ) {
-                    Icon(imageVector = Icons.Default.Shield, contentDescription = null, tint = AetherEmerald, modifier = Modifier.size(14.dp))
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(strings.btnApplyGrace, style = MaterialTheme.typography.labelSmall, color = AetherEmerald)
+                    Text(
+                        text = graceBtnText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f)
+                    )
                 }
             }
         }

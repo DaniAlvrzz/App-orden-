@@ -33,14 +33,14 @@ fun AetherApp(
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Status Message Feedback
-    LaunchedEffect(state.statusMessage) {
-        state.statusMessage?.let { msg ->
+    // Feedback Message Queue Processing
+    LaunchedEffect(state.activeFeedback) {
+        state.activeFeedback?.let { feedback ->
             snackbarHostState.showSnackbar(
-                message = msg,
+                message = feedback.message,
                 duration = SnackbarDuration.Short
             )
-            viewModel.clearStatusMessage()
+            viewModel.dismissActiveFeedback(feedback.id)
         }
     }
 
@@ -85,54 +85,55 @@ fun AetherApp(
         "tab_ai"
     )
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            NavigationBar(
-                containerColor = AetherSurface,
-                contentColor = AetherTextPrimary,
-                tonalElevation = 8.dp,
-                modifier = Modifier.testTag("bottom_navigation_bar")
-            ) {
-                navTitles.forEachIndexed { index, title ->
-                    val isSelected = state.activeTab == index
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = { viewModel.selectTab(index) },
-                        icon = {
-                            Icon(
-                                imageVector = navIcons[index],
-                                contentDescription = title,
-                                tint = if (isSelected) AetherCyan else AetherTextMuted
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = title,
-                                fontSize = 10.sp,
-                                color = if (isSelected) AetherCyan else AetherTextMuted
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = AetherCyan,
-                            selectedTextColor = AetherCyan,
-                            unselectedIconColor = AetherTextMuted,
-                            unselectedTextColor = AetherTextMuted,
-                            indicatorColor = AetherCyan.copy(alpha = 0.15f)
-                        ),
-                        modifier = Modifier.testTag(navTags[index])
-                    )
+    AetherOSTheme(themeMode = state.themeMode) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.testTag("bottom_navigation_bar")
+                ) {
+                    navTitles.forEachIndexed { index, title ->
+                        val isSelected = state.activeTab == index
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = { viewModel.selectTab(index) },
+                            icon = {
+                                Icon(
+                                    imageVector = navIcons[index],
+                                    contentDescription = title,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = title,
+                                    fontSize = 10.sp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            ),
+                            modifier = Modifier.testTag(navTags[index])
+                        )
+                    }
                 }
-            }
-        },
-        containerColor = AetherDarkBackground
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(AetherDarkBackground)
-        ) {
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
             Crossfade(targetState = state.activeTab, label = "tab_crossfade") { tab ->
                 when (tab) {
                     0 -> NexusScreen(
@@ -410,11 +411,15 @@ fun AetherApp(
             if (state.showSettingsDialog) {
                 SettingsDialog(
                     currentLanguage = state.currentLanguage,
+                    currentThemeMode = state.themeMode,
                     unlockedAchievementsCount = state.achievements.count { it.isUnlocked },
                     totalAchievementsCount = state.achievements.size,
                     wipeHistoryWithCleanSlate = state.wipeHistoryWithCleanSlate,
                     onLanguageSelected = { lang ->
                         viewModel.setLanguage(lang)
+                    },
+                    onThemeModeSelected = { mode ->
+                        viewModel.setThemeMode(mode)
                     },
                     onOpenTutorial = {
                         viewModel.closeSettings()
@@ -526,3 +531,5 @@ fun AetherApp(
         }
     }
 }
+}
+

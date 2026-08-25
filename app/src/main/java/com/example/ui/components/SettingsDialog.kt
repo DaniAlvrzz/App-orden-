@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.data.model.AppThemeMode
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
 import com.example.ui.theme.*
@@ -27,10 +28,12 @@ import com.example.ui.theme.*
 @Composable
 fun SettingsDialog(
     currentLanguage: AppLanguage,
+    currentThemeMode: AppThemeMode = AppThemeMode.DARK,
     unlockedAchievementsCount: Int = 0,
     totalAchievementsCount: Int = 10,
     wipeHistoryWithCleanSlate: Boolean = false,
     onLanguageSelected: (AppLanguage) -> Unit,
+    onThemeModeSelected: (AppThemeMode) -> Unit = {},
     onOpenTutorial: () -> Unit,
     onOpenAchievements: () -> Unit = {},
     onToggleWipeHistory: () -> Unit = {},
@@ -213,6 +216,83 @@ fun SettingsDialog(
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = AetherCyan,
                                             unselectedColor = AetherTextMuted
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2.5 Theme Mode Selector Card (Sistema / Claro / Oscuro)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("theme_selector_card")
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.BrightnessMedium,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isSpanish) "Tema Visual de la Aplicación" else "Application Visual Theme",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            AppThemeMode.entries.forEach { mode ->
+                                val isSelected = currentThemeMode == mode
+                                val title = if (isSpanish) mode.titleEs else mode.titleEn
+                                val desc = when (mode) {
+                                    AppThemeMode.SYSTEM -> if (isSpanish) "Sigue la configuración del sistema Android" else "Follow Android system setting"
+                                    AppThemeMode.LIGHT -> if (isSpanish) "Modo claro de alto contraste diurno" else "Daytime high-contrast light mode"
+                                    AppThemeMode.DARK -> if (isSpanish) "Modo Cyber-Zen oscuro para descanso visual" else "Cyber-Zen dark mode for visual calm"
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                        .clickable { onThemeModeSelected(mode) }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(text = mode.icon, fontSize = 20.sp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                            Text(
+                                                text = desc,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = { onThemeModeSelected(mode) },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = MaterialTheme.colorScheme.primary,
+                                            unselectedColor = MaterialTheme.colorScheme.outline
                                         )
                                     )
                                 }

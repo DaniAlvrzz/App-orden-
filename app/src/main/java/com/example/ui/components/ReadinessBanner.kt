@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +17,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.BiometricBaseline
@@ -67,19 +70,23 @@ fun ReadinessBanner(
             .fillMaxWidth()
             .testTag("readiness_banner"),
         colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, AetherBorderLight)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Mode Header Row & Action Chips
+        Column(modifier = Modifier.padding(16.dp)) {
+            // 1. System Mode Status Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(10.dp)
                             .clip(CircleShape)
                             .background(modeColor)
                     )
@@ -88,69 +95,131 @@ fun ReadinessBanner(
                         text = modeTitle,
                         style = MaterialTheme.typography.labelMedium,
                         color = modeColor,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    color = modeColor.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    // Smart Check-in Button
-                    FilledTonalButton(
-                        onClick = onOpenSmartCheckIn,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = AetherCyan.copy(alpha = 0.15f),
-                            contentColor = AetherCyan
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.testTag("smart_checkin_trigger_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = strings.btnSmartCheckIn,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Recovery Mode Quick Switch
-                    FilterChip(
-                        selected = mode == SystemMode.RECOVERY,
-                        onClick = onToggleRecoveryMode,
-                        label = {
-                            Text(
-                                text = if (mode == SystemMode.RECOVERY) strings.recoveryModeChipActive else strings.recoveryModeChipInactive,
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                    Text(
+                        text = when (mode) {
+                            SystemMode.RECOVERY -> if (isSpanish) "🛡️ Protección" else "🛡️ Guard"
+                            SystemMode.HIGH_PERFORMANCE -> if (isSpanish) "⚡ Máximo" else "⚡ Peak"
+                            SystemMode.BALANCED -> if (isSpanish) "⚖️ Estable" else "⚖️ Steady"
                         },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = if (mode == SystemMode.RECOVERY) Icons.Default.Spa else Icons.Default.Bedtime,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = if (mode == SystemMode.RECOVERY) AetherEmerald else AetherTextSecondary
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AetherEmerald.copy(alpha = 0.2f),
-                            selectedLabelColor = AetherEmerald
-                        ),
-                        modifier = Modifier.testTag("recovery_mode_toggle")
+                        style = MaterialTheme.typography.labelSmall,
+                        color = modeColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = modeDesc,
+                style = MaterialTheme.typography.bodySmall,
+                color = AetherTextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
 
-            // Score & Quick Metrics Row
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2. Main Interactive Actions Row (Equally Weighted, Spacious & Clear)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Button 1: Smart Check-In Calibration
+                Surface(
+                    onClick = onOpenSmartCheckIn,
+                    color = AetherCyan.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, AetherCyan.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .testTag("smart_checkin_trigger_btn")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = AetherCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isSpanish) "Chequeo IA" else "Smart Check",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AetherCyan,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Button 2: Recovery Mode Switch
+                val isRecovery = mode == SystemMode.RECOVERY
+                Surface(
+                    onClick = onToggleRecoveryMode,
+                    color = if (isRecovery) AetherEmerald.copy(alpha = 0.22f) else AetherSurfaceCard,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isRecovery) AetherEmerald.copy(alpha = 0.6f) else AetherBorder
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .testTag("recovery_mode_toggle")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isRecovery) Icons.Default.Spa else Icons.Default.Bedtime,
+                            contentDescription = null,
+                            tint = if (isRecovery) AetherEmerald else AetherTextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isRecovery) {
+                                if (isSpanish) "Recuperación ON" else "Recovery ON"
+                            } else {
+                                if (isSpanish) "Modo Suave" else "Shift Recovery"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isRecovery) AetherEmerald else AetherTextSecondary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. Score & Cognitive Ceiling Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -161,8 +230,10 @@ fun ReadinessBanner(
                         text = strings.readinessTitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = AetherTextMuted,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        letterSpacing = 1.sp
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = "${sliderValue.toInt()}",
@@ -182,17 +253,19 @@ fun ReadinessBanner(
                 Column(horizontalAlignment = Alignment.End) {
                     Surface(
                         color = AetherSurfaceCard,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, AetherBorder)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "🎯 Techo Dinámico: ${(biometric.dynamicCognitiveCeilingMinutes / 60.0)}h",
+                                text = "🎯 Techo: ${(biometric.dynamicCognitiveCeilingMinutes / 60.0)}h Foco",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AetherTextPrimary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
                             )
                         }
                     }
@@ -202,11 +275,15 @@ fun ReadinessBanner(
                     Text(
                         text = "🛌 ${String.format("%.1f", biometric.sleepHours)}h (⭐${biometric.sleepQuality}) • ⚡ Estrés: ${biometric.stressLevel}/10",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AetherTextSecondary
+                        color = AetherTextSecondary,
+                        fontSize = 11.sp
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 4. Readiness Slider
             Slider(
                 value = sliderValue,
                 onValueChange = { sliderValue = it },
@@ -223,49 +300,72 @@ fun ReadinessBanner(
                     .testTag("readiness_slider")
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Chronotype Selector Row
-            Text(
-                text = strings.chronotypeSelectorTitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = AetherTextMuted,
-                fontSize = 10.sp
-            )
-            Spacer(modifier = Modifier.height(6.dp))
+            // 5. Chronotype Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = strings.chronotypeSelectorTitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherTextMuted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "Pico: ${biometric.chronotype.peakHours}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Chronotype.entries.forEach { chrono ->
                     val isSelected = biometric.chronotype == chrono
-                    val localizedChronoName = when (chrono) {
-                        Chronotype.LION -> if (isSpanish) "León" else "Lion"
-                        Chronotype.BEAR -> if (isSpanish) "Oso" else "Bear"
-                        Chronotype.WOLF -> if (isSpanish) "Lobo" else "Wolf"
-                        Chronotype.DOLPHIN -> if (isSpanish) "Delfín" else "Dolphin"
+                    val (emoji, localizedChronoName) = when (chrono) {
+                        Chronotype.LION -> "🦁" to if (isSpanish) "León" else "Lion"
+                        Chronotype.BEAR -> "🐻" to if (isSpanish) "Oso" else "Bear"
+                        Chronotype.WOLF -> "🐺" to if (isSpanish) "Lobo" else "Wolf"
+                        Chronotype.DOLPHIN -> "🐬" to if (isSpanish) "Delfín" else "Dolphin"
                     }
 
-                    Box(
+                    Surface(
+                        onClick = { onChronotypeChanged(chrono) },
+                        color = if (isSelected) AetherCyan.copy(alpha = 0.2f) else AetherSurfaceCard,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) AetherCyan else AetherBorder
+                        ),
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isSelected) AetherCyan.copy(alpha = 0.2f) else AetherSurfaceCard)
-                            .border(
-                                1.dp,
-                                if (isSelected) AetherCyan else Color.Transparent,
-                                RoundedCornerShape(10.dp)
-                            )
-                            .clickable { onChronotypeChanged(chrono) }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
+                            .height(48.dp)
                     ) {
-                        Text(
-                            text = localizedChronoName,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) AetherCyan else AetherTextSecondary,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(text = emoji, fontSize = 14.sp)
+                            Text(
+                                text = localizedChronoName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSelected) AetherCyan else AetherTextSecondary,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 10.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }

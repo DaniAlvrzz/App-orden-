@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.*
 import com.example.ui.components.AetherSwipeToDismissContainer
 import com.example.ui.components.DuplicateMealDialog
+import com.example.ui.components.EmptyStateCard
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
 import com.example.ui.theme.*
@@ -211,42 +212,15 @@ fun NutritionScreen(
 
             if (state.meals.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Restaurant,
-                                contentDescription = null,
-                                tint = AetherAmber.copy(alpha = 0.8f),
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = strings.emptyMealsClean,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = AetherTextSecondary,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = onOpenAddMeal,
-                                colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3B2D00)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(strings.addMealTitle, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+                    EmptyStateCard(
+                        icon = Icons.Default.Restaurant,
+                        iconTint = AetherAmber,
+                        title = if (state.currentLanguage == AppLanguage.SPANISH) "Sin Comidas Registradas" else "No Meals Logged",
+                        description = strings.emptyMealsClean,
+                        actionLabel = strings.addMealTitle,
+                        onAction = onOpenAddMeal,
+                        testTag = "empty_meals_card"
+                    )
                 }
             } else {
                 items(state.meals, key = { it.id }) { meal ->
@@ -301,18 +275,35 @@ fun NutritionScreen(
                 }
             }
 
-            items(state.pantryItems, key = { it.id }) { item ->
-                AetherSwipeToDismissContainer(
-                    onDismiss = { onDeletePantryItem(item) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    PantryItemCard(
-                        item = item,
-                        language = state.currentLanguage,
-                        onToggleStock = { onTogglePantryStock(item.id, item.inStock) },
-                        onEdit = { onEditPantryItem(item) },
-                        onDelete = { onDeletePantryItem(item) }
+            if (state.pantryItems.isEmpty()) {
+                item {
+                    EmptyStateCard(
+                        icon = Icons.Default.Inventory2,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = if (state.currentLanguage == AppLanguage.SPANISH) "Despensa Vacía" else "Pantry Inventory Empty",
+                        description = if (state.currentLanguage == AppLanguage.SPANISH)
+                            "Registra ingredientes y alimentos clave para controlar tu stock y decisiones nutricionales sin fatiga mental."
+                        else
+                            "Track key ingredients and food to optimize cognitive fuel without decision fatigue.",
+                        actionLabel = strings.btnAddPantryItem,
+                        onAction = onOpenAddPantry,
+                        testTag = "empty_pantry_card"
                     )
+                }
+            } else {
+                items(state.pantryItems, key = { it.id }) { item ->
+                    AetherSwipeToDismissContainer(
+                        onDismiss = { onDeletePantryItem(item) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        PantryItemCard(
+                            item = item,
+                            language = state.currentLanguage,
+                            onToggleStock = { onTogglePantryStock(item.id, item.inStock) },
+                            onEdit = { onEditPantryItem(item) },
+                            onDelete = { onDeletePantryItem(item) }
+                        )
+                    }
                 }
             }
         }
@@ -346,18 +337,35 @@ fun NutritionScreen(
                 }
             }
 
-            items(batchBases, key = { it.id }) { base ->
-                AetherSwipeToDismissContainer(
-                    onDismiss = { onDeletePantryItem(base) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    PantryItemCard(
-                        item = base,
-                        language = state.currentLanguage,
-                        onToggleStock = { onTogglePantryStock(base.id, base.inStock) },
-                        onEdit = { onEditPantryItem(base) },
-                        onDelete = { onDeletePantryItem(base) }
+            if (batchBases.isEmpty()) {
+                item {
+                    EmptyStateCard(
+                        icon = Icons.Default.Kitchen,
+                        iconTint = AetherEmerald,
+                        title = if (state.currentLanguage == AppLanguage.SPANISH) "Sin Bases de Batch Cooking" else "No Batch Cooking Bases",
+                        description = if (state.currentLanguage == AppLanguage.SPANISH)
+                            "Prepara bases modulares (arroz integral, pollo braseado, vegetales asados) para ensamblar comidas en 3 minutos."
+                        else
+                            "Prepare modular food bases to assemble nutrient-dense meals in under 3 minutes.",
+                        actionLabel = strings.btnAddPantryItem,
+                        onAction = onOpenAddPantry,
+                        testTag = "empty_batch_bases_card"
                     )
+                }
+            } else {
+                items(batchBases, key = { it.id }) { base ->
+                    AetherSwipeToDismissContainer(
+                        onDismiss = { onDeletePantryItem(base) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        PantryItemCard(
+                            item = base,
+                            language = state.currentLanguage,
+                            onToggleStock = { onTogglePantryStock(base.id, base.inStock) },
+                            onEdit = { onEditPantryItem(base) },
+                            onDelete = { onDeletePantryItem(base) }
+                        )
+                    }
                 }
             }
         }

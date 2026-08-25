@@ -25,5 +25,7 @@ data class TaskItem(
     val isCompleted: Boolean = false,
     val isFrog: Boolean = false,
     val scheduledTime: String? = null,
-    val category: String = "General"
+    val category: String = "General",
+    val isArchived: Boolean = false,
+    val completedDate: String = ""
 )

@@ -640,22 +640,22 @@ private fun QuickActionChip(
 ) {
     Surface(
         onClick = onClick,
-        color = tint.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, tint.copy(alpha = 0.3f)),
+        color = tint.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, tint.copy(alpha = 0.4f)),
         modifier = Modifier.testTag(tag)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
             Text(
                 text = label,
-                color = AetherTextPrimary,
+                color = Color.White,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }

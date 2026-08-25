@@ -61,16 +61,17 @@ class DailyEndOfDayWorker(
                 }
             }
 
-            // Mark uncompleted habits as MISSED
+            // Mark uncompleted habits as MISSED (or PARTIAL if grace day was activated today)
             habits.forEach { habit ->
                 if (!habit.isCompleted && !loggedItemIds.contains(habit.id)) {
+                    val isGraceActiveToday = habit.graceDayLastUsedDate == todayIso
                     newLogs.add(
                         CompletionLogEntity(
                             dateIso = todayIso,
                             itemType = CompletionItemType.HABIT,
                             itemId = habit.id,
                             title = habit.title,
-                            status = if (habit.graceDaysUsed > 0) CompletionStatus.PARTIAL else CompletionStatus.MISSED,
+                            status = if (isGraceActiveToday) CompletionStatus.PARTIAL else CompletionStatus.MISSED,
                             timestamp = nowMillis
                         )
                     )

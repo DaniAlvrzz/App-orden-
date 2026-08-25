@@ -8,7 +8,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE isFrog = 1 LIMIT 1")
+    @Query("SELECT * FROM tasks WHERE isArchived = 0 ORDER BY createdAt DESC")
+    fun getActiveTasks(): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE isArchived = 1 ORDER BY createdAt DESC")
+    fun getArchivedTasks(): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE isFrog = 1 AND isArchived = 0 LIMIT 1")
     fun getFrogTask(): Flow<TaskEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
