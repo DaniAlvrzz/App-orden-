@@ -551,6 +551,9 @@ class AetherViewModel(
             val lang = _uiState.value.currentLanguage
             val wipeHistory = _uiState.value.wipeHistoryWithCleanSlate
             repository.resetToCleanSlate(lang, wipeHistory = wipeHistory)
+            if (wipeHistory) {
+                achievementRepository.resetAchievements()
+            }
             closeSettings()
             showFeedback(
                 if (lang == AppLanguage.SPANISH) "🌿 Base de datos vaciada." else "🌿 Clean slate initialized."
