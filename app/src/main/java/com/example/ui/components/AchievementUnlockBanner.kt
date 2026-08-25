@@ -22,12 +22,24 @@ import com.example.data.model.AchievementItem
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.theme.*
 
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+
 @Composable
 fun AchievementUnlockBanner(
     achievement: AchievementItem?,
     language: AppLanguage = AppLanguage.SPANISH,
+    onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(achievement) {
+        if (achievement != null) {
+            delay(4000L)
+            onDismiss()
+        }
+    }
+
     AnimatedVisibility(
         visible = achievement != null,
         enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -44,7 +56,9 @@ fun AchievementUnlockBanner(
                 contentAlignment = Alignment.TopCenter
             ) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onDismiss() },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
                     border = CardDefaults.outlinedCardBorder().copy(

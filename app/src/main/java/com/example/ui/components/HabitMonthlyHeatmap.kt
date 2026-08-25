@@ -58,29 +58,29 @@ fun HabitMonthlyHeatmap(
             // Determine status for this day
             val statusColor: Color = when {
                 isToday -> {
-                    if (isCompletedToday) AetherEmerald else AetherBorder.copy(alpha = 0.5f)
+                    if (isCompletedToday) AetherEmerald else AetherSurfaceCard.copy(alpha = 0.3f)
                 }
                 habitLogsByDate.containsKey(dateIso) -> {
                     val log = habitLogsByDate[dateIso]
                     when (log?.status) {
                         CompletionStatus.COMPLETED -> AetherEmerald
                         CompletionStatus.PARTIAL -> AetherAmber
-                        CompletionStatus.MISSED -> Color(0xFFEF4444).copy(alpha = 0.6f)
-                        null -> AetherSurfaceCard
+                        CompletionStatus.MISSED -> Color(0xFFEF4444).copy(alpha = 0.5f)
+                        null -> AetherSurfaceCard.copy(alpha = 0.3f)
                     }
                 }
                 summaryByDate.containsKey(dateIso) -> {
                     val summary = summaryByDate[dateIso]
                     if (summary != null && summary.ratio >= 0.7f) AetherEmerald
                     else if (summary != null && summary.ratio > 0f) AetherAmber
-                    else AetherSurfaceCard
+                    else AetherSurfaceCard.copy(alpha = 0.3f)
                 }
-                // Fallback simulation based on streak
-                offset <= streakDays && streakDays > 0 -> {
-                    AetherEmerald.copy(alpha = (0.6f + (offset.toFloat() / (streakDays + 1) * 0.4f)).coerceIn(0.5f, 0.95f))
+                // Fallback simulation based on streak (strictly for past days)
+                (isCompletedToday && offset in 1 until streakDays) || (!isCompletedToday && offset in 1..streakDays) -> {
+                    AetherEmerald
                 }
                 else -> {
-                    AetherSurfaceCard.copy(alpha = 0.4f)
+                    AetherSurfaceCard.copy(alpha = 0.3f)
                 }
             }
 

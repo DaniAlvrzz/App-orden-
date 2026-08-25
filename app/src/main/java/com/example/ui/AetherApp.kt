@@ -513,6 +513,7 @@ fun AetherApp(
             AchievementUnlockBanner(
                 achievement = state.newlyUnlockedAchievement,
                 language = state.currentLanguage,
+                onDismiss = { viewModel.dismissAchievementBanner() },
                 modifier = Modifier.align(Alignment.TopCenter)
             )
 
@@ -527,6 +528,7 @@ fun AetherApp(
             LevelUpCelebrationToast(
                 newLevel = state.levelUpCelebrationLevel,
                 language = state.currentLanguage,
+                onDismiss = { viewModel.dismissLevelUpToast() },
                 modifier = Modifier.align(Alignment.TopCenter)
             )
 

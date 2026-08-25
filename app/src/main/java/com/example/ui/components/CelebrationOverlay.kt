@@ -42,6 +42,13 @@ fun CelebrationOverlay(
 ) {
     val isSpanish = language == AppLanguage.SPANISH
 
+    LaunchedEffect(visible) {
+        if (visible) {
+            kotlinx.coroutines.delay(4500L)
+            onDismiss()
+        }
+    }
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(),

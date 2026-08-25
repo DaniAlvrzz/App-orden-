@@ -307,9 +307,19 @@ class AetherViewModel(
             }
         }
 
+        var previousLevel: Int? = null
         viewModelScope.launch {
             achievementRepository.userLevelInfo.collect { info ->
-                _uiState.value = _uiState.value.copy(userLevelInfo = info)
+                val prev = previousLevel
+                previousLevel = info.currentLevel
+                if (prev != null && info.currentLevel > prev) {
+                    _uiState.value = _uiState.value.copy(
+                        userLevelInfo = info,
+                        levelUpCelebrationLevel = info.currentLevel
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(userLevelInfo = info)
+                }
             }
         }
 
@@ -655,6 +665,7 @@ class AetherViewModel(
     }
 
     fun dismissAchievementModal() { _uiState.value = _uiState.value.copy(newlyUnlockedAchievementModal = null) }
+    fun dismissAchievementBanner() { _uiState.value = _uiState.value.copy(newlyUnlockedAchievement = null) }
     fun dismissLevelUpToast() { _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = null) }
 
     // --- Forwarding Actions to Delegates ---
