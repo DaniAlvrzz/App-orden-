@@ -39,12 +39,14 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <ImageView
+        android:id="@+id/widget_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:background="#3300E5FF" />
+        android:background="#3300E5FF"
+        android:contentDescription="@null" />
 
     <!-- Task Title -->
     <TextView

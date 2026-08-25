@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.example.data.model.*
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -25,27 +24,34 @@ import com.example.ui.theme.*
 
 @Composable
 fun QuickAddTaskDialog(
+    initialTask: TaskItem? = null,
     language: AppLanguage = AppLanguage.SPANISH,
     onDismiss: () -> Unit,
     onSave: (title: String, desc: String, energy: EnergyLevel, priority: PriorityType, minutes: Int, category: String, makeFrog: Boolean) -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var energyLevel by remember { mutableStateOf(EnergyLevel.MEDIUM) }
-    var priorityType by remember { mutableStateOf(PriorityType.MEDIUM) }
-    var estimatedMinutes by remember { mutableIntStateOf(30) }
-    var category by remember { mutableStateOf(if (language == AppLanguage.SPANISH) "Trabajo Profundo" else "Deep Work") }
-    var isFrog by remember { mutableStateOf(false) }
+    var title by remember { mutableStateOf(initialTask?.title ?: "") }
+    var description by remember { mutableStateOf(initialTask?.description ?: "") }
+    var energyLevel by remember { mutableStateOf(initialTask?.energyLevel ?: EnergyLevel.MEDIUM) }
+    var priorityType by remember { mutableStateOf(initialTask?.priorityType ?: PriorityType.MEDIUM) }
+    var estimatedMinutes by remember { mutableIntStateOf(initialTask?.estimatedMinutes ?: 30) }
+    var category by remember { 
+        mutableStateOf(initialTask?.category ?: if (language == AppLanguage.SPANISH) "Trabajo Profundo" else "Deep Work") 
+    }
+    var isFrog by remember { mutableStateOf(initialTask?.isFrog ?: (initialTask?.priorityType == PriorityType.FROG)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.Bolt, contentDescription = null, tint = AetherCyan)
+                Icon(
+                    imageVector = if (initialTask != null) Icons.Default.Edit else Icons.Default.Bolt, 
+                    contentDescription = null, 
+                    tint = AetherCyan
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = strings.quickAddTitle,
+                    text = if (initialTask != null) strings.editTaskTitle else strings.quickAddTitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = AetherTextPrimary,
                     fontWeight = FontWeight.Bold
@@ -197,7 +203,7 @@ fun QuickAddTaskDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D)),
                 modifier = Modifier.testTag("save_task_btn")
             ) {
-                Text(strings.btnCapture, fontWeight = FontWeight.Bold)
+                Text(if (initialTask != null) strings.btnSave else strings.btnCapture, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -211,26 +217,37 @@ fun QuickAddTaskDialog(
 
 @Composable
 fun AddPantryDialog(
+    initialItem: PantryItem? = null,
     language: AppLanguage = AppLanguage.SPANISH,
     onDismiss: () -> Unit,
     onSave: (name: String, category: PantryCategory, inStock: Boolean, isBatchBase: Boolean, qty: String) -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
-    var name by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(PantryCategory.PROTEIN) }
-    var inStock by remember { mutableStateOf(true) }
-    var isBatchBase by remember { mutableStateOf(false) }
-    var quantityDesc by remember { mutableStateOf(if (language == AppLanguage.SPANISH) "Disponible" else "Available") }
+    var name by remember { mutableStateOf(initialItem?.name ?: "") }
+    var category by remember { mutableStateOf(initialItem?.category ?: PantryCategory.PROTEIN) }
+    var inStock by remember { mutableStateOf(initialItem?.inStock ?: true) }
+    var isBatchBase by remember { mutableStateOf(initialItem?.isBatchBase ?: false) }
+    var quantityDesc by remember { 
+        mutableStateOf(initialItem?.quantityDesc ?: if (language == AppLanguage.SPANISH) "Disponible" else "Available") 
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                text = strings.addPantryTitle,
-                style = MaterialTheme.typography.titleMedium,
-                color = AetherTextPrimary,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (initialItem != null) Icons.Default.Edit else Icons.Default.Kitchen,
+                    contentDescription = null,
+                    tint = AetherCyan
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (initialItem != null) strings.editPantryTitle else strings.addPantryTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         },
         text = {
             Column(
@@ -421,27 +438,90 @@ fun CognitiveReframeDialog(
     )
 }
 
+fun parseTimeToMinutes(timeStr: String): Int {
+    return try {
+        val clean = timeStr.trim()
+        val parts = clean.split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        (hour * 60 + minute).coerceIn(0, 1439)
+    } catch (e: Exception) {
+        0
+    }
+}
+
 @Composable
 fun AddTimeBlockDialog(
+    initialBlock: TimeBlock? = null,
     language: AppLanguage = AppLanguage.SPANISH,
+    existingBlocks: List<TimeBlock> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (startTime: String, endTime: String, blockType: BlockType, title: String, notes: String) -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
-    var startTime by remember { mutableStateOf("09:00") }
-    var endTime by remember { mutableStateOf("10:30") }
-    var blockType by remember { mutableStateOf(BlockType.DEEP_WORK) }
-    var title by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var startTime by remember { mutableStateOf(initialBlock?.startTime ?: "09:00") }
+    var endTime by remember { mutableStateOf(initialBlock?.endTime ?: "10:30") }
+    var blockType by remember { mutableStateOf(initialBlock?.blockType ?: BlockType.DEEP_WORK) }
+    var title by remember { mutableStateOf(initialBlock?.title ?: "") }
+    var notes by remember { mutableStateOf(initialBlock?.notes ?: "") }
+    var conflictingBlock by remember { mutableStateOf<TimeBlock?>(null) }
+    var showOverlapWarning by remember { mutableStateOf(false) }
+
+    if (showOverlapWarning && conflictingBlock != null) {
+        val isSpanish = language == AppLanguage.SPANISH
+        AlertDialog(
+            onDismissRequest = { showOverlapWarning = false },
+            icon = { Icon(imageVector = Icons.Default.WarningAmber, contentDescription = null, tint = AetherAmber) },
+            title = {
+                Text(
+                    text = if (isSpanish) "Solapamiento de Horario" else "Time Overlap Detected",
+                    fontWeight = FontWeight.Bold,
+                    color = AetherTextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = if (isSpanish) {
+                        "Este bloque ($startTime - $endTime) se solapa con \"${conflictingBlock?.title}\" (${conflictingBlock?.startTime} - ${conflictingBlock?.endTime}). ¿Deseas continuar y guardarlo de todas formas?"
+                    } else {
+                        "This block ($startTime - $endTime) overlaps with \"${conflictingBlock?.title}\" (${conflictingBlock?.startTime} - ${conflictingBlock?.endTime}). Do you want to proceed and save anyway?"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AetherTextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showOverlapWarning = false
+                        onSave(startTime, endTime, blockType, title, notes)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF332000))
+                ) {
+                    Text(if (isSpanish) "Guardar de todas formas" else "Save Anyway", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverlapWarning = false }) {
+                    Text(if (isSpanish) "Modificar horas" else "Adjust Times", color = AetherCyan)
+                }
+            },
+            containerColor = AetherSurfaceElevated
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.Schedule, contentDescription = null, tint = AetherCyan)
+                Icon(
+                    imageVector = if (initialBlock != null) Icons.Default.Edit else Icons.Default.Schedule,
+                    contentDescription = null, 
+                    tint = AetherCyan
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = strings.addTimeBlockTitle,
+                    text = if (initialBlock != null) strings.editTimeBlockTitle else strings.addTimeBlockTitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = AetherTextPrimary,
                     fontWeight = FontWeight.Bold
@@ -547,7 +627,25 @@ fun AddTimeBlockDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onSave(startTime, endTime, blockType, title, notes)
+                        val newStartMin = parseTimeToMinutes(startTime)
+                        val newEndMin = parseTimeToMinutes(endTime)
+                        val actualEndMin = if (newEndMin <= newStartMin) newStartMin + 60 else newEndMin
+
+                        val otherBlocks = existingBlocks.filter { it.id != (initialBlock?.id ?: "") }
+                        val overlap = otherBlocks.firstOrNull { existing ->
+                            val exStart = parseTimeToMinutes(existing.startTime)
+                            val exEnd = parseTimeToMinutes(existing.endTime)
+                            val actualExEnd = if (exEnd <= exStart) exStart + 60 else exEnd
+                            // Overlap condition: startA < endB and startB < endA
+                            newStartMin < actualExEnd && exStart < actualEndMin
+                        }
+
+                        if (overlap != null) {
+                            conflictingBlock = overlap
+                            showOverlapWarning = true
+                        } else {
+                            onSave(startTime, endTime, blockType, title, notes)
+                        }
                     }
                 },
                 enabled = title.isNotBlank(),
@@ -565,28 +663,65 @@ fun AddTimeBlockDialog(
 
 @Composable
 fun AddMealDialog(
+    initialMeal: MealItem? = null,
     language: AppLanguage = AppLanguage.SPANISH,
     onDismiss: () -> Unit,
-    onSave: (slot: MealSlot, title: String, desc: String, prepTime: Int, ingredients: List<String>, usesBatch: Boolean, inStock: Boolean, bioImpact: BioGlycemicImpact) -> Unit
+    onSave: (
+        slot: MealSlot,
+        title: String,
+        desc: String,
+        prepTime: Int,
+        ingredients: List<String>,
+        usesBatch: Boolean,
+        inStock: Boolean,
+        bioImpact: BioGlycemicImpact,
+        customSlotName: String?,
+        proteinGrams: Int,
+        carbsGrams: Int,
+        fatGrams: Int,
+        caloriesKcal: Int
+    ) -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
-    var slot by remember { mutableStateOf(MealSlot.LUNCH) }
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var prepTimeMinutes by remember { mutableIntStateOf(10) }
-    var ingredientsRaw by remember { mutableStateOf("") }
-    var usesBatchCookedBase by remember { mutableStateOf(false) }
-    var allIngredientsInStock by remember { mutableStateOf(true) }
-    var bioImpact by remember { mutableStateOf(BioGlycemicImpact.MODERATE_STEADY) }
+    val isSpanish = language == AppLanguage.SPANISH
+
+    var slot by remember { mutableStateOf(initialMeal?.slot ?: MealSlot.LUNCH) }
+    var customSlotName by remember { mutableStateOf(initialMeal?.customSlotName ?: "") }
+    var title by remember { mutableStateOf(initialMeal?.title ?: "") }
+    var description by remember { mutableStateOf(initialMeal?.description ?: "") }
+    var prepTimeMinutes by remember { mutableIntStateOf(initialMeal?.prepTimeMinutes ?: 10) }
+    var ingredientsRaw by remember { mutableStateOf(initialMeal?.ingredients?.joinToString(", ") ?: "") }
+    var usesBatchCookedBase by remember { mutableStateOf(initialMeal?.usesBatchCookedBase ?: false) }
+    var allIngredientsInStock by remember { mutableStateOf(initialMeal?.allIngredientsInStock ?: true) }
+    var bioImpact by remember { mutableStateOf(initialMeal?.bioImpact ?: BioGlycemicImpact.MODERATE_STEADY) }
+
+    var proteinStr by remember { mutableStateOf(initialMeal?.proteinGrams?.takeIf { it > 0 }?.toString() ?: "") }
+    var carbsStr by remember { mutableStateOf(initialMeal?.carbsGrams?.takeIf { it > 0 }?.toString() ?: "") }
+    var fatStr by remember { mutableStateOf(initialMeal?.fatGrams?.takeIf { it > 0 }?.toString() ?: "") }
+
+    val protein = proteinStr.toIntOrNull() ?: 0
+    val carbs = carbsStr.toIntOrNull() ?: 0
+    val fat = fatStr.toIntOrNull() ?: 0
+    val computedKcal = (protein * 4) + (carbs * 4) + (fat * 9)
+
+    val quickSlotSuggestions = if (isSpanish) {
+        listOf("Pre-Entreno", "Post-Entreno", "Merienda", "Media Mañana", "Cena Tardía", "Brunch")
+    } else {
+        listOf("Pre-Workout", "Post-Workout", "Afternoon Snack", "Mid-Morning", "Late Dinner", "Brunch")
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.Restaurant, contentDescription = null, tint = AetherAmber)
+                Icon(
+                    imageVector = if (initialMeal != null) Icons.Default.Edit else Icons.Default.Restaurant, 
+                    contentDescription = null, 
+                    tint = AetherAmber
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = strings.addMealTitle,
+                    text = if (initialMeal != null) (if (isSpanish) "Editar Comida" else "Edit Meal") else strings.addMealTitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = AetherTextPrimary,
                     fontWeight = FontWeight.Bold
@@ -622,29 +757,189 @@ fun AddMealDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Moment / Meal Slot Selector
                 Text(
                     text = strings.mealSlotLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = AetherCyan,
                     fontWeight = FontWeight.Bold
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(MealSlot.BREAKFAST, MealSlot.LUNCH, MealSlot.DINNER).forEach { mSlot ->
+                            val slotLabel = when (mSlot) {
+                                MealSlot.BREAKFAST -> strings.slotBreakfast
+                                MealSlot.LUNCH -> if (isSpanish) "Almuerzo" else "Lunch"
+                                MealSlot.DINNER -> strings.slotDinner
+                                else -> mSlot.name
+                            }
+                            FilterChip(
+                                selected = slot == mSlot,
+                                onClick = { slot = mSlot },
+                                label = { Text(slotLabel, fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(MealSlot.SNACK, MealSlot.CUSTOM).forEach { mSlot ->
+                            val slotLabel = when (mSlot) {
+                                MealSlot.SNACK -> "Snack"
+                                MealSlot.CUSTOM -> strings.slotCustom
+                                else -> mSlot.name
+                            }
+                            FilterChip(
+                                selected = slot == mSlot,
+                                onClick = { 
+                                    slot = mSlot 
+                                    if (mSlot == MealSlot.CUSTOM && customSlotName.isBlank()) {
+                                        customSlotName = quickSlotSuggestions.first()
+                                    }
+                                },
+                                label = { Text(slotLabel, fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                // Custom Moment Name Input & Quick Suggestions
+                if (slot == MealSlot.CUSTOM) {
+                    OutlinedTextField(
+                        value = customSlotName,
+                        onValueChange = { customSlotName = it },
+                        label = { Text(strings.customSlotNameLabel) },
+                        placeholder = { Text("Ej: Pre-Entreno, Merienda") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        text = strings.customSlotSuggestions,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted,
+                        fontSize = 10.sp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        quickSlotSuggestions.take(3).forEach { suggestion ->
+                            SuggestionChip(
+                                onClick = { customSlotName = suggestion },
+                                label = { Text(suggestion, fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        quickSlotSuggestions.drop(3).forEach { suggestion ->
+                            SuggestionChip(
+                                onClick = { customSlotName = suggestion },
+                                label = { Text(suggestion, fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                }
+
+                // MACROS (Protein, Carbs, Fats)
+                Text(
+                    text = "MACRONUTRIENTES (g)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherAmber,
+                    fontWeight = FontWeight.Bold
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    MealSlot.entries.forEach { mSlot ->
-                        val slotLabel = when (mSlot) {
-                            MealSlot.BREAKFAST -> if (language == AppLanguage.SPANISH) "Desayuno" else "Breakfast"
-                            MealSlot.LUNCH -> if (language == AppLanguage.SPANISH) "Almuerzo" else "Lunch"
-                            MealSlot.DINNER -> if (language == AppLanguage.SPANISH) "Cena" else "Dinner"
-                            MealSlot.SNACK -> if (language == AppLanguage.SPANISH) "Snack" else "Snack"
-                        }
-                        FilterChip(
-                            selected = slot == mSlot,
-                            onClick = { slot = mSlot },
-                            label = { Text(slotLabel, fontSize = 10.sp) },
-                            modifier = Modifier.weight(1f)
+                    OutlinedTextField(
+                        value = proteinStr,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) proteinStr = it.take(3) },
+                        label = { Text("Prot (g)", color = AetherCyan, fontSize = 10.sp) },
+                        placeholder = { Text("30") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = carbsStr,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) carbsStr = it.take(3) },
+                        label = { Text("Carb (g)", color = AetherAmber, fontSize = 10.sp) },
+                        placeholder = { Text("45") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = fatStr,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) fatStr = it.take(3) },
+                        label = { Text("Gras (g)", color = AetherCoral, fontSize = 10.sp) },
+                        placeholder = { Text("15") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Live Calories Computation Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = AetherSurface),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = strings.macroCalculatedKcal,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AetherTextMuted
                         )
+                        Text(
+                            text = "🔥 $computedKcal kcal",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (computedKcal > 0) AetherAmber else AetherTextMuted
+                        )
+                    }
+                }
+
+                // Prep Time
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "${strings.mealPrepTimeLabel}: ${prepTimeMinutes} min",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextPrimary
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = { if (prepTimeMinutes > 2) prepTimeMinutes -= 2 },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Remove, contentDescription = "Menos", tint = AetherCyan)
+                        }
+                        IconButton(
+                            onClick = { prepTimeMinutes += 2 },
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = "Más", tint = AetherCyan)
+                        }
                     }
                 }
 
@@ -699,11 +994,325 @@ fun AddMealDialog(
                 onClick = {
                     if (title.isNotBlank()) {
                         val ings = ingredientsRaw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                        onSave(slot, title, description, prepTimeMinutes, ings, usesBatchCookedBase, allIngredientsInStock, bioImpact)
+                        val finalCustomSlot = if (slot == MealSlot.CUSTOM) {
+                            customSlotName.trim().ifEmpty { if (isSpanish) "Momento Especial" else "Special Moment" }
+                        } else null
+
+                        onSave(
+                            slot,
+                            title.trim(),
+                            description.trim(),
+                            prepTimeMinutes,
+                            ings,
+                            usesBatchCookedBase,
+                            allIngredientsInStock,
+                            bioImpact,
+                            finalCustomSlot,
+                            protein,
+                            carbs,
+                            fat,
+                            computedKcal
+                        )
                     }
                 },
                 enabled = title.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3B2D00))
+            ) {
+                Text(strings.btnSave, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(strings.btnCancel, color = AetherTextSecondary) }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}
+
+@Composable
+fun DuplicateMealDialog(
+    meal: MealItem,
+    language: AppLanguage = AppLanguage.SPANISH,
+    onDismiss: () -> Unit,
+    onDuplicate: (targetOffsetDays: Int) -> Unit
+) {
+    val strings = remember(language) { StringsProvider(language) }
+    var selectedOffset by remember { mutableIntStateOf(1) } // Default tomorrow
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = null,
+                tint = AetherAmber,
+                modifier = Modifier.size(28.dp)
+            )
+        },
+        title = {
+            Text(
+                text = strings.duplicateMealTitle,
+                style = MaterialTheme.typography.titleMedium,
+                color = AetherTextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = strings.duplicateMealSubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AetherTextSecondary
+                )
+
+                // Meal preview chip
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = meal.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AetherTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "P: ${meal.proteinGrams}g • C: ${meal.carbsGrams}g • G: ${meal.fatGrams}g",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherCyan,
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                text = "• ${meal.computedCalories} kcal",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherAmber,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Quick Target Day Options
+                val options = listOf(
+                    1 to strings.duplicateTomorrow,
+                    2 to strings.duplicateIn2Days,
+                    3 to strings.duplicateIn3Days,
+                    0 to strings.duplicateToday
+                )
+
+                options.forEach { (offset, label) ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        onClick = { selectedOffset = offset },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedOffset == offset) AetherAmber.copy(alpha = 0.18f) else AetherSurfaceCard
+                        ),
+                        border = if (selectedOffset == offset) androidx.compose.foundation.BorderStroke(1.dp, AetherAmber) else null,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (selectedOffset == offset) AetherAmber else AetherTextPrimary,
+                                fontWeight = if (selectedOffset == offset) FontWeight.Bold else FontWeight.Normal
+                            )
+                            RadioButton(
+                                selected = selectedOffset == offset,
+                                onClick = { selectedOffset = offset },
+                                colors = RadioButtonDefaults.colors(selectedColor = AetherAmber)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onDuplicate(selectedOffset) },
+                colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3B2D00))
+            ) {
+                Text(strings.btnDuplicateMeal, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(strings.btnCancel, color = AetherTextSecondary) }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}
+
+
+@Composable
+fun AddEditHabitDialog(
+    initialHabit: HabitAnchor? = null,
+    language: AppLanguage = AppLanguage.SPANISH,
+    onDismiss: () -> Unit,
+    onSave: (title: String, desc: String, anchor: CircadianAnchor, streakDays: Int, reframingTip: String) -> Unit
+) {
+    val strings = remember(language) { StringsProvider(language) }
+    var title by remember { mutableStateOf(initialHabit?.title ?: "") }
+    var description by remember { mutableStateOf(initialHabit?.description ?: "") }
+    var anchor by remember { mutableStateOf(initialHabit?.anchor ?: CircadianAnchor.MORNING_LIGHT) }
+    var streakDays by remember { mutableIntStateOf(initialHabit?.streakDays ?: 0) }
+    var reframingTip by remember { 
+        mutableStateOf(
+            initialHabit?.reframingTip ?: if (language == AppLanguage.SPANISH) 
+                "La consistencia biológica es un patrón de retorno, no de perfección." 
+            else 
+                "Biological consistency is a pattern of return, not perfection."
+        ) 
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (initialHabit != null) Icons.Default.Edit else Icons.Default.Spa,
+                    contentDescription = null,
+                    tint = AetherEmerald
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (initialHabit != null) strings.editHabitTitle else strings.addHabitTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(strings.habitTitleLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Ej: Luz Solar Temprana (10 min)" else "e.g. Early Sunlight Exposure (10 min)")
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(strings.habitDescLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Ej: Salir a la terraza o parque en los primeros 30 min" else "e.g. Step outside within 30 min of waking")
+                    },
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    text = strings.habitAnchorLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CircadianAnchor.entries.forEach { a ->
+                        val label = when (a) {
+                            CircadianAnchor.MORNING_LIGHT -> if (language == AppLanguage.SPANISH) "Luz Solar" else "Morning Light"
+                            CircadianAnchor.HYDRATION_ELECTROLYTES -> if (language == AppLanguage.SPANISH) "Hidratación" else "Hydration"
+                            CircadianAnchor.ZONE_2_MOVEMENT -> if (language == AppLanguage.SPANISH) "Zona 2" else "Zone 2"
+                            CircadianAnchor.CAFFEINE_CUTOFF -> if (language == AppLanguage.SPANISH) "Corte Café" else "Caffeine"
+                            CircadianAnchor.DIGITAL_SUNSET -> if (language == AppLanguage.SPANISH) "Ocaso Digital" else "Sunset"
+                        }
+                        FilterChip(
+                            selected = anchor == a,
+                            onClick = { anchor = a },
+                            label = { Text(label, fontSize = 9.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = strings.habitStreakLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextSecondary
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = { if (streakDays > 0) streakDays-- },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "-", tint = AetherCyan)
+                        }
+                        Text(
+                            text = "$streakDays",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AetherEmerald
+                        )
+                        IconButton(
+                            onClick = { streakDays++ },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "+", tint = AetherCyan)
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = reframingTip,
+                    onValueChange = { reframingTip = it },
+                    label = { Text(strings.habitTipLabel) },
+                    placeholder = {
+                        Text(if (language == AppLanguage.SPANISH) "Frase motivacional o científica" else "Motivational bio-principle")
+                    },
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(title, description, anchor, streakDays, reframingTip)
+                    }
+                },
+                enabled = title.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AetherEmerald, contentColor = Color(0xFF003919))
             ) {
                 Text(strings.btnSave, fontWeight = FontWeight.Bold)
             }

@@ -73,7 +73,7 @@ fun PantryItem.toEntity() = PantryEntity(
     quantityDesc = quantityDesc
 )
 
-fun MealEntity.toModel() = MealItem(
+fun MealEntity.toModel(inStock: Boolean? = null) = MealItem(
     id = id,
     slot = slot,
     title = title,
@@ -81,10 +81,27 @@ fun MealEntity.toModel() = MealItem(
     prepTimeMinutes = prepTimeMinutes,
     ingredients = ingredients,
     usesBatchCookedBase = usesBatchCookedBase,
-    allIngredientsInStock = allIngredientsInStock,
+    allIngredientsInStock = inStock ?: allIngredientsInStock,
     bioImpact = bioImpact,
-    isCompleted = isCompleted
+    isCompleted = isCompleted,
+    customSlotName = customSlotName,
+    proteinGrams = proteinGrams,
+    carbsGrams = carbsGrams,
+    fatGrams = fatGrams,
+    caloriesKcal = caloriesKcal,
+    dateIso = dateIso
 )
+
+fun calculateMealIngredientsInStock(ingredients: List<String>, inStockPantryNames: Set<String>): Boolean {
+    if (ingredients.isEmpty()) return true
+    return ingredients.all { ingredient ->
+        val cleanIng = ingredient.trim().lowercase(java.util.Locale.ROOT)
+        inStockPantryNames.any { pantryName ->
+            cleanIng.contains(pantryName) || pantryName.contains(cleanIng) ||
+            cleanIng.split(" ").filter { it.length > 3 }.any { pantryName.contains(it) }
+        }
+    }
+}
 
 fun MealItem.toEntity() = MealEntity(
     id = id,
@@ -96,7 +113,13 @@ fun MealItem.toEntity() = MealEntity(
     usesBatchCookedBase = usesBatchCookedBase,
     allIngredientsInStock = allIngredientsInStock,
     bioImpact = bioImpact,
-    isCompleted = isCompleted
+    isCompleted = isCompleted,
+    customSlotName = customSlotName,
+    proteinGrams = proteinGrams,
+    carbsGrams = carbsGrams,
+    fatGrams = fatGrams,
+    caloriesKcal = caloriesKcal,
+    dateIso = dateIso
 )
 
 fun HabitEntity.toModel() = HabitAnchor(
@@ -141,3 +164,57 @@ fun BiometricBaseline.toEntity(date: String = com.example.data.util.AetherDateUt
     recoveryModeTriggered = recoveryModeTriggered,
     graceDayActive = graceDayActive
 )
+
+fun CompletionLogEntity.toModel() = CompletionLog(
+    id = id,
+    dateIso = dateIso,
+    itemType = itemType,
+    itemId = itemId,
+    title = title,
+    status = status,
+    timestamp = timestamp
+)
+
+fun CompletionLog.toEntity() = CompletionLogEntity(
+    id = id,
+    dateIso = dateIso,
+    itemType = itemType,
+    itemId = itemId,
+    title = title,
+    status = status,
+    timestamp = timestamp
+)
+
+fun DailySummaryEntity.toModel() = DailySummary(
+    dateIso = dateIso,
+    totalCount = totalCount,
+    completedCount = completedCount,
+    partialCount = partialCount,
+    ratio = ratio
+)
+
+fun DailySummary.toEntity() = DailySummaryEntity(
+    dateIso = dateIso,
+    totalCount = totalCount,
+    completedCount = completedCount,
+    partialCount = partialCount,
+    ratio = ratio
+)
+
+fun AiMessageEntity.toModel(isStreaming: Boolean = false) = AiMessage(
+    id = id,
+    role = role,
+    content = content,
+    timestamp = timestamp,
+    isFavorite = isFavorite,
+    isStreaming = isStreaming
+)
+
+fun AiMessage.toEntity() = AiMessageEntity(
+    id = id,
+    role = role,
+    content = content,
+    timestamp = timestamp,
+    isFavorite = isFavorite
+)
+

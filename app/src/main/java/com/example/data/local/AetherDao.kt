@@ -137,3 +137,82 @@ interface BiometricDao {
     @Query("DELETE FROM biometrics")
     suspend fun clearAllBiometrics()
 }
+
+@Dao
+interface CompletionLogDao {
+    @Query("SELECT * FROM completion_logs WHERE dateIso = :dateIso ORDER BY timestamp DESC")
+    fun getLogsByDate(dateIso: String): Flow<List<CompletionLogEntity>>
+
+    @Query("SELECT * FROM completion_logs WHERE dateIso BETWEEN :startDateIso AND :endDateIso ORDER BY timestamp DESC")
+    fun getLogsBetweenDates(startDateIso: String, endDateIso: String): Flow<List<CompletionLogEntity>>
+
+    @Query("SELECT * FROM completion_logs ORDER BY timestamp DESC")
+    fun getAllLogs(): Flow<List<CompletionLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLog(log: CompletionLogEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLogs(logs: List<CompletionLogEntity>)
+
+    @Query("DELETE FROM completion_logs WHERE id = :id")
+    suspend fun deleteLog(id: Int)
+
+    @Query("DELETE FROM completion_logs WHERE dateIso = :dateIso")
+    suspend fun deleteLogsForDate(dateIso: String)
+
+    @Query("DELETE FROM completion_logs")
+    suspend fun clearAllLogs()
+}
+
+@Dao
+interface DailySummaryDao {
+    @Query("SELECT * FROM daily_summaries WHERE dateIso = :dateIso LIMIT 1")
+    fun getSummary(dateIso: String): Flow<DailySummaryEntity?>
+
+    @Query("SELECT * FROM daily_summaries ORDER BY dateIso ASC")
+    fun getAllSummaries(): Flow<List<DailySummaryEntity>>
+
+    @Query("SELECT * FROM daily_summaries WHERE dateIso LIKE :yearMonthPrefix ORDER BY dateIso ASC")
+    fun getSummariesForMonth(yearMonthPrefix: String): Flow<List<DailySummaryEntity>>
+
+    @Query("SELECT * FROM daily_summaries WHERE dateIso BETWEEN :startDateIso AND :endDateIso ORDER BY dateIso ASC")
+    fun getSummariesBetweenDates(startDateIso: String, endDateIso: String): Flow<List<DailySummaryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateSummary(summary: DailySummaryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSummaries(summaries: List<DailySummaryEntity>)
+
+    @Query("DELETE FROM daily_summaries")
+    suspend fun clearAllSummaries()
+}
+
+@Dao
+interface AiMessageDao {
+    @Query("SELECT * FROM ai_messages ORDER BY timestamp ASC")
+    fun getAllMessages(): Flow<List<AiMessageEntity>>
+
+    @Query("SELECT * FROM ai_messages WHERE isFavorite = 1 ORDER BY timestamp DESC")
+    fun getFavoriteMessages(): Flow<List<AiMessageEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessage(message: AiMessageEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessages(messages: List<AiMessageEntity>)
+
+    @Update
+    suspend fun updateMessage(message: AiMessageEntity)
+
+    @Query("UPDATE ai_messages SET isFavorite = :isFavorite WHERE id = :id")
+    suspend fun setFavorite(id: String, isFavorite: Boolean)
+
+    @Query("DELETE FROM ai_messages WHERE id = :id")
+    suspend fun deleteMessage(id: String)
+
+    @Query("DELETE FROM ai_messages")
+    suspend fun clearAllMessages()
+}
+

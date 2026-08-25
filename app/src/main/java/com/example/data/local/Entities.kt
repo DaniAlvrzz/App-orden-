@@ -1,6 +1,7 @@
 package com.example.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.data.model.*
 
@@ -53,7 +54,13 @@ data class MealEntity(
     val usesBatchCookedBase: Boolean = false,
     val allIngredientsInStock: Boolean = true,
     val bioImpact: BioGlycemicImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val customSlotName: String? = null,
+    val proteinGrams: Int = 0,
+    val carbsGrams: Int = 0,
+    val fatGrams: Int = 0,
+    val caloriesKcal: Int = 0,
+    val dateIso: String = ""
 )
 
 @Entity(tableName = "habits")
@@ -63,14 +70,14 @@ data class HabitEntity(
     val description: String,
     val anchor: CircadianAnchor,
     val isCompleted: Boolean = false,
-    val streakDays: Int = 5,
-    val graceDaysUsed: Int = 1,
+    val streakDays: Int = 0,
+    val graceDaysUsed: Int = 0,
     val reframingTip: String = "Biological consistency is a pattern of return, not perfection."
 )
 
 @Entity(
     tableName = "biometrics",
-    indices = [androidx.room.Index(value = ["date"], unique = true)]
+    indices = [Index(value = ["date"], unique = true)]
 )
 data class BiometricEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -82,4 +89,39 @@ data class BiometricEntity(
     val chronotype: Chronotype = Chronotype.BEAR,
     val recoveryModeTriggered: Boolean = false,
     val graceDayActive: Boolean = false
+)
+
+@Entity(
+    tableName = "completion_logs",
+    indices = [Index(value = ["dateIso"])]
+)
+data class CompletionLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val dateIso: String,
+    val itemType: CompletionItemType,
+    val itemId: String,
+    val title: String,
+    val status: CompletionStatus,
+    val timestamp: Long
+)
+
+@Entity(tableName = "daily_summaries")
+data class DailySummaryEntity(
+    @PrimaryKey val dateIso: String,
+    val totalCount: Int,
+    val completedCount: Int,
+    val partialCount: Int,
+    val ratio: Float
+)
+
+@Entity(
+    tableName = "ai_messages",
+    indices = [Index(value = ["timestamp"]), Index(value = ["isFavorite"])]
+)
+data class AiMessageEntity(
+    @PrimaryKey val id: String,
+    val role: String,
+    val content: String,
+    val timestamp: Long,
+    val isFavorite: Boolean = false
 )

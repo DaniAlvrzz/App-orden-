@@ -1,9 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,10 +38,17 @@ fun NexusScreen(
     onToggleTask: (TaskItem) -> Unit,
     onStartFocus: (TaskItem) -> Unit,
     onAddTaskClick: () -> Unit,
+    onEditTask: (TaskItem) -> Unit = {},
+    onDeleteTask: (TaskItem) -> Unit = {},
+    onMoveMediumTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    onMoveQuickTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onToggleTimeBlock: (TimeBlock) -> Unit,
     onAddTimeBlockClick: () -> Unit,
+    onEditTimeBlock: (TimeBlock) -> Unit = {},
     onDeleteTimeBlock: (TimeBlock) -> Unit = {},
+    onMoveTimeBlock: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onOpenReframe: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     onOpenSettings: () -> Unit,
     onOpenTutorial: () -> Unit,
     onToggleLanguage: () -> Unit,
@@ -68,7 +71,7 @@ fun NexusScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "AETHER",
@@ -120,6 +123,18 @@ fun NexusScreen(
                         }
                     }
 
+                    // Persistent History Button (Module 2)
+                    IconButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier.testTag("nexus_history_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = strings.historyTitle,
+                            tint = AetherCyan
+                        )
+                    }
+
                     // Interactive Tutorial Button
                     IconButton(
                         onClick = onOpenTutorial,
@@ -143,42 +158,11 @@ fun NexusScreen(
                             tint = AetherTextSecondary
                         )
                     }
-
-                    // AI Orchestrate Button
-                    Button(
-                        onClick = onOrchestrateClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AetherCyan,
-                            contentColor = Color(0xFF00363D)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.testTag("orchestrate_btn")
-                    ) {
-                        if (state.isOrchestrating) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF00363D),
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (state.isOrchestrating) strings.btnAligning else strings.btnOrchestrate,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
             }
         }
 
-        // AI Engine Source & Orchestration Status Banner
+        // AI Engine Source & Orchestration Status Banner with Trigger Button
         item {
             val statusColor = when (state.aiEngineStatus) {
                 AiStatus.LIVE -> AetherEmerald
@@ -214,35 +198,77 @@ fun NexusScreen(
                 modifier = Modifier.fillMaxWidth().testTag("ai_engine_status_card")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (state.isOrchestrating) {
-                        CircularProgressIndicator(
-                            color = AetherCyan,
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (state.isOrchestrating) {
+                            CircularProgressIndicator(
+                                color = AetherCyan,
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isSpanish) "Sintetizando cronobiología con Gemini AI..." else "Synthesizing chronobiology with Gemini AI...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherCyan,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else {
+                            Icon(
+                                imageVector = statusIcon,
+                                contentDescription = null,
+                                tint = statusColor,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // AI Quick Orchestrate Button
+                    FilledTonalButton(
+                        onClick = onOrchestrateClick,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = AetherCyan.copy(alpha = 0.2f),
+                            contentColor = AetherCyan
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("orchestrate_btn")
+                    ) {
+                        if (state.isOrchestrating) {
+                            CircularProgressIndicator(
+                                color = AetherCyan,
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (isSpanish) "Sintetizando cronobiología con Gemini AI..." else "Synthesizing chronobiology with Gemini AI...",
+                            text = if (state.isOrchestrating) strings.btnAligning else strings.btnOrchestrate,
                             style = MaterialTheme.typography.labelSmall,
-                            color = AetherCyan,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Icon(
-                            imageVector = statusIcon,
-                            contentDescription = null,
-                            tint = statusColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = statusLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = statusColor,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -319,7 +345,12 @@ fun NexusScreen(
                 quickWins = state.quickTasks,
                 onToggleTask = onToggleTask,
                 onStartFocus = onStartFocus,
-                onAddTaskClick = onAddTaskClick
+                onAddTaskClick = onAddTaskClick,
+                onEditTask = onEditTask,
+                onDeleteTask = onDeleteTask,
+                onMoveMediumTask = onMoveMediumTask,
+                onMoveQuickTask = onMoveQuickTask,
+                language = state.currentLanguage
             )
         }
 
@@ -329,7 +360,9 @@ fun NexusScreen(
                 blocks = state.timeBlocks,
                 onToggleBlock = onToggleTimeBlock,
                 onAddBlockClick = onAddTimeBlockClick,
+                onEditBlock = onEditTimeBlock,
                 onDeleteBlock = onDeleteTimeBlock,
+                onMoveBlock = onMoveTimeBlock,
                 language = state.currentLanguage
             )
         }

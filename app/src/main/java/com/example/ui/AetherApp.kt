@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.model.*
 import com.example.ui.components.*
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -22,25 +24,40 @@ import com.example.ui.screens.*
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.AetherViewModel
 
-data class NavItem(
-    val titleKey: String,
-    val icon: ImageVector,
-    val tag: String
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AetherApp(
-    viewModel: AetherViewModel = viewModel()
+    viewModel: AetherViewModel = viewModel(factory = AetherViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Status Message Feedback
     LaunchedEffect(state.statusMessage) {
         state.statusMessage?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
+            snackbarHostState.showSnackbar(
+                message = msg,
+                duration = SnackbarDuration.Short
+            )
             viewModel.clearStatusMessage()
+        }
+    }
+
+    // 5-Second Swipe-to-Dismiss / Delete Undo Snackbar
+    LaunchedEffect(state.undoMessage) {
+        state.undoMessage?.let { msg ->
+            val actionLabel = if (state.currentLanguage == AppLanguage.SPANISH) "Deshacer" else "Undo"
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = actionLabel,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.restoreLastDeletedItem()
+            } else {
+                viewModel.dismissUndo()
+            }
         }
     }
 
@@ -130,10 +147,17 @@ fun AetherApp(
                             viewModel.selectTab(1)
                         },
                         onAddTaskClick = { viewModel.setShowQuickAdd(true) },
+                        onEditTask = { viewModel.setEditingTask(it) },
+                        onDeleteTask = { viewModel.deleteTaskWithUndo(it) },
+                        onMoveMediumTask = { from, to -> viewModel.moveMediumTask(from, to) },
+                        onMoveQuickTask = { from, to -> viewModel.moveQuickTask(from, to) },
                         onToggleTimeBlock = { viewModel.toggleTimeBlock(it) },
                         onAddTimeBlockClick = { viewModel.setShowAddTimeBlock(true) },
-                        onDeleteTimeBlock = { viewModel.deleteTimeBlock(it.id) },
+                        onEditTimeBlock = { viewModel.setEditingTimeBlock(it) },
+                        onDeleteTimeBlock = { viewModel.deleteTimeBlockWithUndo(it) },
+                        onMoveTimeBlock = { from, to -> viewModel.moveTimeBlock(from, to) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
+                        onOpenHistory = { viewModel.openHistory() },
                         onOpenSettings = { viewModel.openSettings() },
                         onOpenTutorial = { viewModel.openTutorial(0) },
                         onToggleLanguage = {
@@ -145,28 +169,40 @@ fun AetherApp(
                         state = state,
                         onToggleTask = { viewModel.toggleTask(it) },
                         onPromoteToFrog = { viewModel.promoteToFrog(it) },
-                        onDeleteTask = { viewModel.deleteTask(it) },
+                        onDeleteTask = { viewModel.deleteTaskWithUndo(it) },
+                        onEditTask = { viewModel.setEditingTask(it) },
+                        onMoveTask = { from, to -> viewModel.moveTask(from, to) },
                         onSetEnergyFilter = { viewModel.setEnergyFilter(it) },
                         onSetSearchQuery = { viewModel.setSearchQuery(it) },
                         onStartFocusTimer = { viewModel.startFocusTimer(it) },
                         onPauseFocusTimer = { viewModel.stopFocusTimer() },
                         onResetFocusTimer = { viewModel.resetFocusTimer() },
-                        onOpenQuickAdd = { viewModel.setShowQuickAdd(true) }
+                        onOpenQuickAdd = { viewModel.setShowQuickAdd(true) },
+                        onOpenHistory = { viewModel.openHistory() }
                     )
                     2 -> NutritionScreen(
                         state = state,
                         onToggleMeal = { viewModel.toggleMeal(it) },
-                        onDeleteMeal = { viewModel.deleteMeal(it) },
+                        onDeleteMeal = { viewModel.deleteMealWithUndo(it) },
+                        onEditMeal = { viewModel.setEditingMeal(it) },
+                        onDuplicateMeal = { meal, offset -> viewModel.duplicateMeal(meal, offset) },
                         onOpenAddMeal = { viewModel.setShowAddMeal(true) },
                         onTogglePantryStock = { id, inStock -> viewModel.togglePantryStock(id, inStock) },
-                        onDeletePantryItem = { viewModel.deletePantryItem(it) },
-                        onOpenAddPantry = { viewModel.setShowPantryAdd(true) }
+                        onDeletePantryItem = { viewModel.deletePantryItemWithUndo(it) },
+                        onEditPantryItem = { viewModel.setEditingPantryItem(it) },
+                        onOpenAddPantry = { viewModel.setShowPantryAdd(true) },
+                        onOpenHistory = { viewModel.openHistory() }
                     )
                     3 -> HabitsScreen(
                         state = state,
                         onToggleHabit = { viewModel.toggleHabit(it) },
                         onApplyGraceDay = { viewModel.applyGraceDay(it) },
-                        onOpenReframe = { viewModel.setShowReframe(true) }
+                        onEditHabit = { viewModel.setEditingHabit(it) },
+                        onDeleteHabit = { viewModel.deleteHabitWithUndo(it) },
+                        onOpenAddHabit = { viewModel.setShowAddHabit(true) },
+                        onOpenReframe = { viewModel.setShowReframe(true) },
+                        onOpenHistory = { viewModel.openHistory() },
+                        onOpenAchievements = { viewModel.setShowAchievementsDialog(true) }
                     )
                     4 -> AetherAiScreen(
                         state = state,
@@ -174,14 +210,21 @@ fun AetherApp(
                         onRequestReframe = { viewModel.requestCognitiveReframe(it) },
                         onToggleRecovery = { viewModel.toggleRecoveryMode() },
                         onUpdateChronotype = { viewModel.updateChronotype(it) },
+                        onSendChatMessage = { viewModel.sendChatMessage(it) },
+                        onSendQuickAction = { viewModel.sendQuickAction(it) },
+                        onToggleFavorite = { viewModel.toggleAiMessageFavorite(it) },
+                        onDeleteMessage = { viewModel.deleteAiMessage(it) },
+                        onClearChatHistory = { viewModel.clearAiChatHistory() },
+                        onSelectTab = { viewModel.setAiTab(it) },
                         getExportJson = { viewModel.getExportJson() }
                     )
                 }
             }
 
-            // Quick Add Dialog
+            // 1. Task Creation Dialog
             if (state.showQuickAddDialog) {
                 QuickAddTaskDialog(
+                    initialTask = null,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setShowQuickAdd(false) },
                     onSave = { title, desc, energy, priority, minutes, category, makeFrog ->
@@ -190,9 +233,66 @@ fun AetherApp(
                 )
             }
 
-            // Add Pantry Dialog
+            // 2. Task Edit Dialog
+            state.editingTask?.let { taskToEdit: TaskItem ->
+                QuickAddTaskDialog(
+                    initialTask = taskToEdit,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setEditingTask(null) },
+                    onSave = { title, desc, energy, priority, minutes, category, makeFrog ->
+                        viewModel.updateTask(
+                            taskToEdit.copy(
+                                title = title,
+                                description = desc,
+                                energyLevel = energy,
+                                priorityType = priority,
+                                estimatedMinutes = minutes,
+                                category = category,
+                                isFrog = makeFrog
+                            )
+                        )
+                    }
+                )
+            }
+
+            // 3. TimeBlock Creation Dialog
+            if (state.showAddTimeBlockDialog) {
+                AddTimeBlockDialog(
+                    initialBlock = null,
+                    language = state.currentLanguage,
+                    existingBlocks = state.timeBlocks,
+                    onDismiss = { viewModel.setShowAddTimeBlock(false) },
+                    onSave = { start, end, type, title, notes ->
+                        viewModel.addTimeBlock(start, end, type, title, notes)
+                    }
+                )
+            }
+
+            // 4. TimeBlock Edit Dialog
+            state.editingTimeBlock?.let { blockToEdit: TimeBlock ->
+                AddTimeBlockDialog(
+                    initialBlock = blockToEdit,
+                    language = state.currentLanguage,
+                    existingBlocks = state.timeBlocks,
+                    onDismiss = { viewModel.setEditingTimeBlock(null) },
+                    onSave = { start, end, type, title, notes ->
+                        viewModel.updateTimeBlock(
+                            blockToEdit.copy(
+                                startTime = start,
+                                endTime = end,
+                                blockType = type,
+                                title = title,
+                                notes = notes
+                            )
+                        )
+                    }
+                )
+            }
+
+            // 5. Pantry Item Creation Dialog
             if (state.showPantryAddDialog) {
                 AddPantryDialog(
+                    initialItem = null,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setShowPantryAdd(false) },
                     onSave = { name, cat, inStock, isBase, qty ->
@@ -201,29 +301,99 @@ fun AetherApp(
                 )
             }
 
-            // Add TimeBlock Dialog
-            if (state.showAddTimeBlockDialog) {
-                AddTimeBlockDialog(
+            // 6. Pantry Item Edit Dialog
+            state.editingPantryItem?.let { pantryToEdit: PantryItem ->
+                AddPantryDialog(
+                    initialItem = pantryToEdit,
                     language = state.currentLanguage,
-                    onDismiss = { viewModel.setShowAddTimeBlock(false) },
-                    onSave = { start, end, type, title, notes ->
-                        viewModel.addTimeBlock(start, end, type, title, notes)
+                    onDismiss = { viewModel.setEditingPantryItem(null) },
+                    onSave = { name, cat, inStock, isBase, qty ->
+                        viewModel.updatePantryItem(
+                            pantryToEdit.copy(
+                                name = name,
+                                category = cat,
+                                inStock = inStock,
+                                isBatchBase = isBase,
+                                quantityDesc = qty
+                            )
+                        )
                     }
                 )
             }
 
-            // Add Custom Meal Dialog
+            // 7. Custom Meal Creation Dialog
             if (state.showAddMealDialog) {
                 AddMealDialog(
+                    initialMeal = null,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setShowAddMeal(false) },
-                    onSave = { slot, title, desc, prepTime, ings, usesBatch, inStock, impact ->
-                        viewModel.addCustomMeal(slot, title, desc, prepTime, ings, usesBatch, inStock, impact)
+                    onSave = { slot, title, desc, prepTime, ings, usesBatch, inStock, impact, customSlot, protein, carbs, fat, calories ->
+                        viewModel.addCustomMeal(slot, title, desc, prepTime, ings, usesBatch, inStock, impact, customSlot, protein, carbs, fat, calories)
                     }
                 )
             }
 
-            // Cognitive Reframe Dialog
+            // 8. Custom Meal Edit Dialog
+            state.editingMeal?.let { mealToEdit: MealItem ->
+                AddMealDialog(
+                    initialMeal = mealToEdit,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setEditingMeal(null) },
+                    onSave = { slot, title, desc, prepTime, ings, usesBatch, inStock, impact, customSlot, protein, carbs, fat, calories ->
+                        viewModel.updateMeal(
+                            mealToEdit.copy(
+                                slot = slot,
+                                title = title,
+                                description = desc,
+                                prepTimeMinutes = prepTime,
+                                ingredients = ings,
+                                usesBatchCookedBase = usesBatch,
+                                allIngredientsInStock = inStock,
+                                bioImpact = impact,
+                                customSlotName = customSlot,
+                                proteinGrams = protein,
+                                carbsGrams = carbs,
+                                fatGrams = fat,
+                                caloriesKcal = calories
+                            )
+                        )
+                    }
+                )
+            }
+
+            // 9. Habit Creation Dialog
+            if (state.showAddHabitDialog) {
+                AddEditHabitDialog(
+                    initialHabit = null,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setShowAddHabit(false) },
+                    onSave = { title, desc, anchor, streakDays, tip ->
+                        viewModel.addHabit(title, desc, anchor, streakDays, tip)
+                    }
+                )
+            }
+
+            // 10. Habit Edit Dialog
+            state.editingHabit?.let { habitToEdit: HabitAnchor ->
+                AddEditHabitDialog(
+                    initialHabit = habitToEdit,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setEditingHabit(null) },
+                    onSave = { title, desc, anchor, streakDays, tip ->
+                        viewModel.updateHabit(
+                            habitToEdit.copy(
+                                title = title,
+                                description = desc,
+                                anchor = anchor,
+                                streakDays = streakDays,
+                                reframingTip = tip
+                            )
+                        )
+                    }
+                )
+            }
+
+            // 11. Cognitive Reframe Dialog
             if (state.showReframeDialog) {
                 CognitiveReframeDialog(
                     language = state.currentLanguage,
@@ -234,16 +404,32 @@ fun AetherApp(
                 )
             }
 
-            // Settings & Language Dialog
+            // 12. Settings & Language Dialog
             if (state.showSettingsDialog) {
                 SettingsDialog(
                     currentLanguage = state.currentLanguage,
+                    unlockedAchievementsCount = state.achievements.count { it.isUnlocked },
+                    totalAchievementsCount = state.achievements.size,
+                    wipeHistoryWithCleanSlate = state.wipeHistoryWithCleanSlate,
                     onLanguageSelected = { lang ->
                         viewModel.setLanguage(lang)
                     },
                     onOpenTutorial = {
                         viewModel.closeSettings()
                         viewModel.openTutorial(0)
+                    },
+                    onOpenAchievements = {
+                        viewModel.closeSettings()
+                        viewModel.setShowAchievementsDialog(true)
+                    },
+                    onToggleWipeHistory = {
+                        viewModel.toggleWipeHistoryWithCleanSlate()
+                    },
+                    onExportFullBackup = {
+                        viewModel.exportFullBackup()
+                    },
+                    onOpenRestoreBackupDialog = {
+                        viewModel.openRestoreBackupDialog()
                     },
                     onResetToCleanSlate = {
                         viewModel.resetToCleanSlate()
@@ -255,7 +441,36 @@ fun AetherApp(
                 )
             }
 
-            // Full Comprehensive Interactive Tutorial Dialog
+            // 13. Restore Backup Dialog
+            if (state.showRestoreBackupDialog) {
+                RestoreBackupDialog(
+                    currentLanguage = state.currentLanguage,
+                    onRestore = { jsonString ->
+                        viewModel.restoreFullBackupFromJson(jsonString)
+                    },
+                    onDismiss = { viewModel.closeRestoreBackupDialog() }
+                )
+            }
+
+            // 14. Persistent History Dialog (Module 2)
+            if (state.showHistoryDialog) {
+                HistoryDialog(
+                    state = state,
+                    viewModel = viewModel,
+                    onDismiss = { viewModel.closeHistory() }
+                )
+            }
+
+            // 15. Achievements Dialog
+            if (state.showAchievementsDialog) {
+                AchievementsDialog(
+                    achievements = state.achievements,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.setShowAchievementsDialog(false) }
+                )
+            }
+
+            // 16. Full Comprehensive Interactive Tutorial Dialog
             if (state.showTutorialDialog) {
                 AetherTutorialDialog(
                     language = state.currentLanguage,
@@ -267,6 +482,35 @@ fun AetherApp(
                     }
                 )
             }
+
+            // Achievement Unlock Floating Banner
+            AchievementUnlockBanner(
+                achievement = state.newlyUnlockedAchievement,
+                language = state.currentLanguage,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+
+            // 4.5 Diálogo animado de logro desbloqueado
+            AchievementUnlockCelebrationDialog(
+                achievement = state.newlyUnlockedAchievementModal,
+                language = state.currentLanguage,
+                onDismiss = { viewModel.dismissAchievementModal() }
+            )
+
+            // 4.4 Toast de celebración de subida de nivel
+            LevelUpCelebrationToast(
+                newLevel = state.levelUpCelebrationLevel,
+                language = state.currentLanguage,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+
+            // FROG Completion Celebration Overlay
+            CelebrationOverlay(
+                visible = state.showFrogCelebration,
+                taskTitle = state.celebratingFrogTaskTitle,
+                language = state.currentLanguage,
+                onDismiss = { viewModel.dismissFrogCelebration() }
+            )
         }
     }
 }

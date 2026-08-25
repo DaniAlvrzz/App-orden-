@@ -1,7 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.*
+import com.example.ui.components.AetherSwipeToDismissContainer
+import com.example.ui.components.DuplicateMealDialog
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
 import com.example.ui.theme.*
@@ -29,18 +32,35 @@ import com.example.ui.viewmodel.AetherUiState
 fun NutritionScreen(
     state: AetherUiState,
     onToggleMeal: (MealItem) -> Unit,
-    onDeleteMeal: (String) -> Unit = {},
+    onDeleteMeal: (MealItem) -> Unit = {},
+    onEditMeal: (MealItem) -> Unit = {},
+    onDuplicateMeal: (MealItem, Int) -> Unit = { _, _ -> },
     onOpenAddMeal: () -> Unit = {},
     onTogglePantryStock: (String, Boolean) -> Unit,
-    onDeletePantryItem: (String) -> Unit,
+    onDeletePantryItem: (PantryItem) -> Unit,
+    onEditPantryItem: (PantryItem) -> Unit = {},
     onOpenAddPantry: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     var selectedSection by remember { mutableIntStateOf(0) } // 0: Meals, 1: Despensa / Stock, 2: Batch Cooking
+    var mealToDuplicate by remember { mutableStateOf<MealItem?>(null) }
 
     val missingItems = state.pantryItems.filter { !it.inStock }
     val batchBases = state.pantryItems.filter { it.isBatchBase }
+
+    if (mealToDuplicate != null) {
+        DuplicateMealDialog(
+            meal = mealToDuplicate!!,
+            language = state.currentLanguage,
+            onDismiss = { mealToDuplicate = null },
+            onDuplicate = { offsetDays ->
+                onDuplicateMeal(mealToDuplicate!!, offsetDays)
+                mealToDuplicate = null
+            }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -56,7 +76,7 @@ fun NutritionScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = strings.nutritionHeader,
                         style = MaterialTheme.typography.titleLarge,
@@ -71,7 +91,23 @@ fun NutritionScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier.testTag("nutrition_history_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = strings.historyTitle,
+                            tint = AetherCyan
+                        )
+                    }
+
                     if (selectedSection == 0) {
                         FilledTonalButton(
                             onClick = onOpenAddMeal,
@@ -79,11 +115,16 @@ fun NutritionScreen(
                                 containerColor = AetherAmber.copy(alpha = 0.2f),
                                 contentColor = AetherAmber
                             ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("add_meal_btn")
                         ) {
                             Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.addMealTitle)
+                            Text(
+                                text = if (state.currentLanguage == AppLanguage.SPANISH) "+ Comida" else "+ Meal",
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     } else {
                         FilledTonalButton(
@@ -92,11 +133,16 @@ fun NutritionScreen(
                                 containerColor = AetherCyan.copy(alpha = 0.15f),
                                 contentColor = AetherCyan
                             ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             modifier = Modifier.testTag("add_pantry_btn")
                         ) {
                             Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.btnAddPantry)
+                            Text(
+                                text = if (state.currentLanguage == AppLanguage.SPANISH) "+ Despensa" else "+ Stock",
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
@@ -132,6 +178,16 @@ fun NutritionScreen(
 
         // SECTION 0: DAILY MEALS
         if (selectedSection == 0) {
+            // Daily Macro Summary Card
+            if (state.meals.isNotEmpty()) {
+                item {
+                    DailyMacroSummaryCard(
+                        meals = state.meals,
+                        language = state.currentLanguage
+                    )
+                }
+            }
+
             if (state.meals.isEmpty()) {
                 item {
                     Card(
@@ -173,12 +229,19 @@ fun NutritionScreen(
                 }
             } else {
                 items(state.meals, key = { it.id }) { meal ->
-                    MealCard(
-                        meal = meal,
-                        language = state.currentLanguage,
-                        onToggle = { onToggleMeal(meal) },
-                        onDelete = { onDeleteMeal(meal.id) }
-                    )
+                    AetherSwipeToDismissContainer(
+                        onDismiss = { onDeleteMeal(meal) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        MealCard(
+                            meal = meal,
+                            language = state.currentLanguage,
+                            onToggle = { onToggleMeal(meal) },
+                            onEdit = { onEditMeal(meal) },
+                            onDuplicate = { mealToDuplicate = meal },
+                            onDelete = { onDeleteMeal(meal) }
+                        )
+                    }
                 }
             }
         }
@@ -218,12 +281,18 @@ fun NutritionScreen(
             }
 
             items(state.pantryItems, key = { it.id }) { item ->
-                PantryItemCard(
-                    item = item,
-                    language = state.currentLanguage,
-                    onToggleStock = { onTogglePantryStock(item.id, item.inStock) },
-                    onDelete = { onDeletePantryItem(item.id) }
-                )
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeletePantryItem(item) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    PantryItemCard(
+                        item = item,
+                        language = state.currentLanguage,
+                        onToggleStock = { onTogglePantryStock(item.id, item.inStock) },
+                        onEdit = { onEditPantryItem(item) },
+                        onDelete = { onDeletePantryItem(item) }
+                    )
+                }
             }
         }
 
@@ -257,11 +326,160 @@ fun NutritionScreen(
             }
 
             items(batchBases, key = { it.id }) { base ->
-                PantryItemCard(
-                    item = base,
-                    language = state.currentLanguage,
-                    onToggleStock = { onTogglePantryStock(base.id, base.inStock) },
-                    onDelete = { onDeletePantryItem(base.id) }
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeletePantryItem(base) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    PantryItemCard(
+                        item = base,
+                        language = state.currentLanguage,
+                        onToggleStock = { onTogglePantryStock(base.id, base.inStock) },
+                        onEdit = { onEditPantryItem(base) },
+                        onDelete = { onDeletePantryItem(base) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Visual Daily Macro Summary Card displaying:
+ * - Total daily calories & macronutrients (Protein, Carbs, Fats)
+ * - Proportional multi-segment colored bar with Aether palette
+ */
+@Composable
+fun DailyMacroSummaryCard(
+    meals: List<MealItem>,
+    language: AppLanguage
+) {
+    val strings = remember(language) { StringsProvider(language) }
+
+    val totalProtein = meals.sumOf { it.proteinGrams }
+    val totalCarbs = meals.sumOf { it.carbsGrams }
+    val totalFat = meals.sumOf { it.fatGrams }
+    val totalKcal = meals.sumOf { it.computedCalories }
+
+    val totalMacroGrams = (totalProtein + totalCarbs + totalFat).coerceAtLeast(1)
+    val proteinRatio = (totalProtein.toFloat() / totalMacroGrams).coerceIn(0f, 1f)
+    val carbsRatio = (totalCarbs.toFloat() / totalMacroGrams).coerceIn(0f, 1f)
+    val fatRatio = (totalFat.toFloat() / totalMacroGrams).coerceIn(0f, 1f)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("daily_macro_summary_card"),
+        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Title & Total Calories
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = strings.macroSummaryTitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherAmber,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = strings.macroSummarySub,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted,
+                        fontSize = 10.sp
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(AetherAmber.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = AetherAmber,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$totalKcal ${strings.macroCaloriesSuffix}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AetherAmber
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Multi-segment Proportional Macro Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(AetherBorderLight)
+            ) {
+                if (proteinRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .weight(proteinRatio.coerceAtLeast(0.01f))
+                            .fillMaxHeight()
+                            .background(AetherCyan)
+                    )
+                }
+                if (carbsRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .weight(carbsRatio.coerceAtLeast(0.01f))
+                            .fillMaxHeight()
+                            .background(AetherAmber)
+                    )
+                }
+                if (fatRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .weight(fatRatio.coerceAtLeast(0.01f))
+                            .fillMaxHeight()
+                            .background(AetherCoral)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 3 Column Macro Cards
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MacroPill(
+                    label = strings.macroProteinLabel,
+                    grams = totalProtein,
+                    ratioPercent = (proteinRatio * 100).toInt(),
+                    color = AetherCyan,
+                    modifier = Modifier.weight(1f)
+                )
+                MacroPill(
+                    label = strings.macroCarbsLabel,
+                    grams = totalCarbs,
+                    ratioPercent = (carbsRatio * 100).toInt(),
+                    color = AetherAmber,
+                    modifier = Modifier.weight(1f)
+                )
+                MacroPill(
+                    label = strings.macroFatLabel,
+                    grams = totalFat,
+                    ratioPercent = (fatRatio * 100).toInt(),
+                    color = AetherCoral,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -269,11 +487,58 @@ fun NutritionScreen(
 }
 
 @Composable
+fun MacroPill(
+    label: String,
+    grams: Int,
+    ratioPercent: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "$ratioPercent%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherTextMuted,
+                    fontSize = 9.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "${grams}g",
+                style = MaterialTheme.typography.titleSmall,
+                color = AetherTextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun MealCard(
     meal: MealItem,
     language: AppLanguage,
     onToggle: () -> Unit,
-    onDelete: () -> Unit = {}
+    onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
     val isSpanish = language == AppLanguage.SPANISH
@@ -282,34 +547,49 @@ fun MealCard(
         MealSlot.BREAKFAST -> if (isSpanish) "DESAYUNO" else "BREAKFAST"
         MealSlot.LUNCH -> if (isSpanish) "ALMUERZO" else "LUNCH"
         MealSlot.DINNER -> if (isSpanish) "CENA" else "DINNER"
-        MealSlot.SNACK -> if (isSpanish) "SNACK BIO" else "SNACK"
+        MealSlot.SNACK -> if (isSpanish) "SNACK BIO" else "BIO SNACK"
+        MealSlot.CUSTOM -> meal.customSlotName?.uppercase() ?: (if (isSpanish) "MOMENTO" else "CUSTOM")
     }
+
+    val mealTotalGrams = (meal.proteinGrams + meal.carbsGrams + meal.fatGrams).coerceAtLeast(1)
+    val hasMacros = meal.proteinGrams > 0 || meal.carbsGrams > 0 || meal.fatGrams > 0
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = onEdit
+            )
             .testTag("meal_card_${meal.id}"),
         colors = CardDefaults.cardColors(
             containerColor = if (meal.isCompleted) AetherSurface.copy(alpha = 0.6f) else AetherSurfaceCard
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Top Bar: Slot label, Badges, and Quick Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
                     Box(
                         modifier = Modifier
-                            .background(AetherCyan.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                            .background(
+                                if (meal.slot == MealSlot.CUSTOM) AetherAmber.copy(alpha = 0.2f) else AetherCyan.copy(alpha = 0.15f),
+                                RoundedCornerShape(6.dp)
+                            )
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
                             text = slotLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            color = AetherCyan,
+                            color = if (meal.slot == MealSlot.CUSTOM) AetherAmber else AetherCyan,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -331,6 +611,32 @@ fun MealCard(
                             )
                         }
                     }
+
+                    if (!meal.allIngredientsInStock) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(AetherCoral.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.WarningAmber,
+                                    contentDescription = "Missing Ingredients",
+                                    tint = AetherCoral,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (isSpanish) "⚠️ Faltan ingr." else "⚠️ Missing",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AetherCoral,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,15 +645,37 @@ fun MealCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = AetherTextMuted
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onDuplicate,
+                        modifier = Modifier.size(26.dp).testTag("duplicate_meal_${meal.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = strings.btnDuplicateMeal,
+                            tint = AetherCyan,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier.size(26.dp).testTag("edit_meal_${meal.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Meal",
+                            tint = AetherTextMuted,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp).testTag("delete_meal_${meal.id}")
                     ) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = "Delete Meal",
-                            tint = AetherTextMuted.copy(alpha = 0.6f),
+                            tint = AetherCoral.copy(alpha = 0.7f),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -356,11 +684,13 @@ fun MealCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Checkbox and Title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = meal.isCompleted,
                     onCheckedChange = { onToggle() },
-                    colors = CheckboxDefaults.colors(checkedColor = AetherEmerald, uncheckedColor = AetherBorderLight)
+                    colors = CheckboxDefaults.colors(checkedColor = AetherEmerald, uncheckedColor = AetherBorderLight),
+                    modifier = Modifier.testTag("meal_checkbox_${meal.id}")
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -371,33 +701,114 @@ fun MealCard(
                         textDecoration = if (meal.isCompleted) TextDecoration.LineThrough else null,
                         fontWeight = FontWeight.SemiBold
                     )
+                    if (meal.description.isNotBlank()) {
+                        Text(
+                            text = meal.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AetherTextSecondary
+                        )
+                    }
+                }
+            }
+
+            // Macro Visualization per Meal
+            if (hasMacros) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Proportional Mini-Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(AetherBorderLight)
+                ) {
+                    if (meal.proteinGrams > 0) {
+                        Box(
+                            modifier = Modifier
+                                .weight((meal.proteinGrams.toFloat() / mealTotalGrams).coerceAtLeast(0.01f))
+                                .fillMaxHeight()
+                                .background(AetherCyan)
+                        )
+                    }
+                    if (meal.carbsGrams > 0) {
+                        Box(
+                            modifier = Modifier
+                                .weight((meal.carbsGrams.toFloat() / mealTotalGrams).coerceAtLeast(0.01f))
+                                .fillMaxHeight()
+                                .background(AetherAmber)
+                        )
+                    }
+                    if (meal.fatGrams > 0) {
+                        Box(
+                            modifier = Modifier
+                                .weight((meal.fatGrams.toFloat() / mealTotalGrams).coerceAtLeast(0.01f))
+                                .fillMaxHeight()
+                                .background(AetherCoral)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Macro badges
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = meal.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AetherTextSecondary
+                        text = "🍗 P: ${meal.proteinGrams}g",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherCyan,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "🌾 C: ${meal.carbsGrams}g",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherAmber,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "🥑 G: ${meal.fatGrams}g",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherCoral,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "🔥 ${meal.computedCalories} kcal",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Ingredients Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                meal.ingredients.take(4).forEach { ing ->
-                    Box(
-                        modifier = Modifier
-                            .background(AetherSurfaceElevated, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = ing,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AetherTextSecondary,
-                            fontSize = 10.sp
-                        )
+            if (meal.ingredients.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    meal.ingredients.take(4).forEach { ing ->
+                        Box(
+                            modifier = Modifier
+                                .background(AetherSurfaceElevated, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = ing,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherTextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
                 }
             }
@@ -405,11 +816,13 @@ fun MealCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PantryItemCard(
     item: PantryItem,
     language: AppLanguage,
     onToggleStock: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
@@ -426,6 +839,10 @@ fun PantryItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggleStock,
+                onLongClick = onEdit
+            )
             .testTag("pantry_item_${item.id}"),
         colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard),
         shape = RoundedCornerShape(12.dp)
@@ -473,8 +890,11 @@ fun PantryItemCard(
                         selectedLabelColor = AetherEmerald
                     )
                 )
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = AetherTextMuted, modifier = Modifier.size(14.dp))
+                }
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Delete", tint = AetherTextMuted, modifier = Modifier.size(16.dp))
+                    Icon(imageVector = Icons.Default.DeleteOutline, contentDescription = "Delete", tint = AetherCoral.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
                 }
             }
         }

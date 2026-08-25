@@ -3,10 +3,35 @@ package com.example.data.remote
 import android.util.Log
 import com.example.BuildConfig
 import com.example.data.model.*
+import com.example.ui.i18n.AppLanguage
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+
+data class AetherAiContext(
+    val dateIso: String,
+    val language: AppLanguage,
+    val readinessScore: Int,
+    val perceivedEnergy: Int,
+    val sleepHours: Double,
+    val sleepQuality: Int,
+    val chronotype: Chronotype,
+    val isRecoveryMode: Boolean,
+    val isGraceDayActive: Boolean,
+    val pendingTasks: List<TaskItem>,
+    val habits: List<HabitAnchor>,
+    val timeBlocks: List<TimeBlock>,
+    val inStockPantry: List<PantryItem>,
+    val meals: List<MealItem>,
+    val deepWorkMinutesAllocated: Int,
+    val maxCognitiveCeilingMinutes: Int = 210,
+    val recentSummaries: List<DailySummary> = emptyList()
+)
 
 class AetherGeminiEngine {
 
@@ -87,6 +112,61 @@ class AetherGeminiEngine {
         )
     }
 
+    /**
+     * 5.3 & 5.4: Live streaming conversational response with full automatic real-time context.
+     * Emits progressively formatted text tokens to the Flow.
+     */
+    fun streamChatResponse(
+        userPrompt: String,
+        context: AetherAiContext
+    ): Flow<String> = flow {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        var fullResponseText: String? = null
+
+        if (!apiKey.isNullOrEmpty() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val systemPrompt = buildSystemContextPrompt(context)
+                val request = GeminiRequest(
+                    contents = listOf(
+                        GeminiContent(
+                            role = "user",
+                            parts = listOf(GeminiPart(text = userPrompt))
+                        )
+                    ),
+                    generationConfig = GeminiGenerationConfig(
+                        temperature = 0.6f,
+                        responseMimeType = "text/plain"
+                    ),
+                    systemInstruction = GeminiContent(
+                        role = "system",
+                        parts = listOf(GeminiPart(text = systemPrompt))
+                    )
+                )
+
+                val response = GeminiApiClient.service.generateContent(apiKey, request)
+                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                if (!text.isNullOrBlank()) {
+                    fullResponseText = text.trim()
+                }
+            } catch (e: Exception) {
+                Log.e("AetherGeminiEngine", "Gemini Chat API call failed, falling back to deterministic response: ${e.message}")
+            }
+        }
+
+        // If live API was unavailable or errored, generate intelligent bio-grounded deterministic response
+        val responseToStream = fullResponseText ?: generateDeterministicChatResponse(userPrompt, context)
+
+        // 5.4 Progressive token streaming simulation
+        val chunks = responseToStream.split(Regex("(?<=\\s)|(?<=\\n)"))
+        val stringBuffer = StringBuilder()
+
+        for (chunk in chunks) {
+            stringBuffer.append(chunk)
+            emit(stringBuffer.toString())
+            delay(18) // Smooth typewriter streaming feel
+        }
+    }.flowOn(Dispatchers.IO)
+
     suspend fun generateCognitiveReframe(
         userFeeling: String,
         readinessScore: Int
@@ -112,6 +192,233 @@ class AetherGeminiEngine {
             readinessScore < 60 -> "Tu sistema nervioso está señalando fatiga fisiológica real, no falta de fuerza de voluntad. Cambiar al Protocolo de Recuperación protege el rendimiento de mañana."
             userFeeling.contains("culpa", ignoreCase = true) || userFeeling.contains("fallé", ignoreCase = true) || userFeeling.contains("guilt", ignoreCase = true) -> "Una sesión omitida es simplemente un dato biológico, no tu identidad. Los Días de Gracia existen para mantener la adherencia a largo plazo sin neurosis."
             else -> "La energía fluctúa de forma natural en ciclos ultradianos de 90 minutos. Cambia a una micro-tarea Tipo C de 5 minutos para romper la inercia sin sobrecargar la función ejecutiva."
+        }
+    }
+
+    private fun buildSystemContextPrompt(context: AetherAiContext): String {
+        val lang = if (context.language == AppLanguage.SPANISH) "Spanish" else "English"
+        val frog = context.pendingTasks.firstOrNull { it.isFrog }
+        val highEnergyTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.HIGH && !it.isFrog }
+        val mediumTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.MEDIUM }
+        val lowTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.LOW }
+        val pantry = context.inStockPantry.filter { it.inStock }.joinToString { it.name }.ifEmpty { "Despensa estándar" }
+
+        val habitsInfo = context.habits.joinToString("; ") { 
+            "${it.title} [${if (it.isCompleted) "Hecho" else "Pendiente"}] (Racha: ${it.streakDays}d)" 
+        }
+
+        val blocksInfo = context.timeBlocks.take(6).joinToString("; ") { 
+            "${it.startTime}-${it.endTime} ${it.title} [${if (it.isCompleted) "Completado" else "En curso"}]" 
+        }
+
+        return """
+        You are Aether OS Bioenergetic Assistant, an elite neuro-chronobiology copilot.
+        Leyes Operativas de Aether OS:
+        1. Ley del Frog: Máximo 1 tarea de Alta Demanda (Tipo A) al día.
+        2. Techo Cognitivo: Máximo 3.5h (210 min) de Deep Work diario.
+        3. Protocolo de Recuperación: Si readiness < 60, cero tareas Tipo A, asignar buffers y descanso parasimpático.
+        4. Nutrición Relacional: Priorizar comidas con ingredientes disponibles y bajo impacto glucémico.
+        5. Disciplina sin Culpa: Usar Grace Days y reencuadre compasivo ante desvíos.
+
+        CONTEXTO BIOLÓGICO REAL DEL USUARIO HOY:
+        - Fecha: ${context.dateIso}
+        - Biometría: Readiness Score ${context.readinessScore}/100 | Energía Percibida ${context.perceivedEnergy}/100 | Sueño: ${context.sleepHours}h (Calidad: ${context.sleepQuality}/5) | Cronotipo: ${context.chronotype.name} | Modo Recuperación: ${context.isRecoveryMode} | Grace Day Activo: ${context.isGraceDayActive}
+        - Deep Work Asignado: ${context.deepWorkMinutesAllocated}/${context.maxCognitiveCeilingMinutes} min
+        - Tarea FROG actual: ${frog?.title ?: "Ninguna designada"}
+        - Backlog Tareas Pendientes:
+          * Alta energía: ${highEnergyTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
+          * Media energía: ${mediumTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
+          * Baja energía (Quick Wins): ${lowTasks.joinToString { it.title }.ifEmpty { "Ninguna" }}
+        - Estado de Hábitos Circadianos: $habitsInfo
+        - Bloques del Cronograma: $blocksInfo
+        - Ingredientes en Despensa: $pantry
+
+        REGLAS DE RESPUESTA:
+        - Idioma obligatorio: $lang
+        - Estilo: Directo, empático, basado en ritmos circadianos y evidencia biológica. Formato estructurado y visualmente limpio (con emojis moderados y listas con viñetas).
+        - Nunca des sermones moralistas. Da pautas accionables de 1 a 3 pasos con tiempos concretos.
+        """.trimIndent()
+    }
+
+    /**
+     * Intelligent Deterministic Engine for offline/fallback chat responses.
+     */
+    private fun generateDeterministicChatResponse(
+        userPrompt: String,
+        context: AetherAiContext
+    ): String {
+        val isSpanish = context.language == AppLanguage.SPANISH
+        val lowerPrompt = userPrompt.lowercase()
+        val frog = context.pendingTasks.firstOrNull { it.isFrog }
+        val lowTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.LOW }
+        val mediumTasks = context.pendingTasks.filter { it.energyLevel == EnergyLevel.MEDIUM }
+
+        // Quick Action 1: "Planifica mi día"
+        if (lowerPrompt.contains("planifica") || lowerPrompt.contains("plan my day") || lowerPrompt.contains("plan")) {
+            return if (isSpanish) {
+                """
+                🗓️ **Plan Circadiano Sincronizado para Hoy** (${context.dateIso})
+                
+                ⚡ **Estado Biológico:** Readiness ${context.readinessScore}/100 (${if (context.readinessScore < 60) "Modo Recuperación Activo 🛡️" else "Óptimo para Enfoque 🚀"})
+                
+                1. **🌅 Anclaje Matutino (07:00 - 09:00):**
+                   • Luz solar directa de 10-15 min + Hidratación con electrolitos.
+                   • Desayuno proteico de bajo impacto glucémico.
+                
+                2. **🔥 Bloque de Foco Profundo (09:00 - 11:30):**
+                   ${if (frog != null) "• **FROG DEL DÍA:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Trabajo en tareas de media energía sin exceder 90 min continuos."}
+                   • *Techo cognitivo asignado:* ${context.deepWorkMinutesAllocated} / 210 min.
+                
+                3. **🥗 Recarga & Movimiento (12:30 - 16:00):**
+                   • Almuerzo balanceado con bases cocinadas disponibles.
+                   • Tareas administrativas ligeras o Quick Wins (${lowTasks.take(2).joinToString { it.title }.ifEmpty { "Revisión Inbox Zero" }}).
+                
+                4. **🌙 Cierre Parasimpático (21:30+):**
+                   • Atardecer digital y preparación para el sueño restaurador.
+                """.trimIndent()
+            } else {
+                """
+                🗓️ **Synchronized Circadian Plan for Today** (${context.dateIso})
+                
+                ⚡ **Bio Baseline:** Readiness ${context.readinessScore}/100 (${if (context.readinessScore < 60) "Recovery Mode Active 🛡️" else "Peak Focus Ready 🚀"})
+                
+                1. **🌅 Morning Anchor (07:00 - 09:00):**
+                   • 10-15 min morning light + electrolyte hydration.
+                   • Steady-fuel protein breakfast.
+                
+                2. **🔥 Deep Work Block (09:00 - 11:30):**
+                   ${if (frog != null) "• **FROG TASK:** ${frog.title} (${frog.estimatedMinutes} min)." else "• Focus on core priority tasks under 90-min ultradian cycles."}
+                   • *Cognitive ceiling:* ${context.deepWorkMinutesAllocated} / 210 min.
+                
+                3. **🥗 Midday Fuel & Quick Wins (12:30 - 16:00):**
+                   • Relational lunch bowl.
+                   • Admin slots or quick wins (${lowTasks.take(2).joinToString { it.title }.ifEmpty { "Inbox Zero / Logistics" }}).
+                
+                4. **🌙 Parasympathetic Wind-down (21:30+):**
+                   • Digital sunset & restorative sleep prep.
+                """.trimIndent()
+            }
+        }
+
+        // Quick Action 2: "Tengo poca energía"
+        if (lowerPrompt.contains("poca energía") || lowerPrompt.contains("baja energía") || lowerPrompt.contains("low energy") || lowerPrompt.contains("cansad")) {
+            return if (isSpanish) {
+                """
+                🌿 **Protocolo de Regulación Fisiológica (Cero Culpa)**
+                
+                Tu nivel de readiness actual es de **${context.readinessScore}/100**. La fatiga es una señal biológica de conservación, no una falla personal.
+                
+                **Protocolo de 3 Pasos Inmediatos:**
+                1. 💧 **Carga de Hidratación:** Bebe 400ml de agua con una pizca de sal marina o electrolitos y haz 5 respiraciones fisiológicas (doble inhalación nasal, exhalación larga).
+                2. 🛡️ **Pospón el Frog sin culpa:** Hoy se activa el *Protocolo de Protección*. Las tareas de alta demanda se reprograman.
+                3. ⚡ **Micro-Tarea Tipo C (5-10 min):**
+                   ${if (lowTasks.isNotEmpty()) "• Haz solo esta tarea ligera para romper inercia: **${lowTasks.first().title}**." else "• Haz una caminata suave en Zona 1 o descanso ocular de 15 minutos."}
+                
+                *Recuerda: Un día de baja demanda bien gestionado evita dos semanas de burnout.*
+                """.trimIndent()
+            } else {
+                """
+                🌿 **Physiological Regulation Protocol (Zero Guilt)**
+                
+                Your current readiness is **${context.readinessScore}/100**. Fatigue is a biological conservation signal, not a willpower failure.
+                
+                **Immediate 3-Step Protocol:**
+                1. 💧 **Hydration Reset:** Drink 400ml water with minerals + 5 physiological sighs (double inhale, long exhale).
+                2. 🛡️ **Gracefully Postpone High-Demand Tasks:** Switch to Recovery Protocol. No Type A tasks required today.
+                3. ⚡ **Micro-Action (5-10 min):**
+                   ${if (lowTasks.isNotEmpty()) "• Tackle just this low-demand task: **${lowTasks.first().title}**." else "• Take a 15-minute Zone 1 stroll or NSDR rest."}
+                
+                *A well-managed low-energy day prevents two weeks of chronic burnout.*
+                """.trimIndent()
+            }
+        }
+
+        // Quick Action 3: "Revisión semanal"
+        if (lowerPrompt.contains("semanal") || lowerPrompt.contains("weekly") || lowerPrompt.contains("review") || lowerPrompt.contains("resumen")) {
+            val completedHabitsCount = context.habits.count { it.isCompleted }
+            val totalHabits = context.habits.size
+            return if (isSpanish) {
+                """
+                📊 **Auditoría Bioenergética y Consistencia**
+                
+                • **Hábitos Circadianos:** $completedHabitsCount/$totalHabits completados hoy. Racha promedio de ${context.habits.map { it.streakDays }.average().toInt()} días.
+                • **Carga Cognitiva:** ${context.deepWorkMinutesAllocated} minutos de trabajo profundo asignados (Límite saludable: 210 min).
+                • **Calidad de Recuperación:** ${context.sleepHours}h de sueño promedio con calidad ${context.sleepQuality}/5.
+                • **Tokens de Gracia:** ${context.habits.sumOf { it.graceDaysUsed }} Grace Days utilizados para mantener la identidad sin fractura.
+                
+                ✨ **Recomendación para el Próximo Ciclo:**
+                Mantén el anclaje de luz matutina antes de las 08:30 y protege tu primer bloque de 90 min de foco profundo sin distracciones digitales.
+                """.trimIndent()
+            } else {
+                """
+                📊 **Bioenergetic Weekly Consistency Audit**
+                
+                • **Circadian Habits:** $completedHabitsCount/$totalHabits completed today. Average streak: ${context.habits.map { it.streakDays }.average().toInt()} days.
+                • **Cognitive Load:** ${context.deepWorkMinutesAllocated} deep work minutes allocated (Healthy ceiling: 210 min).
+                • **Sleep Baseline:** ${context.sleepHours}h average sleep with quality ${context.sleepQuality}/5.
+                • **Grace Tokens:** ${context.habits.sumOf { it.graceDaysUsed }} Grace Days used to preserve streak identity without guilt.
+                
+                ✨ **Next Cycle Recommendation:**
+                Lock in your morning photon anchor before 08:30 and guard your 90-min deep work block from digital interruptions.
+                """.trimIndent()
+            }
+        }
+
+        // Quick Action 4: "¿Qué hago ahora con 30 min?"
+        if (lowerPrompt.contains("30 min") || lowerPrompt.contains("30min") || lowerPrompt.contains("qué hago") || lowerPrompt.contains("what should i do")) {
+            val candidateTask = lowTasks.firstOrNull() ?: mediumTasks.firstOrNull()
+            return if (isSpanish) {
+                """
+                ⏱️ **Optimización de Bloque de 30 Minutos**
+                
+                Con tu nivel de readiness actual (${context.readinessScore}/100), esta es la mejor acción de alto rendimiento biológico:
+                
+                ${if (candidateTask != null) {
+                    "🎯 **Acción Recomendada:**\n• **${candidateTask.title}** (${candidateTask.category})\n• *Demanda:* ${candidateTask.energyLevel.name} (${candidateTask.estimatedMinutes} min est.)\n• *Estrategia:* Activa el Temporizador Focus de 25 min y cierra todas las pestañas secundarias."
+                } else {
+                    "🌿 **Buffer Restaurador de 30 Min:**\n• 15 min de caminata en naturaleza Zona 1 (sin auriculares).\n• 15 min de preparación de ingredientes base en la cocina para la cena."
+                }}
+                """.trimIndent()
+            } else {
+                """
+                ⏱️ **30-Minute High-Yield Action Sprint**
+                
+                Given your readiness (${context.readinessScore}/100), here is your highest biological return action:
+                
+                ${if (candidateTask != null) {
+                    "🎯 **Recommended Sprint:**\n• **${candidateTask.title}** (${candidateTask.category})\n• *Demand:* ${candidateTask.energyLevel.name} (${candidateTask.estimatedMinutes} min est.)\n• *Execution:* Launch the 25-min Focus Timer and eliminate secondary browser tabs."
+                } else {
+                    "🌿 **30-Min Restorative Buffer:**\n• 15 min Zone 1 walk without earbuds.\n• 15 min batch meal prep in the kitchen for evening recovery."
+                }}
+                """.trimIndent()
+            }
+        }
+
+        // General fallback answer
+        return if (isSpanish) {
+            """
+            🧠 **Análisis Biológico Aether OS**
+            
+            Entendido: *"userPrompt"*.
+            
+            Tomando en cuenta tu preparación fisiológica (${context.readinessScore}/100) y tus tareas pendientes (${context.pendingTasks.size}):
+            
+            1. **Alineación:** Asegura que tu foco se concentre en tareas Tipo ${if (context.readinessScore > 70) "A/B" else "C"} según tu curva hormonal actual.
+            2. **Acción Inmediata:** ${if (frog != null && context.readinessScore >= 60) "Prioriza el avance de tu tarea Frog: **${frog.title}**." else "Ejecuta micro-avances de 15 minutos en tareas de baja fricción."}
+            3. **Regulación:** Mantén intervalos de recuperación parasimpática cada 90 minutos para evitar fatiga de mantenimiento.
+            """.trimIndent()
+        } else {
+            """
+            🧠 **Aether OS Bioenergetic Analysis**
+            
+            Regarding: *"userPrompt"*.
+            
+            Synthesizing your live biometrics (${context.readinessScore}/100) and backlog (${context.pendingTasks.size} tasks):
+            
+            1. **Circadian Alignment:** Direct your executive bandwidth to Type ${if (context.readinessScore > 70) "A/B" else "C"} actions matching your diurnal curve.
+            2. **Immediate Step:** ${if (frog != null && context.readinessScore >= 60) "Drive forward your Frog priority: **${frog.title}**." else "Execute low-friction 15-minute quick wins."}
+            3. **Biological Buffer:** Take 5-10 min parasympathetic breaks every 90 minutes to prevent maintenance fatigue.
+            """.trimIndent()
         }
     }
 

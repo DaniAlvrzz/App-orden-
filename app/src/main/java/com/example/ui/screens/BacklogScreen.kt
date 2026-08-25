@@ -1,15 +1,16 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.EnergyLevel
 import com.example.data.model.PriorityType
 import com.example.data.model.TaskItem
+import com.example.ui.components.AetherSwipeToDismissContainer
 import com.example.ui.components.FocusTimerCard
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -33,23 +35,31 @@ fun BacklogScreen(
     state: AetherUiState,
     onToggleTask: (TaskItem) -> Unit,
     onPromoteToFrog: (String) -> Unit,
-    onDeleteTask: (String) -> Unit,
+    onDeleteTask: (TaskItem) -> Unit,
+    onEditTask: (TaskItem) -> Unit = {},
+    onMoveTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onSetEnergyFilter: (EnergyLevel?) -> Unit,
     onSetSearchQuery: (String) -> Unit,
     onStartFocusTimer: (TaskItem?) -> Unit,
     onPauseFocusTimer: () -> Unit,
     onResetFocusTimer: () -> Unit,
     onOpenQuickAdd: () -> Unit,
+    onOpenHistory: () -> Unit = {},
+    onPermissionDenied: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
+    val isSpanish = state.currentLanguage == AppLanguage.SPANISH
+    var onlyPending by remember { mutableStateOf(false) }
 
     val filteredTasks = state.tasks.filter { task ->
         val matchesEnergy = state.filterEnergyLevel == null || task.energyLevel == state.filterEnergyLevel
+        val matchesPending = !onlyPending || !task.isCompleted
         val matchesQuery = state.searchQuery.isBlank() ||
                 task.title.contains(state.searchQuery, ignoreCase = true) ||
+                task.description.contains(state.searchQuery, ignoreCase = true) ||
                 task.category.contains(state.searchQuery, ignoreCase = true)
-        matchesEnergy && matchesQuery
+        matchesEnergy && matchesPending && matchesQuery
     }
 
     LazyColumn(
@@ -66,7 +76,7 @@ fun BacklogScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = strings.backlogHeader,
                         style = MaterialTheme.typography.titleLarge,
@@ -81,17 +91,37 @@ fun BacklogScreen(
                     )
                 }
 
-                FilledTonalButton(
-                    onClick = onOpenQuickAdd,
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = AetherCyan.copy(alpha = 0.15f),
-                        contentColor = AetherCyan
-                    ),
-                    modifier = Modifier.testTag("quick_capture_btn")
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(strings.btnCapture)
+                    IconButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier.testTag("backlog_history_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = strings.historyTitle,
+                            tint = AetherCyan
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = onOpenQuickAdd,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = AetherCyan.copy(alpha = 0.2f),
+                            contentColor = AetherCyan
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.testTag("quick_capture_btn")
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(strings.btnCapture, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -104,7 +134,9 @@ fun BacklogScreen(
                 activeTask = state.activeFocusTask,
                 onStart = { onStartFocusTimer(state.activeFocusTask) },
                 onPause = onPauseFocusTimer,
-                onReset = onResetFocusTimer
+                onReset = onResetFocusTimer,
+                language = state.currentLanguage,
+                onPermissionDenied = onPermissionDenied
             )
         }
 
@@ -186,6 +218,44 @@ fun BacklogScreen(
             }
         }
 
+        // Sub-filters & Results Counter Bar
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = onlyPending,
+                    onClick = { onlyPending = !onlyPending },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (onlyPending) Icons.Default.Check else Icons.Default.FilterList,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = if (isSpanish) "Solo Pendientes" else "Only Pending",
+                            fontSize = 11.sp
+                        )
+                    }
+                )
+
+                Text(
+                    text = if (isSpanish) {
+                        "Mostrando ${filteredTasks.size} de ${state.tasks.size} tareas"
+                    } else {
+                        "Showing ${filteredTasks.size} of ${state.tasks.size} tasks"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherTextMuted,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
         // Task Items List
         if (filteredTasks.isEmpty()) {
             item {
@@ -230,28 +300,44 @@ fun BacklogScreen(
                 }
             }
         } else {
-            items(filteredTasks, key = { it.id }) { task ->
-                BacklogTaskCard(
-                    task = task,
-                    language = state.currentLanguage,
-                    onToggle = { onToggleTask(task) },
-                    onPromoteToFrog = { onPromoteToFrog(task.id) },
-                    onStartFocus = { onStartFocusTimer(task) },
-                    onDelete = { onDeleteTask(task.id) }
-                )
+            itemsIndexed(filteredTasks, key = { _, task -> task.id }) { index, task ->
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeleteTask(task) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    BacklogTaskCard(
+                        task = task,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < filteredTasks.lastIndex,
+                        language = state.currentLanguage,
+                        onToggle = { onToggleTask(task) },
+                        onPromoteToFrog = { onPromoteToFrog(task.id) },
+                        onStartFocus = { onStartFocusTimer(task) },
+                        onEdit = { onEditTask(task) },
+                        onDelete = { onDeleteTask(task) },
+                        onMoveUp = { onMoveTask(index, index - 1) },
+                        onMoveDown = { onMoveTask(index, index + 1) }
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BacklogTaskCard(
     task: TaskItem,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     language: AppLanguage,
     onToggle: () -> Unit,
     onPromoteToFrog: () -> Unit,
     onStartFocus: () -> Unit,
-    onDelete: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
     val isSpanish = language == AppLanguage.SPANISH
@@ -271,6 +357,10 @@ fun BacklogTaskCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = onEdit
+            )
             .testTag("backlog_card_${task.id}"),
         colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard),
         shape = RoundedCornerShape(14.dp),
@@ -280,13 +370,27 @@ fun BacklogTaskCard(
             )
         )
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Reorder handle buttons
+                    if (canMoveUp) {
+                        IconButton(onClick = onMoveUp, modifier = Modifier.size(22.dp)) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up", tint = AetherTextMuted, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    if (canMoveDown) {
+                        IconButton(onClick = onMoveDown, modifier = Modifier.size(22.dp)) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down", tint = AetherTextMuted, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     Box(
                         modifier = Modifier
                             .background(energyColor.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
@@ -319,7 +423,7 @@ fun BacklogTaskCard(
                     }
                 }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!task.isFrog) {
                         TextButton(
                             onClick = onPromoteToFrog,
@@ -328,11 +432,19 @@ fun BacklogTaskCard(
                             Text(strings.btnMakeFrog, style = MaterialTheme.typography.labelSmall, color = AetherAmber)
                         }
                     }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(26.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = strings.btnEdit,
+                            tint = AetherTextMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(26.dp)) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = "Delete",
-                            tint = AetherTextMuted,
+                            tint = AetherCoral.copy(alpha = 0.7f),
                             modifier = Modifier.size(16.dp)
                         )
                     }

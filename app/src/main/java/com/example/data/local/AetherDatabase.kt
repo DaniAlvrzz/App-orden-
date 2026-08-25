@@ -21,9 +21,12 @@ import java.time.LocalDate
         PantryEntity::class,
         MealEntity::class,
         HabitEntity::class,
-        BiometricEntity::class
+        BiometricEntity::class,
+        CompletionLogEntity::class,
+        DailySummaryEntity::class,
+        AiMessageEntity::class
     ],
-    version = 2,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -34,6 +37,9 @@ abstract class AetherDatabase : RoomDatabase() {
     abstract fun mealDao(): MealDao
     abstract fun habitDao(): HabitDao
     abstract fun biometricDao(): BiometricDao
+    abstract fun completionLogDao(): CompletionLogDao
+    abstract fun dailySummaryDao(): DailySummaryDao
+    abstract fun aiMessageDao(): AiMessageDao
 
     companion object {
         @Volatile
@@ -77,6 +83,78 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v2 to v3:
+         * Creates `completion_logs` and `daily_summaries` tables for persistent multi-year history.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `completion_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `dateIso` TEXT NOT NULL,
+                        `itemType` TEXT NOT NULL,
+                        `itemId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_completion_logs_dateIso` ON `completion_logs` (`dateIso`)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `daily_summaries` (
+                        `dateIso` TEXT PRIMARY KEY NOT NULL,
+                        `totalCount` INTEGER NOT NULL,
+                        `completedCount` INTEGER NOT NULL,
+                        `partialCount` INTEGER NOT NULL,
+                        `ratio` REAL NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        /**
+         * Non-destructive Migration from Database v3 to v4:
+         * Adds customSlotName, macros (proteinGrams, carbsGrams, fatGrams, caloriesKcal),
+         * and dateIso to `meals` table for Phase 3 Module 3 (Nutrición Moldeable).
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `customSlotName` TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `proteinGrams` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `carbsGrams` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `fatGrams` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `caloriesKcal` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `meals` ADD COLUMN `dateIso` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * Non-destructive Migration from Database v4 to v5:
+         * Adds `ai_messages` table for Phase 3 Module 5 (Núcleo IA Mejorado / Chat & Favorite Notes).
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `ai_messages` (
+                        `id` TEXT PRIMARY KEY NOT NULL,
+                        `role` TEXT NOT NULL,
+                        `content` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `isFavorite` INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_ai_messages_timestamp` ON `ai_messages` (`timestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_ai_messages_isFavorite` ON `ai_messages` (`isFavorite`)")
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -84,28 +162,25 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade
                 .fallbackToDestructiveMigration() // Fallback to avoid schema crash on dev transitions
-                .addCallback(DatabaseCallback())
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val dbInstance = getDatabase(context.applicationContext)
+                            populateInitialAetherData(dbInstance, AppLanguage.SPANISH)
+                        }
+                    }
+                })
                 .build()
                 INSTANCE = instance
                 instance
             }
         }
 
-        private class DatabaseCallback : Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                INSTANCE?.let { database ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        populateCleanSlate(database, AppLanguage.SPANISH)
-                    }
-                }
-            }
-        }
-
-        suspend fun clearAllAetherData(database: AetherDatabase) {
+        suspend fun clearAllAetherData(database: AetherDatabase, clearHistory: Boolean = false) {
             val taskDao = database.taskDao()
             val timeBlockDao = database.timeBlockDao()
             val pantryDao = database.pantryDao()
@@ -119,6 +194,11 @@ abstract class AetherDatabase : RoomDatabase() {
             mealDao.clearAllMeals()
             habitDao.clearAllHabits()
             biometricDao.clearAllBiometrics()
+
+            if (clearHistory) {
+                database.completionLogDao().clearAllLogs()
+                database.dailySummaryDao().clearAllSummaries()
+            }
         }
 
         /**
@@ -126,8 +206,13 @@ abstract class AetherDatabase : RoomDatabase() {
          * Starts the app in production with empty task, time block, pantry, and meal lists.
          * Only provisions the 5 Universal Anchor Habits (with streak 0 and grace 0)
          * and the current day's biometric baseline.
+         * Note: History is NEVER cleared unless wipeHistory is explicitly true.
          */
-        suspend fun populateCleanSlate(database: AetherDatabase, language: AppLanguage = AppLanguage.SPANISH) {
+        suspend fun populateCleanSlate(
+            database: AetherDatabase,
+            language: AppLanguage = AppLanguage.SPANISH,
+            wipeHistory: Boolean = false
+        ) {
             val taskDao = database.taskDao()
             val timeBlockDao = database.timeBlockDao()
             val pantryDao = database.pantryDao()
@@ -135,12 +220,18 @@ abstract class AetherDatabase : RoomDatabase() {
             val habitDao = database.habitDao()
             val biometricDao = database.biometricDao()
 
-            // 1. Wipe all user-generated tables for clean slate
+            // 1. Wipe user-generated daily tables
             taskDao.clearAllTasks()
             timeBlockDao.clearAllTimeBlocks()
             pantryDao.clearAllPantry()
             mealDao.clearAllMeals()
             habitDao.clearAllHabits()
+
+            // 2. Wipe history ONLY if explicitly requested
+            if (wipeHistory) {
+                database.completionLogDao().clearAllLogs()
+                database.dailySummaryDao().clearAllSummaries()
+            }
 
             // 2. Insert baseline Biometrics for Today's Date
             val today = LocalDate.now().toString()
@@ -514,7 +605,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = false,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-                        isCompleted = true
+                        isCompleted = true,
+                        proteinGrams = 28,
+                        carbsGrams = 14,
+                        fatGrams = 24,
+                        caloriesKcal = 384
                     ),
                     MealEntity(
                         id = "meal-2",
@@ -526,7 +621,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = true,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.MODERATE_STEADY,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 42,
+                        carbsGrams = 48,
+                        fatGrams = 18,
+                        caloriesKcal = 522
                     ),
                     MealEntity(
                         id = "meal-3",
@@ -538,7 +637,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = true,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.DEEP_RECOVERY,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 16,
+                        carbsGrams = 62,
+                        fatGrams = 14,
+                        caloriesKcal = 438
                     ),
                     MealEntity(
                         id = "meal-4",
@@ -550,7 +653,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = false,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 8,
+                        carbsGrams = 6,
+                        fatGrams = 18,
+                        caloriesKcal = 218
                     )
                 )
                 mealDao.insertMeals(spanishMeals)
@@ -796,7 +903,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = false,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-                        isCompleted = true
+                        isCompleted = true,
+                        proteinGrams = 28,
+                        carbsGrams = 14,
+                        fatGrams = 24,
+                        caloriesKcal = 384
                     ),
                     MealEntity(
                         id = "meal-2",
@@ -808,7 +919,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = true,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.MODERATE_STEADY,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 42,
+                        carbsGrams = 48,
+                        fatGrams = 18,
+                        caloriesKcal = 522
                     ),
                     MealEntity(
                         id = "meal-3",
@@ -820,7 +935,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = true,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.DEEP_RECOVERY,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 16,
+                        carbsGrams = 62,
+                        fatGrams = 14,
+                        caloriesKcal = 438
                     ),
                     MealEntity(
                         id = "meal-4",
@@ -832,7 +951,11 @@ abstract class AetherDatabase : RoomDatabase() {
                         usesBatchCookedBase = false,
                         allIngredientsInStock = true,
                         bioImpact = BioGlycemicImpact.LOW_GLYCEMIC_FOCUS,
-                        isCompleted = false
+                        isCompleted = false,
+                        proteinGrams = 8,
+                        carbsGrams = 6,
+                        fatGrams = 18,
+                        caloriesKcal = 218
                     )
                 )
                 mealDao.insertMeals(englishMeals)
@@ -857,6 +980,114 @@ abstract class AetherDatabase : RoomDatabase() {
                     )
                 })
             }
+
+            // Populate rich historical logs and daily summaries for the past 90 days
+            populateDemoHistory(database)
+        }
+
+        suspend fun populateDemoHistory(database: AetherDatabase) {
+            val completionLogDao = database.completionLogDao()
+            val dailySummaryDao = database.dailySummaryDao()
+
+            completionLogDao.clearAllLogs()
+            dailySummaryDao.clearAllSummaries()
+
+            val summaries = mutableListOf<DailySummaryEntity>()
+            val logs = mutableListOf<CompletionLogEntity>()
+            val now = LocalDate.now()
+
+            val sampleHabitTitles = listOf(
+                "Luz Solar Matutina (Anclaje Fotónico)",
+                "500ml Agua con Electrolitos Minerales",
+                "Corte de Cafeína a las 14:00",
+                "Caminata de Descompresión Zona 2",
+                "Digital Sunset (Pantallas fuera a las 22:00)"
+            )
+            val sampleTaskTitles = listOf(
+                "Arquitectura del Motor Central y Despacho Aether",
+                "Revisar Bioanalíticas Semanales y Tendencias de Sueño",
+                "Sintetizar Estudio de Cambios de Fase Circadiana",
+                "Limpiar bandeja de entrada a Cero (Inbox Zero)",
+                "Reponer Aceite de Oliva Virgen Extra Ecológico"
+            )
+
+            // Generate past 90 days of rich history with realistic variation (green, amber, slight red)
+            for (dayOffset in 90 downTo 0) {
+                val date = now.minusDays(dayOffset.toLong())
+                val dateIso = date.toString()
+                val dayOfWeek = date.dayOfWeek.value // 1..7 (Mon..Sun)
+
+                // Realistic performance pattern: higher on weekdays, slight relaxation on weekends
+                val totalCount = if (dayOfWeek in 1..5) 8 else 6
+                val completedCount = when {
+                    dayOffset == 0 -> 4 // today in progress
+                    dayOffset % 17 == 0 -> 2 // rare low day (<30% red)
+                    dayOffset % 7 == 0 -> 4 // weekend chill (amber)
+                    dayOffset % 5 == 0 -> 5 // amber day
+                    else -> if (dayOfWeek in 1..5) 7 else 5 // solid green day (>=70%)
+                }
+                val partialCount = if (dayOffset % 4 == 0) 1 else 0
+                val ratio = ((completedCount.toFloat() + partialCount.toFloat() * 0.5f) / totalCount.toFloat()).coerceIn(0f, 1f)
+
+                summaries.add(
+                    DailySummaryEntity(
+                        dateIso = dateIso,
+                        totalCount = totalCount,
+                        completedCount = completedCount,
+                        partialCount = partialCount,
+                        ratio = ratio
+                    )
+                )
+
+                // Add 3-5 log entries per day with realistic timestamps
+                val baseEpoch = date.atTime(8, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                
+                // Habit logs
+                sampleHabitTitles.take(3).forEachIndexed { index, habitTitle ->
+                    val status = if (index < completedCount) CompletionStatus.COMPLETED else CompletionStatus.MISSED
+                    logs.add(
+                        CompletionLogEntity(
+                            dateIso = dateIso,
+                            itemType = CompletionItemType.HABIT,
+                            itemId = "habit-${index + 1}",
+                            title = habitTitle,
+                            status = status,
+                            timestamp = baseEpoch + (index * 3600_000L)
+                        )
+                    )
+                }
+
+                // Task logs
+                sampleTaskTitles.take(2).forEachIndexed { index, taskTitle ->
+                    val isFrog = index == 0
+                    val isComp = (completedCount > index + 2)
+                    logs.add(
+                        CompletionLogEntity(
+                            dateIso = dateIso,
+                            itemType = CompletionItemType.TASK,
+                            itemId = if (isFrog) "task-frog-1" else "task-med-$index",
+                            title = taskTitle,
+                            status = if (isComp) CompletionStatus.COMPLETED else CompletionStatus.MISSED,
+                            timestamp = baseEpoch + 14400_000L + (index * 7200_000L)
+                        )
+                    )
+                }
+
+                // Meal log
+                logs.add(
+                    CompletionLogEntity(
+                        dateIso = dateIso,
+                        itemType = CompletionItemType.MEAL,
+                        itemId = "meal-1",
+                        title = "Desayuno de Bajo Impacto Glucémico",
+                        status = CompletionStatus.COMPLETED,
+                        timestamp = baseEpoch + 1800_000L
+                    )
+                )
+            }
+
+            dailySummaryDao.insertSummaries(summaries)
+            completionLogDao.insertLogs(logs)
         }
     }
 }

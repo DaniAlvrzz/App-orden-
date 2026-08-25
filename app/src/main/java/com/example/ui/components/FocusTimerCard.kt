@@ -1,5 +1,10 @@
 package com.example.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,18 +13,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.data.model.TaskItem
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -34,9 +39,39 @@ fun FocusTimerCard(
     onPause: () -> Unit,
     onReset: () -> Unit,
     language: AppLanguage = AppLanguage.SPANISH,
+    onPermissionDenied: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val strings = remember(language) { StringsProvider(language) }
+    val isSpanish = language == AppLanguage.SPANISH
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            onPermissionDenied()
+        }
+        onStart()
+    }
+
+    val handleStartClick = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermission) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                onStart()
+            }
+        } else {
+            onStart()
+        }
+    }
+
     val minutes = secondsRemaining / 60
     val seconds = secondsRemaining % 60
     val timeFormatted = String.format("%02d:%02d", minutes, seconds)
@@ -135,7 +170,7 @@ fun FocusTimerCard(
             // Action Buttons
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = if (isRunning) onPause else onStart,
+                    onClick = if (isRunning) onPause else handleStartClick,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isRunning) AetherAmber else AetherCyan,
                         contentColor = Color(0xFF00363D)

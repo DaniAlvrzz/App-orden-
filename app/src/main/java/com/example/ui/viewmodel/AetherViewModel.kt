@@ -10,13 +10,17 @@ import com.example.AetherApplication
 import com.example.data.local.AetherDatabase
 import com.example.data.model.*
 import com.example.data.remote.AetherGeminiEngine
+import com.example.data.repository.AchievementRepository
 import com.example.data.repository.AetherRepository
+import com.example.data.util.AetherDateUtils
+import com.example.service.FocusTimerWorker
 import com.example.ui.i18n.AppLanguage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
 
@@ -45,13 +49,56 @@ data class AetherUiState(
     val showTutorialDialog: Boolean = false,
     val showAddTimeBlockDialog: Boolean = false,
     val showAddMealDialog: Boolean = false,
+    val showAddHabitDialog: Boolean = false,
+    val showAchievementsDialog: Boolean = false,
+    val showFrogCelebration: Boolean = false,
+    val celebratingFrogTaskTitle: String = "",
+    val achievements: List<AchievementItem> = emptyList(),
+    val newlyUnlockedAchievement: AchievementItem? = null,
     val tutorialStepIndex: Int = 0,
     val currentLanguage: AppLanguage = AppLanguage.SPANISH,
     val statusMessage: String? = null,
+    // Active editing items (dialogs open when non-null)
+    val editingTask: TaskItem? = null,
+    val editingTimeBlock: TimeBlock? = null,
+    val editingPantryItem: PantryItem? = null,
+    val editingMeal: MealItem? = null,
+    val editingHabit: HabitAnchor? = null,
+    // Undo mechanism
+    val lastDeletedTask: TaskItem? = null,
+    val lastDeletedTimeBlock: TimeBlock? = null,
+    val lastDeletedPantryItem: PantryItem? = null,
+    val lastDeletedMeal: MealItem? = null,
+    val lastDeletedHabit: HabitAnchor? = null,
+    val undoMessage: String? = null,
     // Focus Timer
     val isFocusTimerRunning: Boolean = false,
     val focusSecondsRemaining: Int = 25 * 60,
-    val activeFocusTask: TaskItem? = null
+    val activeFocusTask: TaskItem? = null,
+    // Module 2: Persistent History State
+    val showHistoryDialog: Boolean = false,
+    val historyViewMode: HistoryViewMode = HistoryViewMode.MONTH,
+    val selectedHistoryYear: Int = LocalDate.now().year,
+    val selectedHistoryMonth: Int = LocalDate.now().monthValue,
+    val selectedHistoryDateIso: String = LocalDate.now().toString(),
+    val historySummaries: List<DailySummary> = emptyList(),
+    val historyLogsForSelectedDay: List<CompletionLog> = emptyList(),
+    // Clean Slate & Backup Options
+    val wipeHistoryWithCleanSlate: Boolean = false,
+    val showRestoreBackupDialog: Boolean = false,
+    // Fase 3 Módulo 4: Dopamine Visuals & Gamification System
+    val userLevelInfo: UserLevelInfo = UserLevelInfo(),
+    val levelUpCelebrationLevel: Int? = null,
+    val habitConfettiKey: Long? = null,
+    val newlyUnlockedAchievementModal: AchievementItem? = null,
+    // Fase 3 Módulo 5: Núcleo IA Mejorado & Chat Persistente
+    val aiMessages: List<AiMessage> = emptyList(),
+    val favoriteAiMessages: List<AiMessage> = emptyList(),
+    val selectedAiTab: Int = 0, // 0: Chat, 1: Favorites, 2: JSON Schema
+    val isAiStreaming: Boolean = false,
+    val isAiThinking: Boolean = false,
+    val activeStreamingMessageId: String? = null,
+    val activeStreamingContent: String = ""
 ) {
     // Cognitive ceiling computation: Deep work sum
     val deepWorkMinutesAllocated: Int
@@ -98,14 +145,15 @@ data class AetherUiState(
     }
 }
 
-class AetherViewModel(
+class AetherViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: AetherRepository = (application as? AetherApplication)?.container?.repository
         ?: AetherRepository(
             AetherDatabase.getDatabase(application),
             AetherGeminiEngine(),
             application
-        )
+        ),
+    private val achievementRepository: AchievementRepository = AchievementRepository(application)
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -114,7 +162,8 @@ class AetherViewModel(
                 val app = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as AetherApplication)
                 AetherViewModel(
                     application = app,
-                    repository = app.container.repository
+                    repository = app.container.repository,
+                    achievementRepository = AchievementRepository(app)
                 )
             }
         }
@@ -124,12 +173,55 @@ class AetherViewModel(
     val uiState: StateFlow<AetherUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var celebrationJob: Job? = null
+    private var historyLogsJob: Job? = null
 
     init {
         observeData()
     }
 
     private fun observeData() {
+        viewModelScope.launch {
+            repository.getLanguage().distinctUntilChanged().collect { savedLang ->
+                _uiState.value = _uiState.value.copy(currentLanguage = savedLang)
+            }
+        }
+
+        viewModelScope.launch {
+            achievementRepository.achievements.collect { achievementsList ->
+                _uiState.value = _uiState.value.copy(achievements = achievementsList)
+            }
+        }
+
+        viewModelScope.launch {
+            achievementRepository.userLevelInfo.collect { levelInfo ->
+                _uiState.value = _uiState.value.copy(userLevelInfo = levelInfo)
+            }
+        }
+
+        // Collect daily summaries for persistent history
+        viewModelScope.launch {
+            repository.dailySummaries.collect { summaries ->
+                _uiState.value = _uiState.value.copy(historySummaries = summaries)
+            }
+        }
+
+        // Collect persistent AI conversation messages & favorites
+        viewModelScope.launch {
+            repository.aiMessages.collect { messages ->
+                _uiState.value = _uiState.value.copy(aiMessages = messages)
+            }
+        }
+
+        viewModelScope.launch {
+            repository.favoriteAiMessages.collect { favs ->
+                _uiState.value = _uiState.value.copy(favoriteAiMessages = favs)
+            }
+        }
+
+        // Observe selected day logs
+        loadLogsForSelectedDate(_uiState.value.selectedHistoryDateIso)
+
         viewModelScope.launch {
             combine(
                 repository.tasks,
@@ -142,6 +234,31 @@ class AetherViewModel(
             }.combine(repository.biometric) { (tasks, timeBlocks, pantry, meals, habits), bio ->
                 Tuple6(tasks, timeBlocks, pantry, meals, habits, bio)
             }.combine(repository.recentBiometrics) { (tasks, timeBlocks, pantry, meals, habits, bio), recents ->
+                // Check automated achievements
+                if (habits.any { it.streakDays >= 7 }) {
+                    unlockAchievement(AchievementId.STREAK_7_DAYS)
+                }
+                if (habits.any { it.streakDays >= 30 }) {
+                    unlockAchievement(AchievementId.STREAK_30_DAYS)
+                }
+                if (habits.isNotEmpty() && habits.all { it.isCompleted }) {
+                    unlockAchievement(AchievementId.PERFECT_DAY)
+                }
+                if (pantry.count { it.inStock } >= 5) {
+                    unlockAchievement(AchievementId.PANTRY_5_ITEMS)
+                }
+                val completedCount = tasks.count { it.isCompleted }
+                val completedFrogs = tasks.count { it.isCompleted && it.isFrog }
+                if (completedFrogs >= 10) {
+                    unlockAchievement(AchievementId.FROGS_10)
+                }
+                if (completedCount >= 10) {
+                    unlockAchievement(AchievementId.TASKS_10)
+                }
+                if (completedCount >= 100) {
+                    unlockAchievement(AchievementId.TASKS_100)
+                }
+
                 val totalDeepWork = timeBlocks
                     .filter { it.blockType == BlockType.DEEP_WORK }
                     .sumOf { 60 } // Default estimation
@@ -158,7 +275,7 @@ class AetherViewModel(
                 val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
 
                 val synthesizedPlan = AetherDailyPlan(
-                    date = com.example.data.util.AetherDateUtils.getTodayIso(),
+                    date = AetherDateUtils.getTodayIso(),
                     biometric_baseline = bio,
                     top_3_priorities_1_3_5 = Top3Priorities(
                         frog_task = if (bio.systemMode == SystemMode.RECOVERY) null else frog,
@@ -217,11 +334,114 @@ class AetherViewModel(
         _uiState.value = _uiState.value.copy(activeTab = tabIndex)
     }
 
+    // --- Module 2: History Navigation & State ---
+    fun openHistory() {
+        _uiState.value = _uiState.value.copy(showHistoryDialog = true)
+    }
+
+    fun closeHistory() {
+        _uiState.value = _uiState.value.copy(showHistoryDialog = false)
+    }
+
+    fun setHistoryViewMode(mode: HistoryViewMode) {
+        _uiState.value = _uiState.value.copy(historyViewMode = mode)
+    }
+
+    fun selectHistoryYear(year: Int) {
+        _uiState.value = _uiState.value.copy(
+            selectedHistoryYear = year,
+            historyViewMode = HistoryViewMode.YEAR
+        )
+    }
+
+    fun selectHistoryMonth(year: Int, month: Int) {
+        val dateIso = String.format(Locale.US, "%04d-%02d-01", year, month)
+        _uiState.value = _uiState.value.copy(
+            selectedHistoryYear = year,
+            selectedHistoryMonth = month,
+            selectedHistoryDateIso = dateIso,
+            historyViewMode = HistoryViewMode.MONTH
+        )
+        loadLogsForSelectedDate(dateIso)
+    }
+
+    fun selectHistoryDate(dateIso: String) {
+        _uiState.value = _uiState.value.copy(
+            selectedHistoryDateIso = dateIso,
+            historyViewMode = HistoryViewMode.DAY
+        )
+        loadLogsForSelectedDate(dateIso)
+    }
+
+    private fun loadLogsForSelectedDate(dateIso: String) {
+        historyLogsJob?.cancel()
+        historyLogsJob = viewModelScope.launch {
+            repository.getLogsByDate(dateIso).collect { logs ->
+                _uiState.value = _uiState.value.copy(historyLogsForSelectedDay = logs)
+            }
+        }
+    }
+
+    // --- Full Backup & Restore ---
+    fun toggleWipeHistoryWithCleanSlate() {
+        _uiState.value = _uiState.value.copy(
+            wipeHistoryWithCleanSlate = !_uiState.value.wipeHistoryWithCleanSlate
+        )
+    }
+
+    fun exportFullBackup() {
+        viewModelScope.launch {
+            val result = repository.exportFullBackupToDocuments(getApplication())
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            if (result.isSuccess) {
+                showFeedback(
+                    if (isSpanish) "✅ Copia exportada a Documents/${result.getOrNull()?.substringAfterLast("/")}"
+                    else "✅ Full backup exported to Documents/${result.getOrNull()?.substringAfterLast("/")}"
+                )
+            } else {
+                showFeedback(
+                    if (isSpanish) "❌ Error al exportar copia de seguridad."
+                    else "❌ Failed to export full backup."
+                )
+            }
+        }
+    }
+
+    fun openRestoreBackupDialog() {
+        _uiState.value = _uiState.value.copy(showRestoreBackupDialog = true)
+    }
+
+    fun closeRestoreBackupDialog() {
+        _uiState.value = _uiState.value.copy(showRestoreBackupDialog = false)
+    }
+
+    fun restoreFullBackupFromJson(jsonString: String) {
+        viewModelScope.launch {
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            val result = repository.restoreFromBackupJson(jsonString)
+            if (result.isSuccess) {
+                _uiState.value = _uiState.value.copy(showRestoreBackupDialog = false)
+                showFeedback(
+                    if (isSpanish) "✅ ¡Copia de seguridad restaurada correctamente!"
+                    else "✅ Full backup restored successfully!"
+                )
+            } else {
+                showFeedback(
+                    if (isSpanish) "❌ Error al restaurar copia: Formato JSON no válido."
+                    else "❌ Failed to restore: Invalid JSON payload."
+                )
+            }
+        }
+    }
+
     // --- Localization & Settings ---
     fun setLanguage(language: AppLanguage) {
         _uiState.value = _uiState.value.copy(currentLanguage = language)
+        viewModelScope.launch {
+            repository.saveLanguage(language)
+        }
         val isSpanish = language == AppLanguage.SPANISH
-        showFeedback(if (isSpanish) "Idioma cambiado a Español Castellano 🇪🇸" else "Language changed to English 🇬🇧")
+        showFeedback(if (isSpanish) "Idioma guardado: Español Castellano 🇪🇸" else "Language saved: English 🇬🇧")
     }
 
     fun openSettings() {
@@ -230,6 +450,10 @@ class AetherViewModel(
 
     fun closeSettings() {
         _uiState.value = _uiState.value.copy(showSettingsDialog = false)
+    }
+
+    fun setShowAchievementsDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showAchievementsDialog = show)
     }
 
     fun openTutorial(stepIndex: Int = 0) {
@@ -263,6 +487,7 @@ class AetherViewModel(
     fun updateReadiness(score: Int) {
         viewModelScope.launch {
             repository.updateReadiness(score)
+            unlockAchievement(AchievementId.CIRCADIAN_SYNC)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
             showFeedback(if (isSpanish) "Preparación biológica calibrada a $score/100" else "Readiness calibrated to $score/100")
         }
@@ -271,6 +496,7 @@ class AetherViewModel(
     fun updateChronotype(chronotype: Chronotype) {
         viewModelScope.launch {
             repository.updateChronotype(chronotype, _uiState.value.biometric.readinessScore)
+            unlockAchievement(AchievementId.CIRCADIAN_SYNC)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
             showFeedback(if (isSpanish) "Curva circadiana ajustada a ${chronotype.title}" else "Circadian curve tuned to ${chronotype.title}")
         }
@@ -306,6 +532,7 @@ class AetherViewModel(
                     aiEngineStatus = engineResult.status,
                     isOrchestrating = false
                 )
+                unlockAchievement(AchievementId.AI_ORCHESTRATION)
                 val statusText = when (engineResult.status) {
                     AiStatus.LIVE -> if (isSpanish) "✨ ¡Plan circadiano sintetizado en vivo con Gemini AI!" else "✨ Circadian plan synthesized live with Gemini AI!"
                     AiStatus.FALLBACK -> if (isSpanish) "⚡ Plan circadiano generado con Motor de Respaldo Determinista." else "⚡ Circadian plan generated with Deterministic Engine."
@@ -332,6 +559,7 @@ class AetherViewModel(
                 isReframing = false,
                 showReframeDialog = true
             )
+            unlockAchievement(AchievementId.COGNITIVE_REFRAME)
         }
     }
 
@@ -363,10 +591,55 @@ class AetherViewModel(
         }
     }
 
+    fun updateTask(task: TaskItem) {
+        viewModelScope.launch {
+            repository.updateTask(task)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(editingTask = null)
+            showFeedback(if (isSpanish) "Tarea '${task.title}' actualizada." else "Task '${task.title}' updated.")
+        }
+    }
+
+    fun setEditingTask(task: TaskItem?) {
+        _uiState.value = _uiState.value.copy(editingTask = task)
+    }
+
     fun toggleTask(task: TaskItem) {
+        val willBeCompleted = !task.isCompleted
         viewModelScope.launch {
             repository.toggleTaskComplete(task)
+
+            if (willBeCompleted) {
+                val xpToAdd = if (task.isFrog) 30 else 10
+                val result = achievementRepository.addXp(xpToAdd)
+                if (result.didLevelUp) {
+                    triggerLevelUpToast(result.newLevel)
+                }
+
+                // Trigger FROG celebration and achievement
+                if (task.isFrog) {
+                    unlockAchievement(AchievementId.FIRST_FROG)
+                    triggerFrogCelebration(task.title)
+                }
+            }
         }
+    }
+
+    private fun triggerFrogCelebration(title: String) {
+        celebrationJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            showFrogCelebration = true,
+            celebratingFrogTaskTitle = title
+        )
+        celebrationJob = viewModelScope.launch {
+            delay(3000)
+            _uiState.value = _uiState.value.copy(showFrogCelebration = false)
+        }
+    }
+
+    fun dismissFrogCelebration() {
+        celebrationJob?.cancel()
+        _uiState.value = _uiState.value.copy(showFrogCelebration = false)
     }
 
     fun promoteToFrog(taskId: String) {
@@ -378,8 +651,67 @@ class AetherViewModel(
     }
 
     fun deleteTask(taskId: String) {
+        val taskToDelete = _uiState.value.tasks.firstOrNull { it.id == taskId }
+        if (taskToDelete != null) {
+            deleteTaskWithUndo(taskToDelete)
+        } else {
+            viewModelScope.launch {
+                repository.deleteTask(taskId)
+            }
+        }
+    }
+
+    fun deleteTaskWithUndo(task: TaskItem) {
         viewModelScope.launch {
-            repository.deleteTask(taskId)
+            repository.deleteTask(task.id)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(
+                lastDeletedTask = task,
+                lastDeletedTimeBlock = null,
+                lastDeletedPantryItem = null,
+                lastDeletedMeal = null,
+                lastDeletedHabit = null,
+                undoMessage = if (isSpanish) "Tarea '${task.title}' eliminada" else "Task '${task.title}' deleted"
+            )
+        }
+    }
+
+    fun reorderTasks(orderedTasks: List<TaskItem>) {
+        viewModelScope.launch {
+            repository.reorderTasks(orderedTasks)
+        }
+    }
+
+    fun moveTask(fromIndex: Int, toIndex: Int) {
+        val list = _uiState.value.tasks.toMutableList()
+        if (fromIndex in list.indices && toIndex in list.indices) {
+            val item = list.removeAt(fromIndex)
+            list.add(toIndex, item)
+            reorderTasks(list)
+        }
+    }
+
+    fun moveMediumTask(fromIndex: Int, toIndex: Int) {
+        val mediums = _uiState.value.mediumTasks.toMutableList()
+        if (fromIndex in mediums.indices && toIndex in mediums.indices) {
+            val item = mediums.removeAt(fromIndex)
+            mediums.add(toIndex, item)
+            val frogs = _uiState.value.tasks.filter { it.isFrog }
+            val quicks = _uiState.value.quickTasks
+            val other = _uiState.value.tasks.filter { !it.isFrog && it.energyLevel != EnergyLevel.MEDIUM && it.energyLevel != EnergyLevel.LOW }
+            reorderTasks(frogs + mediums + quicks + other)
+        }
+    }
+
+    fun moveQuickTask(fromIndex: Int, toIndex: Int) {
+        val quicks = _uiState.value.quickTasks.toMutableList()
+        if (fromIndex in quicks.indices && toIndex in quicks.indices) {
+            val item = quicks.removeAt(fromIndex)
+            quicks.add(toIndex, item)
+            val frogs = _uiState.value.tasks.filter { it.isFrog }
+            val mediums = _uiState.value.mediumTasks
+            val other = _uiState.value.tasks.filter { !it.isFrog && it.energyLevel != EnergyLevel.MEDIUM && it.energyLevel != EnergyLevel.LOW }
+            reorderTasks(frogs + mediums + quicks + other)
         }
     }
 
@@ -399,6 +731,19 @@ class AetherViewModel(
         }
     }
 
+    fun updateTimeBlock(block: TimeBlock) {
+        viewModelScope.launch {
+            repository.updateTimeBlock(block)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(editingTimeBlock = null)
+            showFeedback(if (isSpanish) "Bloque '${block.title}' actualizado." else "Time block '${block.title}' updated.")
+        }
+    }
+
+    fun setEditingTimeBlock(block: TimeBlock?) {
+        _uiState.value = _uiState.value.copy(editingTimeBlock = block)
+    }
+
     fun toggleTimeBlock(block: TimeBlock) {
         viewModelScope.launch {
             repository.toggleTimeBlockComplete(block)
@@ -406,10 +751,43 @@ class AetherViewModel(
     }
 
     fun deleteTimeBlock(id: String) {
+        val blockToDelete = _uiState.value.timeBlocks.firstOrNull { it.id == id }
+        if (blockToDelete != null) {
+            deleteTimeBlockWithUndo(blockToDelete)
+        } else {
+            viewModelScope.launch {
+                repository.deleteTimeBlock(id)
+            }
+        }
+    }
+
+    fun deleteTimeBlockWithUndo(block: TimeBlock) {
         viewModelScope.launch {
-            repository.deleteTimeBlock(id)
+            repository.deleteTimeBlock(block.id)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(if (isSpanish) "Bloque eliminado del timeline." else "Block removed from timeline.")
+            _uiState.value = _uiState.value.copy(
+                lastDeletedTimeBlock = block,
+                lastDeletedTask = null,
+                lastDeletedPantryItem = null,
+                lastDeletedMeal = null,
+                lastDeletedHabit = null,
+                undoMessage = if (isSpanish) "Bloque '${block.title}' eliminado" else "Time block '${block.title}' deleted"
+            )
+        }
+    }
+
+    fun reorderTimeBlocks(orderedBlocks: List<TimeBlock>) {
+        viewModelScope.launch {
+            repository.reorderTimeBlocks(orderedBlocks)
+        }
+    }
+
+    fun moveTimeBlock(fromIndex: Int, toIndex: Int) {
+        val list = _uiState.value.timeBlocks.toMutableList()
+        if (fromIndex in list.indices && toIndex in list.indices) {
+            val item = list.removeAt(fromIndex)
+            list.add(toIndex, item)
+            reorderTimeBlocks(list)
         }
     }
 
@@ -433,6 +811,19 @@ class AetherViewModel(
         }
     }
 
+    fun updatePantryItem(item: PantryItem) {
+        viewModelScope.launch {
+            repository.updatePantryItem(item)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(editingPantryItem = null)
+            showFeedback(if (isSpanish) "Ingrediente '${item.name}' actualizado." else "Pantry item '${item.name}' updated.")
+        }
+    }
+
+    fun setEditingPantryItem(item: PantryItem?) {
+        _uiState.value = _uiState.value.copy(editingPantryItem = item)
+    }
+
     fun togglePantryStock(id: String, inStock: Boolean) {
         viewModelScope.launch {
             repository.togglePantryStock(id, inStock)
@@ -440,10 +831,28 @@ class AetherViewModel(
     }
 
     fun deletePantryItem(id: String) {
+        val itemToDelete = _uiState.value.pantryItems.firstOrNull { it.id == id }
+        if (itemToDelete != null) {
+            deletePantryItemWithUndo(itemToDelete)
+        } else {
+            viewModelScope.launch {
+                repository.deletePantryItem(id)
+            }
+        }
+    }
+
+    fun deletePantryItemWithUndo(item: PantryItem) {
         viewModelScope.launch {
-            repository.deletePantryItem(id)
+            repository.deletePantryItem(item.id)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(if (isSpanish) "Ingrediente eliminado de la despensa." else "Item deleted from pantry.")
+            _uiState.value = _uiState.value.copy(
+                lastDeletedPantryItem = item,
+                lastDeletedTask = null,
+                lastDeletedTimeBlock = null,
+                lastDeletedMeal = null,
+                lastDeletedHabit = null,
+                undoMessage = if (isSpanish) "Ingrediente '${item.name}' eliminado" else "Item '${item.name}' deleted"
+            )
         }
     }
 
@@ -456,7 +865,12 @@ class AetherViewModel(
         ingredients: List<String>,
         usesBatchCookedBase: Boolean,
         allIngredientsInStock: Boolean,
-        bioImpact: BioGlycemicImpact
+        bioImpact: BioGlycemicImpact,
+        customSlotName: String? = null,
+        proteinGrams: Int = 0,
+        carbsGrams: Int = 0,
+        fatGrams: Int = 0,
+        caloriesKcal: Int = 0
     ) {
         viewModelScope.launch {
             repository.addMeal(
@@ -467,12 +881,46 @@ class AetherViewModel(
                 ingredients = ingredients,
                 usesBatchCookedBase = usesBatchCookedBase,
                 allIngredientsInStock = allIngredientsInStock,
-                bioImpact = bioImpact
+                bioImpact = bioImpact,
+                customSlotName = customSlotName,
+                proteinGrams = proteinGrams,
+                carbsGrams = carbsGrams,
+                fatGrams = fatGrams,
+                caloriesKcal = caloriesKcal
             )
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
             _uiState.value = _uiState.value.copy(showAddMealDialog = false)
-            showFeedback(if (isSpanish) "Comida planificada agregada con éxito." else "Meal plan entry added.")
+            showFeedback(if (isSpanish) "Comida '$title' programada con éxito." else "Meal '$title' added.")
         }
+    }
+
+    fun duplicateMeal(meal: MealItem, targetOffsetDays: Int = 1) {
+        viewModelScope.launch {
+            val targetDate = LocalDate.now().plusDays(targetOffsetDays.toLong()).toString()
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            val isToday = targetOffsetDays == 0
+            repository.duplicateMeal(meal, targetDateIso = targetDate, copySuffix = isToday)
+            
+            val dayDesc = when (targetOffsetDays) {
+                0 -> if (isSpanish) "para hoy" else "for today"
+                1 -> if (isSpanish) "para mañana" else "for tomorrow"
+                else -> if (isSpanish) "para dentro de $targetOffsetDays días" else "for in $targetOffsetDays days"
+            }
+            showFeedback(if (isSpanish) "Comida '${meal.title}' duplicada $dayDesc." else "Meal '${meal.title}' duplicated $dayDesc.")
+        }
+    }
+
+    fun updateMeal(meal: MealItem) {
+        viewModelScope.launch {
+            repository.updateMeal(meal)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(editingMeal = null)
+            showFeedback(if (isSpanish) "Comida '${meal.title}' actualizada." else "Meal '${meal.title}' updated.")
+        }
+    }
+
+    fun setEditingMeal(meal: MealItem?) {
+        _uiState.value = _uiState.value.copy(editingMeal = meal)
     }
 
     fun toggleMeal(meal: MealItem) {
@@ -482,10 +930,28 @@ class AetherViewModel(
     }
 
     fun deleteMeal(id: String) {
+        val mealToDelete = _uiState.value.meals.firstOrNull { it.id == id }
+        if (mealToDelete != null) {
+            deleteMealWithUndo(mealToDelete)
+        } else {
+            viewModelScope.launch {
+                repository.deleteMeal(id)
+            }
+        }
+    }
+
+    fun deleteMealWithUndo(meal: MealItem) {
         viewModelScope.launch {
-            repository.deleteMeal(id)
+            repository.deleteMeal(meal.id)
             val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(if (isSpanish) "Comida eliminada del plan." else "Meal removed from plan.")
+            _uiState.value = _uiState.value.copy(
+                lastDeletedMeal = meal,
+                lastDeletedTask = null,
+                lastDeletedTimeBlock = null,
+                lastDeletedPantryItem = null,
+                lastDeletedHabit = null,
+                undoMessage = if (isSpanish) "Comida '${meal.title}' eliminada" else "Meal '${meal.title}' deleted"
+            )
         }
     }
 
@@ -493,15 +959,174 @@ class AetherViewModel(
         _uiState.value = _uiState.value.copy(showAddMealDialog = show)
     }
 
+    // --- Habit Actions ---
+    fun addHabit(
+        title: String,
+        description: String,
+        anchor: CircadianAnchor,
+        streakDays: Int = 0,
+        reframingTip: String = ""
+    ) {
+        viewModelScope.launch {
+            repository.addHabit(title, description, anchor, streakDays, reframingTip)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(showAddHabitDialog = false)
+            showFeedback(if (isSpanish) "Hábito '$title' añadido con éxito." else "Habit '$title' added successfully.")
+        }
+    }
+
+    fun updateHabit(habit: HabitAnchor) {
+        viewModelScope.launch {
+            repository.updateHabit(habit)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(editingHabit = null)
+            showFeedback(if (isSpanish) "Hábito '${habit.title}' actualizado." else "Habit '${habit.title}' updated.")
+        }
+    }
+
+    fun setEditingHabit(habit: HabitAnchor?) {
+        _uiState.value = _uiState.value.copy(editingHabit = habit)
+    }
+
+    fun setShowAddHabit(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showAddHabitDialog = show)
+    }
+
+    fun deleteHabit(id: String) {
+        val habitToDelete = _uiState.value.habits.firstOrNull { it.id == id }
+        if (habitToDelete != null) {
+            deleteHabitWithUndo(habitToDelete)
+        } else {
+            viewModelScope.launch {
+                repository.deleteHabit(id)
+            }
+        }
+    }
+
+    fun deleteHabitWithUndo(habit: HabitAnchor) {
+        viewModelScope.launch {
+            repository.deleteHabit(habit.id)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            _uiState.value = _uiState.value.copy(
+                lastDeletedHabit = habit,
+                lastDeletedTask = null,
+                lastDeletedTimeBlock = null,
+                lastDeletedPantryItem = null,
+                lastDeletedMeal = null,
+                undoMessage = if (isSpanish) "Hábito '${habit.title}' eliminado" else "Habit '${habit.title}' deleted"
+            )
+        }
+    }
+
+    fun toggleHabit(habit: HabitAnchor) {
+        val willBeCompleted = !habit.isCompleted
+        viewModelScope.launch {
+            repository.toggleHabitComplete(habit)
+
+            if (willBeCompleted) {
+                // Trigger confetti animation key
+                _uiState.value = _uiState.value.copy(habitConfettiKey = System.currentTimeMillis())
+
+                unlockAchievement(AchievementId.FIRST_HABIT)
+
+                // 4.4 XP: +10 XP for completing habit
+                val xpResult = achievementRepository.addXp(10)
+                if (xpResult.didLevelUp) {
+                    triggerLevelUpToast(xpResult.newLevel)
+                }
+
+                // Check if all habits are now completed -> Perfect Day Bonus (+50 XP)
+                val currentHabits = _uiState.value.habits
+                val otherHabitsCompleted = currentHabits.filter { it.id != habit.id }.all { it.isCompleted }
+                if (currentHabits.isNotEmpty() && otherHabitsCompleted) {
+                    unlockAchievement(AchievementId.PERFECT_DAY)
+                    val bonusResult = achievementRepository.addXp(50)
+                    val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+                    showFeedback(
+                        if (isSpanish) "🌟 ¡DÍA PERFECTO! +50 XP Bonus por completar todos tus hábitos."
+                        else "🌟 PERFECT DAY! +50 XP Bonus for completing all your habits."
+                    )
+                    if (bonusResult.didLevelUp) {
+                        triggerLevelUpToast(bonusResult.newLevel)
+                    }
+                }
+            }
+        }
+    }
+
+    fun applyGraceDay(habit: HabitAnchor) {
+        viewModelScope.launch {
+            repository.applyGraceDay(habit)
+            unlockAchievement(AchievementId.GRACE_DAY_ACTIVATED)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(
+                if (isSpanish) "🛡️ Día de Gracia activado para ${habit.title}. ¡Racha protegida!"
+                else "🛡️ Grace Day activated for ${habit.title}. Streak protected!"
+            )
+        }
+    }
+
+    // --- Undo Restore Action ---
+    fun restoreLastDeletedItem() {
+        val state = _uiState.value
+        val isSpanish = state.currentLanguage == AppLanguage.SPANISH
+        viewModelScope.launch {
+            when {
+                state.lastDeletedTask != null -> {
+                    repository.restoreTask(state.lastDeletedTask)
+                    _uiState.value = _uiState.value.copy(lastDeletedTask = null, undoMessage = null)
+                    showFeedback(if (isSpanish) "Tarea restaurada" else "Task restored")
+                }
+                state.lastDeletedTimeBlock != null -> {
+                    repository.restoreTimeBlock(state.lastDeletedTimeBlock)
+                    _uiState.value = _uiState.value.copy(lastDeletedTimeBlock = null, undoMessage = null)
+                    showFeedback(if (isSpanish) "Bloque restaurado" else "Time block restored")
+                }
+                state.lastDeletedPantryItem != null -> {
+                    repository.restorePantryItem(state.lastDeletedPantryItem)
+                    _uiState.value = _uiState.value.copy(lastDeletedPantryItem = null, undoMessage = null)
+                    showFeedback(if (isSpanish) "Ingrediente restaurado" else "Pantry item restored")
+                }
+                state.lastDeletedMeal != null -> {
+                    repository.restoreMeal(state.lastDeletedMeal)
+                    _uiState.value = _uiState.value.copy(lastDeletedMeal = null, undoMessage = null)
+                    showFeedback(if (isSpanish) "Comida restaurada" else "Meal restored")
+                }
+                state.lastDeletedHabit != null -> {
+                    repository.restoreHabit(state.lastDeletedHabit)
+                    _uiState.value = _uiState.value.copy(lastDeletedHabit = null, undoMessage = null)
+                    showFeedback(if (isSpanish) "Hábito restaurado" else "Habit restored")
+                }
+            }
+        }
+    }
+
+    fun dismissUndo() {
+        _uiState.value = _uiState.value.copy(
+            lastDeletedTask = null,
+            lastDeletedTimeBlock = null,
+            lastDeletedPantryItem = null,
+            lastDeletedMeal = null,
+            lastDeletedHabit = null,
+            undoMessage = null
+        )
+    }
+
     // --- Clean Slate & Demo Data Handlers ---
     fun resetToCleanSlate() {
         viewModelScope.launch {
             val lang = _uiState.value.currentLanguage
-            repository.resetToCleanSlate(lang)
+            val wipeHistory = _uiState.value.wipeHistoryWithCleanSlate
+            repository.resetToCleanSlate(lang, wipeHistory = wipeHistory)
             closeSettings()
             showFeedback(
-                if (lang == AppLanguage.SPANISH) "🌿 Base de datos vaciada. Listo para tus propios datos."
-                else "🌿 Clean slate initialized. Ready for your own data."
+                if (lang == AppLanguage.SPANISH) {
+                    if (wipeHistory) "🌿 Base de datos e historial vaciados por completo."
+                    else "🌿 Base de datos vaciada. Historial persistente conservado."
+                } else {
+                    if (wipeHistory) "🌿 Database and persistent history completely wiped."
+                    else "🌿 Clean slate initialized. Persistent history preserved."
+                }
             )
         }
     }
@@ -514,24 +1139,6 @@ class AetherViewModel(
             showFeedback(
                 if (lang == AppLanguage.SPANISH) "🚀 Datos de demostración bioenergéticos cargados."
                 else "🚀 Bioenergetic demo data populated."
-            )
-        }
-    }
-
-    // --- Habit Actions ---
-    fun toggleHabit(habit: HabitAnchor) {
-        viewModelScope.launch {
-            repository.toggleHabitComplete(habit)
-        }
-    }
-
-    fun applyGraceDay(habit: HabitAnchor) {
-        viewModelScope.launch {
-            repository.applyGraceDay(habit)
-            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
-            showFeedback(
-                if (isSpanish) "🛡️ Día de Gracia activado para ${habit.title}. ¡Racha protegida!"
-                else "🛡️ Grace Day activated for ${habit.title}. Streak protected!"
             )
         }
     }
@@ -565,13 +1172,26 @@ class AetherViewModel(
         return repository.exportPlanAsJson(plan)
     }
 
-    // Focus Pomodoro Timer
+    // Focus Pomodoro Timer with WorkManager Background Alarm
     fun startFocusTimer(task: TaskItem? = null) {
+        val durationMinutes = task?.estimatedMinutes ?: 25
+        val durationSeconds = durationMinutes * 60
+        val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+
         _uiState.value = _uiState.value.copy(
             isFocusTimerRunning = true,
             activeFocusTask = task,
-            focusSecondsRemaining = (task?.estimatedMinutes ?: 25) * 60
+            focusSecondsRemaining = durationSeconds
         )
+
+        FocusTimerWorker.scheduleFocusTimer(
+            context = getApplication(),
+            durationSeconds = durationSeconds.toLong(),
+            taskTitle = task?.title ?: (if (isSpanish) "Enfoque Profundo" else "Deep Focus Block"),
+            isFrog = task?.isFrog ?: false,
+            isSpanish = isSpanish
+        )
+
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
             while (_uiState.value.focusSecondsRemaining > 0 && _uiState.value.isFocusTimerRunning) {
@@ -580,9 +1200,9 @@ class AetherViewModel(
                     focusSecondsRemaining = _uiState.value.focusSecondsRemaining - 1
                 )
             }
-            if (_uiState.value.focusSecondsRemaining <= 0) {
+            if (_uiState.value.focusSecondsRemaining <= 0 && _uiState.value.isFocusTimerRunning) {
                 _uiState.value = _uiState.value.copy(isFocusTimerRunning = false)
-                val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+                unlockAchievement(AchievementId.FOCUS_BLOCK_DONE)
                 showFeedback(
                     if (isSpanish) "🎯 ¡Bloque de enfoque completado! Tómate una pausa de recuperación cognitiva."
                     else "🎯 Focus Block Complete! Step away for cognitive recovery."
@@ -593,15 +1213,52 @@ class AetherViewModel(
 
     fun stopFocusTimer() {
         timerJob?.cancel()
+        FocusTimerWorker.cancelFocusTimer(getApplication())
         _uiState.value = _uiState.value.copy(isFocusTimerRunning = false)
     }
 
     fun resetFocusTimer(minutes: Int = 25) {
         timerJob?.cancel()
+        FocusTimerWorker.cancelFocusTimer(getApplication())
         _uiState.value = _uiState.value.copy(
             isFocusTimerRunning = false,
             focusSecondsRemaining = minutes * 60
         )
+    }
+
+    private fun triggerLevelUpToast(level: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = level)
+            delay(3500)
+            if (_uiState.value.levelUpCelebrationLevel == level) {
+                _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = null)
+            }
+        }
+    }
+
+    private fun unlockAchievement(id: AchievementId) {
+        viewModelScope.launch {
+            val newlyUnlocked = achievementRepository.unlockAchievement(id)
+            if (newlyUnlocked) {
+                val item = AchievementItem(id = id, isUnlocked = true)
+                _uiState.value = _uiState.value.copy(
+                    newlyUnlockedAchievement = item,
+                    newlyUnlockedAchievementModal = item
+                )
+                delay(3500)
+                if (_uiState.value.newlyUnlockedAchievement?.id == id) {
+                    _uiState.value = _uiState.value.copy(newlyUnlockedAchievement = null)
+                }
+            }
+        }
+    }
+
+    fun dismissAchievementModal() {
+        _uiState.value = _uiState.value.copy(newlyUnlockedAchievementModal = null)
+    }
+
+    fun dismissLevelUpToast() {
+        _uiState.value = _uiState.value.copy(levelUpCelebrationLevel = null)
     }
 
     private fun showFeedback(msg: String) {
@@ -611,4 +1268,123 @@ class AetherViewModel(
     fun clearStatusMessage() {
         _uiState.value = _uiState.value.copy(statusMessage = null)
     }
+
+    // --- Phase 3 Module 5: Núcleo IA Chat, Quick Actions & Saved Favorites ---
+
+    fun setAiTab(tab: Int) {
+        _uiState.value = _uiState.value.copy(selectedAiTab = tab)
+    }
+
+    fun sendChatMessage(prompt: String) {
+        val cleanPrompt = prompt.trim()
+        if (cleanPrompt.isBlank() || _uiState.value.isAiStreaming) return
+
+        viewModelScope.launch {
+            val userMsg = AiMessage(
+                role = "user",
+                content = cleanPrompt,
+                timestamp = System.currentTimeMillis()
+            )
+            repository.saveAiMessage(userMsg)
+
+            val modelMsgId = "msg-" + java.util.UUID.randomUUID().toString().take(8)
+            _uiState.value = _uiState.value.copy(
+                isAiStreaming = true,
+                isAiThinking = true,
+                activeStreamingMessageId = modelMsgId,
+                activeStreamingContent = ""
+            )
+
+            val currentState = _uiState.value
+            val context = com.example.data.remote.AetherAiContext(
+                dateIso = AetherDateUtils.getTodayIso(),
+                language = currentState.currentLanguage,
+                readinessScore = currentState.biometric.readinessScore,
+                perceivedEnergy = currentState.biometric.perceivedEnergy,
+                sleepHours = currentState.biometric.sleepHours,
+                sleepQuality = currentState.biometric.sleepQuality,
+                chronotype = currentState.biometric.chronotype,
+                isRecoveryMode = currentState.biometric.recoveryModeTriggered,
+                isGraceDayActive = currentState.biometric.graceDayActive,
+                pendingTasks = currentState.tasks.filter { !it.isCompleted },
+                habits = currentState.habits,
+                timeBlocks = currentState.timeBlocks,
+                inStockPantry = currentState.pantryItems.filter { it.inStock },
+                meals = currentState.meals,
+                deepWorkMinutesAllocated = currentState.deepWorkMinutesAllocated,
+                maxCognitiveCeilingMinutes = currentState.maxCognitiveCeilingMinutes,
+                recentSummaries = currentState.historySummaries
+            )
+
+            var accumulatedContent = ""
+            try {
+                repository.streamChatResponse(cleanPrompt, context).collect { partialText ->
+                    accumulatedContent = partialText
+                    _uiState.value = _uiState.value.copy(
+                        isAiThinking = false,
+                        activeStreamingContent = partialText
+                    )
+                }
+            } catch (e: Exception) {
+                val isSpanish = currentState.currentLanguage == AppLanguage.SPANISH
+                accumulatedContent = if (isSpanish) "Error al conectar con el asistente IA. Por favor intenta de nuevo." else "Error connecting to AI assistant. Please try again."
+            } finally {
+                val finalMsg = AiMessage(
+                    id = modelMsgId,
+                    role = "model",
+                    content = accumulatedContent.ifBlank { "..." },
+                    timestamp = System.currentTimeMillis(),
+                    isStreaming = false
+                )
+                repository.saveAiMessage(finalMsg)
+                _uiState.value = _uiState.value.copy(
+                    isAiStreaming = false,
+                    isAiThinking = false,
+                    activeStreamingMessageId = null,
+                    activeStreamingContent = ""
+                )
+            }
+        }
+    }
+
+    fun sendQuickAction(action: AiQuickAction) {
+        val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+        val prompt = when (action) {
+            AiQuickAction.PLAN_DAY -> if (isSpanish) "Planifica mi día con base en mi readiness y tareas" else "Plan my day based on readiness and tasks"
+            AiQuickAction.LOW_ENERGY -> if (isSpanish) "Tengo poca energía hoy, ¿qué debo hacer?" else "I have low energy today, what should I do?"
+            AiQuickAction.WEEKLY_REVIEW -> if (isSpanish) "Haz una revisión semanal de mis hábitos y tareas" else "Do a weekly review of my habits and tasks"
+            AiQuickAction.THIRTY_MIN_TASK -> if (isSpanish) "¿Qué puedo hacer ahora con 30 minutos disponibles?" else "What can I do now with 30 minutes available?"
+        }
+        sendChatMessage(prompt)
+    }
+
+    fun toggleAiMessageFavorite(message: AiMessage) {
+        viewModelScope.launch {
+            val newFav = !message.isFavorite
+            repository.toggleAiMessageFavorite(message.id, newFav)
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(
+                if (newFav) {
+                    if (isSpanish) "⭐ Respuesta guardada en Notas Favoritas" else "⭐ Response saved to Favorite Notes"
+                } else {
+                    if (isSpanish) "Nota eliminada de favoritas" else "Note removed from favorites"
+                }
+            )
+        }
+    }
+
+    fun deleteAiMessage(id: String) {
+        viewModelScope.launch {
+            repository.deleteAiMessage(id)
+        }
+    }
+
+    fun clearAiChatHistory() {
+        viewModelScope.launch {
+            repository.clearAllAiMessages()
+            val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+            showFeedback(if (isSpanish) "Historial de conversación limpiado" else "Chat history cleared")
+        }
+    }
 }
+

@@ -26,6 +26,6 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val repository: AetherRepository by lazy {
-        AetherRepository(database, geminiEngine)
+        AetherRepository(database, geminiEngine, context)
     }
 }

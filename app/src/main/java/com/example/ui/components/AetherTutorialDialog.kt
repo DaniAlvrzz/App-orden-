@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,8 +51,8 @@ fun AetherTutorialDialog(
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.88f)
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.90f)
                 .testTag("tutorial_dialog"),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = AetherSurface),
@@ -68,22 +69,20 @@ fun AetherTutorialDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            color = AetherCyan.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = if (language == AppLanguage.SPANISH) 
-                                    "PASO ${safeIndex + 1} DE ${steps.size}" 
-                                else 
-                                    "STEP ${safeIndex + 1} OF ${steps.size}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = AetherCyan,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                            )
-                        }
+                    Surface(
+                        color = AetherCyan.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (language == AppLanguage.SPANISH) 
+                                "CAPÍTULO ${safeIndex + 1} DE ${steps.size}" 
+                            else 
+                                "CHAPTER ${safeIndex + 1} OF ${steps.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = AetherCyan,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
                     }
 
                     IconButton(
@@ -110,7 +109,7 @@ fun AetherTutorialDialog(
                     trackColor = AetherBorder
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Step Content Scrollable Area
                 Column(
@@ -126,7 +125,7 @@ fun AetherTutorialDialog(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(50.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
@@ -140,13 +139,13 @@ fun AetherTutorialDialog(
                                 imageVector = iconVector,
                                 contentDescription = null,
                                 tint = AetherCyan,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(14.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = step.title,
                                 style = MaterialTheme.typography.titleMedium,
@@ -178,7 +177,7 @@ fun AetherTutorialDialog(
 
                     // Key Points List
                     Text(
-                        text = if (language == AppLanguage.SPANISH) "Aspectos Clave & Funcionamiento:" else "Key Features & How it Works:",
+                        text = if (language == AppLanguage.SPANISH) "Aspectos Clave & Mecánicas:" else "Key Features & Mechanics:",
                         style = MaterialTheme.typography.labelMedium,
                         color = AetherTextSecondary,
                         fontWeight = FontWeight.Bold
@@ -208,6 +207,34 @@ fun AetherTutorialDialog(
                         }
                     }
 
+                    // Real Scenario Card (if present)
+                    step.exampleScenario?.let { example ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = AetherAmber.copy(alpha = 0.12f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lightbulb,
+                                    contentDescription = null,
+                                    tint = AetherAmber,
+                                    modifier = Modifier.size(20.dp).padding(top = 2.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = example,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AetherTextPrimary,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+
                     // Biological Principle Banner
                     Card(
                         colors = CardDefaults.cardColors(containerColor = AetherEmerald.copy(alpha = 0.12f)),
@@ -229,6 +256,67 @@ fun AetherTutorialDialog(
                                 text = step.bioPrinciple,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AetherEmerald,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    // Pro Action Tip (if present)
+                    step.actionTip?.let { tip ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = AetherCyan.copy(alpha = 0.08f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = AetherCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = tip,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AetherTextPrimary,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Direct Tab Jump Button
+                    step.targetTab?.let { target ->
+                        val tabName = when (target) {
+                            0 -> strings.tabNexus
+                            1 -> strings.tabBacklog
+                            2 -> strings.tabNutrition
+                            3 -> strings.tabHabits
+                            4 -> strings.tabAi
+                            else -> ""
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                onNavigateToTab?.invoke(target)
+                                onDismiss()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AetherCyan),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (language == AppLanguage.SPANISH) 
+                                    "Ir a la pestaña '$tabName' ahora" 
+                                else 
+                                    "Jump to '$tabName' tab now",
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -327,6 +415,7 @@ private fun getIconForName(name: String): ImageVector {
         "Restaurant" -> Icons.Default.Restaurant
         "WbSunny" -> Icons.Default.WbSunny
         "Psychology" -> Icons.Default.Psychology
+        "EmojiEvents" -> Icons.Default.EmojiEvents
         else -> Icons.Default.Info
     }
 }

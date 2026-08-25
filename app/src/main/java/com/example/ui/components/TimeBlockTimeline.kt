@@ -1,8 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +31,9 @@ fun TimeBlockTimeline(
     blocks: List<TimeBlock>,
     onToggleBlock: (TimeBlock) -> Unit,
     onAddBlockClick: () -> Unit,
+    onEditBlock: (TimeBlock) -> Unit = {},
     onDeleteBlock: (TimeBlock) -> Unit = {},
+    onMoveBlock: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     language: AppLanguage = AppLanguage.SPANISH,
     modifier: Modifier = Modifier
 ) {
@@ -48,18 +50,20 @@ fun TimeBlockTimeline(
                 style = MaterialTheme.typography.labelSmall,
                 color = AetherCyan,
                 letterSpacing = 1.1.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f, fill = false)
             )
             IconButton(
                 onClick = onAddBlockClick,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .testTag("add_timeblock_btn")
             ) {
                 Icon(
                     imageVector = Icons.Default.AddCircle,
                     contentDescription = strings.btnAddTimeBlock,
-                    tint = AetherCyan
+                    tint = AetherCyan,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -91,25 +95,41 @@ fun TimeBlockTimeline(
                 }
             }
         } else {
-            blocks.forEach { block ->
-                TimeBlockItemRow(
-                    block = block,
-                    language = language,
-                    onToggle = { onToggleBlock(block) },
-                    onDelete = { onDeleteBlock(block) }
-                )
+            blocks.forEachIndexed { index, block ->
+                AetherSwipeToDismissContainer(
+                    onDismiss = { onDeleteBlock(block) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TimeBlockItemRow(
+                        block = block,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < blocks.lastIndex,
+                        language = language,
+                        onToggle = { onToggleBlock(block) },
+                        onEdit = { onEditBlock(block) },
+                        onDelete = { onDeleteBlock(block) },
+                        onMoveUp = { onMoveBlock(index, index - 1) },
+                        onMoveDown = { onMoveBlock(index, index + 1) }
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TimeBlockItemRow(
     block: TimeBlock,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     language: AppLanguage,
     onToggle: () -> Unit,
-    onDelete: () -> Unit = {}
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
 ) {
     val isSpanish = language == AppLanguage.SPANISH
 
@@ -146,6 +166,10 @@ fun TimeBlockItemRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = onToggle,
+                onLongClick = onEdit
+            )
             .testTag("timeblock_${block.id}"),
         colors = CardDefaults.cardColors(
             containerColor = if (block.isCompleted) AetherSurface.copy(alpha = 0.5f) else AetherSurfaceCard
@@ -160,13 +184,27 @@ fun TimeBlockItemRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Reorder handles
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (canMoveUp) {
+                    IconButton(onClick = onMoveUp, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up", tint = AetherTextMuted, modifier = Modifier.size(16.dp))
+                    }
+                }
+                if (canMoveDown) {
+                    IconButton(onClick = onMoveDown, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down", tint = AetherTextMuted, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
             // Time Column
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(55.dp)
+                modifier = Modifier.width(52.dp)
             ) {
                 Text(
                     text = block.startTime,
@@ -182,7 +220,7 @@ fun TimeBlockItemRow(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             // Vertical indicator
             Box(
@@ -193,7 +231,7 @@ fun TimeBlockItemRow(
                     .background(blockColor)
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             // Title & Badge
             Column(modifier = Modifier.weight(1f)) {
@@ -223,6 +261,19 @@ fun TimeBlockItemRow(
                 )
             }
 
+            // Edit button
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = if (isSpanish) "Editar Bloque" else "Edit Block",
+                    tint = AetherTextMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
             // Trash Button for deleting time block
             IconButton(
                 onClick = onDelete,
@@ -233,12 +284,12 @@ fun TimeBlockItemRow(
                 Icon(
                     imageVector = Icons.Default.DeleteOutline,
                     contentDescription = if (isSpanish) "Eliminar Bloque" else "Delete Block",
-                    tint = AetherTextMuted.copy(alpha = 0.7f),
+                    tint = AetherCoral.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
             Checkbox(
                 checked = block.isCompleted,

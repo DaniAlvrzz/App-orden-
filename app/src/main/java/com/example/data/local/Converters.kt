@@ -105,4 +105,24 @@ class Converters {
     } catch (e: Exception) {
         CircadianAnchor.MORNING_LIGHT
     }
+
+    @TypeConverter
+    fun fromCompletionItemType(value: CompletionItemType?): String = value?.name ?: CompletionItemType.TASK.name
+
+    @TypeConverter
+    fun toCompletionItemType(value: String?): CompletionItemType = try {
+        CompletionItemType.valueOf(value ?: CompletionItemType.TASK.name)
+    } catch (e: Exception) {
+        CompletionItemType.TASK
+    }
+
+    @TypeConverter
+    fun fromCompletionStatus(value: CompletionStatus?): String = value?.name ?: CompletionStatus.COMPLETED.name
+
+    @TypeConverter
+    fun toCompletionStatus(value: String?): CompletionStatus = try {
+        CompletionStatus.valueOf(value ?: CompletionStatus.COMPLETED.name)
+    } catch (e: Exception) {
+        CompletionStatus.COMPLETED
+    }
 }
