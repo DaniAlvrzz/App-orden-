@@ -692,7 +692,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 28,
                         carbsGrams = 14,
                         fatGrams = 24,
-                        caloriesKcal = 384
+                        caloriesKcal = 384,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-2",
@@ -708,7 +709,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 42,
                         carbsGrams = 48,
                         fatGrams = 18,
-                        caloriesKcal = 522
+                        caloriesKcal = 522,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-3",
@@ -724,7 +726,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 16,
                         carbsGrams = 62,
                         fatGrams = 14,
-                        caloriesKcal = 438
+                        caloriesKcal = 438,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-4",
@@ -740,7 +743,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 8,
                         carbsGrams = 6,
                         fatGrams = 18,
-                        caloriesKcal = 218
+                        caloriesKcal = 218,
+                        dateIso = today
                     )
                 )
                 mealDao.insertMeals(spanishMeals)
@@ -990,7 +994,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 28,
                         carbsGrams = 14,
                         fatGrams = 24,
-                        caloriesKcal = 384
+                        caloriesKcal = 384,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-2",
@@ -1006,7 +1011,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 42,
                         carbsGrams = 48,
                         fatGrams = 18,
-                        caloriesKcal = 522
+                        caloriesKcal = 522,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-3",
@@ -1022,7 +1028,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 16,
                         carbsGrams = 62,
                         fatGrams = 14,
-                        caloriesKcal = 438
+                        caloriesKcal = 438,
+                        dateIso = today
                     ),
                     MealEntity(
                         id = "meal-4",
@@ -1038,7 +1045,8 @@ abstract class AetherDatabase : RoomDatabase() {
                         proteinGrams = 8,
                         carbsGrams = 6,
                         fatGrams = 18,
-                        caloriesKcal = 218
+                        caloriesKcal = 218,
+                        dateIso = today
                     )
                 )
                 mealDao.insertMeals(englishMeals)

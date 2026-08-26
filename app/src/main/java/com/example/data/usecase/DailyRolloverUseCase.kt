@@ -61,7 +61,10 @@ class DailyRolloverUseCase(
             database.withTransaction {
                 val tasks = taskDao.getAllTasks().first()
                 val habits = habitDao.getAllHabits().first()
-                val meals = mealDao.getAllMeals().first()
+                // Meals are per-day (dateIso), unlike habits/time-blocks: only the previous
+                // day's meals belong to this rollover — using getAllMeals() here would touch
+                // (and incorrectly reset) every historical meal ever logged.
+                val meals = mealDao.getMealsForDate(lastDate).first()
                 val timeBlocks = timeBlockDao.getAllTimeBlocks().first()
 
                 // 1. Process Tasks for previous day
@@ -188,9 +191,9 @@ class DailyRolloverUseCase(
         val logs = completionLogDao.getLogsByDate(dateIso).first()
         val allTasks = taskDao.getAllTasks().first()
         val allHabits = habitDao.getAllHabits().first()
-        val allMeals = mealDao.getAllMeals().first()
+        val mealsForDate = mealDao.getMealsForDate(dateIso).first()
 
-        val activeCount = (allTasks.size + allHabits.size + allMeals.size).coerceAtLeast(logs.size)
+        val activeCount = (allTasks.size + allHabits.size + mealsForDate.size).coerceAtLeast(logs.size)
         val totalCount = activeCount.coerceAtLeast(1)
         val completedCount = logs.count { it.status == CompletionStatus.COMPLETED }
         val partialCount = logs.count { it.status == CompletionStatus.PARTIAL }

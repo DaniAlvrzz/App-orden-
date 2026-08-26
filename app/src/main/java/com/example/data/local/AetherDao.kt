@@ -53,6 +53,9 @@ interface TimeBlockDao {
     @Update
     suspend fun updateTimeBlock(block: TimeBlockEntity)
 
+    @Query("UPDATE time_blocks SET isCompleted = 0")
+    suspend fun resetAllCompletion()
+
     @Query("DELETE FROM time_blocks WHERE id = :id")
     suspend fun deleteTimeBlock(id: String)
 
@@ -89,6 +92,9 @@ interface MealDao {
     @Query("SELECT * FROM meals")
     fun getAllMeals(): Flow<List<MealEntity>>
 
+    @Query("SELECT * FROM meals WHERE dateIso = :dateIso")
+    fun getMealsForDate(dateIso: String): Flow<List<MealEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMeal(meal: MealEntity)
 
@@ -118,6 +124,12 @@ interface HabitDao {
 
     @Update
     suspend fun updateHabit(habit: HabitEntity)
+
+    @Query("UPDATE habits SET streakDays = 0 WHERE isCompleted = 0 AND graceDaysUsed = 0")
+    suspend fun breakStreaksForIncompleteHabits()
+
+    @Query("UPDATE habits SET isCompleted = 0, graceDaysUsed = 0")
+    suspend fun resetForNewDay()
 
     @Query("DELETE FROM habits WHERE id = :id")
     suspend fun deleteHabit(id: String)

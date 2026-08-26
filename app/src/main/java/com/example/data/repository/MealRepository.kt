@@ -78,7 +78,7 @@ class MealRepositoryImpl(
     }
 
     override val meals: Flow<List<MealItem>> = combine(
-        mealDao.getAllMeals(),
+        mealDao.getMealsForDate(AetherDateUtils.getTodayIso()),
         pantryDao.getAllPantryItems()
     ) { mealEntities, pantryEntities ->
         val inStockNames = pantryEntities.filter { it.inStock }.map { it.name.trim().lowercase() }.toSet()
@@ -228,9 +228,9 @@ class MealRepositoryImpl(
         val logs = completionLogDao.getLogsByDate(dateIso).first()
         val allTasks = taskDao.getAllTasks().first()
         val allHabits = habitDao.getAllHabits().first()
-        val allMeals = mealDao.getAllMeals().first()
+        val todaysMeals = mealDao.getMealsForDate(dateIso).first()
 
-        val activeCount = (allTasks.size + allHabits.size + allMeals.size).coerceAtLeast(logs.size)
+        val activeCount = (allTasks.size + allHabits.size + todaysMeals.size).coerceAtLeast(logs.size)
         val totalCount = activeCount.coerceAtLeast(1)
         val completedCount = logs.count { it.status == CompletionStatus.COMPLETED }
         val partialCount = logs.count { it.status == CompletionStatus.PARTIAL }

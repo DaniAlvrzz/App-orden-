@@ -554,7 +554,7 @@ class AetherGeminiEngine {
             """
             🧠 **Análisis Biológico Aether OS**
             
-            Entendido: *"userPrompt"*.
+            Entendido: *"$userPrompt"*.
             
             Tomando en cuenta tu preparación fisiológica (${context.readinessScore}/100) y tus tareas pendientes (${context.pendingTasks.size}):
             
@@ -566,7 +566,7 @@ class AetherGeminiEngine {
             """
             🧠 **Aether OS Bioenergetic Analysis**
             
-            Regarding: *"userPrompt"*.
+            Regarding: *"$userPrompt"*.
             
             Synthesizing your live biometrics (${context.readinessScore}/100) and backlog (${context.pendingTasks.size} tasks):
             
