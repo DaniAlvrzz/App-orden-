@@ -141,7 +141,6 @@ fun AetherApp(
                         onReadinessChanged = { viewModel.updateReadiness(it) },
                         onChronotypeChanged = { viewModel.updateChronotype(it) },
                         onToggleRecoveryMode = { viewModel.toggleRecoveryMode() },
-                        onOrchestrateClick = { viewModel.triggerOrchestration() },
                         onToggleTask = { viewModel.toggleTask(it) },
                         onStartFocus = {
                             viewModel.startFocusTimer(it)
@@ -152,11 +151,6 @@ fun AetherApp(
                         onDeleteTask = { viewModel.deleteTaskWithUndo(it) },
                         onMoveMediumTask = { from, to -> viewModel.moveMediumTask(from, to) },
                         onMoveQuickTask = { from, to -> viewModel.moveQuickTask(from, to) },
-                        onToggleTimeBlock = { viewModel.toggleTimeBlock(it) },
-                        onAddTimeBlockClick = { viewModel.setShowAddTimeBlock(true) },
-                        onEditTimeBlock = { viewModel.setEditingTimeBlock(it) },
-                        onDeleteTimeBlock = { viewModel.deleteTimeBlockWithUndo(it) },
-                        onMoveTimeBlock = { from, to -> viewModel.moveTimeBlock(from, to) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenHistory = { viewModel.openHistory() },
                         onOpenSettings = { viewModel.openSettings() },

@@ -32,7 +32,6 @@ fun NexusScreen(
     onReadinessChanged: (Int) -> Unit,
     onChronotypeChanged: (Chronotype) -> Unit,
     onToggleRecoveryMode: () -> Unit,
-    onOrchestrateClick: () -> Unit,
     onToggleTask: (TaskItem) -> Unit,
     onStartFocus: (TaskItem) -> Unit,
     onAddTaskClick: () -> Unit,
@@ -40,11 +39,6 @@ fun NexusScreen(
     onDeleteTask: (TaskItem) -> Unit = {},
     onMoveMediumTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onMoveQuickTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
-    onToggleTimeBlock: (com.example.data.model.TimeBlock) -> Unit,
-    onAddTimeBlockClick: () -> Unit,
-    onEditTimeBlock: (com.example.data.model.TimeBlock) -> Unit = {},
-    onDeleteTimeBlock: (com.example.data.model.TimeBlock) -> Unit = {},
-    onMoveTimeBlock: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onOpenReframe: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onOpenSettings: () -> Unit,
@@ -248,7 +242,7 @@ fun NexusScreen(
                 onReadinessChanged = onReadinessChanged,
                 onChronotypeChanged = onChronotypeChanged,
                 onToggleRecoveryMode = onToggleRecoveryMode,
-                onOrchestrateClick = onOrchestrateClick,
+                onOrchestrateClick = {},
                 onOpenSmartCheckIn = { showSmartCheckInDialog = true },
                 language = state.currentLanguage
             )
@@ -286,19 +280,6 @@ fun NexusScreen(
                 onDeleteTask = onDeleteTask,
                 onMoveMediumTask = onMoveMediumTask,
                 onMoveQuickTask = onMoveQuickTask,
-                language = state.currentLanguage
-            )
-        }
-
-        // 5. Circadian Time Blocks Timeline
-        item {
-            TimeBlockTimeline(
-                blocks = state.timeBlocks,
-                onToggleBlock = onToggleTimeBlock,
-                onAddBlockClick = onAddTimeBlockClick,
-                onEditBlock = onEditTimeBlock,
-                onDeleteBlock = onDeleteTimeBlock,
-                onMoveBlock = onMoveTimeBlock,
                 language = state.currentLanguage
             )
         }
