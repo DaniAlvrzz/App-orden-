@@ -85,8 +85,14 @@ class DailyRolloverUseCase(
                                 )
                             )
                         }
-                        // Archive completed task
-                        taskDao.updateTask(task.copy(isArchived = true, completedDate = lastDate))
+                        if (task.isPermanent) {
+                            // Recurring task: log it like any other completion, but reset for
+                            // tomorrow instead of archiving — it must reappear every day.
+                            taskDao.updateTask(task.copy(isCompleted = false, completedDate = ""))
+                        } else {
+                            // One-off task: archive it now that it's done.
+                            taskDao.updateTask(task.copy(isArchived = true, completedDate = lastDate))
+                        }
                     } else if (!task.isArchived) {
                         // Preserved in backlog as uncompleted
                         taskDao.updateTask(task.copy(isCompleted = false))

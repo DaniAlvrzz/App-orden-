@@ -57,14 +57,24 @@ object AetherNotificationScheduler {
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    // "Alarms & reminders" is a special permission the system does NOT grant by
+                    // default on Android 12+ and can only be toggled from system Settings — the
+                    // app cannot show an in-app request dialog for it. Calling the exact variant
+                    // without checking first can throw SecurityException (caught below, but the
+                    // reminder would then silently never fire with no visible cause). Check first
+                    // and gracefully fall back to an inexact alarm so the user still gets *a*
+                    // reminder, just not guaranteed to the second.
+                    val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                        alarmManager.canScheduleExactAlarms()
+
+                    if (canScheduleExact) {
                         alarmManager.setExactAndAllowWhileIdle(
                             AlarmManager.RTC_WAKEUP,
                             triggerMillis,
                             pendingIntent
                         )
                     } else {
-                        alarmManager.setExact(
+                        alarmManager.setAndAllowWhileIdle(
                             AlarmManager.RTC_WAKEUP,
                             triggerMillis,
                             pendingIntent

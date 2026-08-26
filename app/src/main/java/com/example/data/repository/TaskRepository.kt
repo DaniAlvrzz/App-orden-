@@ -166,13 +166,21 @@ class TaskRepositoryImpl(
         val today = AetherDateUtils.getTodayIso()
         if (task.isPermanent) {
             // Persistent / Recurring task:
-            // Logs completion into today's history log, but remains active in pending tasks list.
-            logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+            // Toggles completion for TODAY only, exactly like an ephemeral task, but never
+            // archives — the daily rollover resets it fresh for tomorrow instead of archiving it.
+            val newCompleted = !task.isCompleted
             val updated = task.copy(
-                isCompleted = false,
-                completedDate = today
+                isCompleted = newCompleted,
+                completedDate = if (newCompleted) today else ""
             )
             taskDao.updateTask(updated.toEntity())
+
+            if (newCompleted) {
+                logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+            } else {
+                completionLogDao.deleteLogForItemAndDate(task.id, today)
+                recalculateDailySummary(today)
+            }
         } else {
             // Ephemeral task:
             // When marked as completed, archives from pending tasks and saves into history log.
