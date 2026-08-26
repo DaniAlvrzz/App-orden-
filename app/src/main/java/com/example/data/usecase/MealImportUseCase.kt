@@ -223,7 +223,7 @@ class MealImportUseCase(
             allIngredientsInStock = true,
             bioImpact = BioGlycemicImpact.MODERATE_STEADY,
             isCompleted = false,
-            customSlotName = obj.optString("customSlotName", null),
+            customSlotName = if (obj.has("customSlotName") && !obj.isNull("customSlotName")) obj.optString("customSlotName") else null,
             proteinGrams = p,
             carbsGrams = c,
             fatGrams = f,

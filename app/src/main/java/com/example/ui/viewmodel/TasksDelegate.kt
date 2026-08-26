@@ -76,7 +76,8 @@ class TasksDelegate(
         priorityType: PriorityType,
         estimatedMinutes: Int,
         category: String,
-        makeFrog: Boolean = false
+        makeFrog: Boolean = false,
+        isPermanent: Boolean = false
     ) {
         scope.launch {
             taskRepository.addTask(
@@ -86,11 +87,14 @@ class TasksDelegate(
                 priorityType = priorityType,
                 estimatedMinutes = estimatedMinutes,
                 category = category,
-                makeFrog = makeFrog
+                makeFrog = makeFrog,
+                isPermanent = isPermanent
             )
             val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
             val msg = if (makeFrog || priorityType == PriorityType.FROG) {
                 if (isSpanish) "🐸 Tarea Frog fijada como Máxima Prioridad." else "🐸 Frog task set as Highest Priority."
+            } else if (isPermanent) {
+                if (isSpanish) "📌 Tarea fija/permanente añadida a la bandeja." else "📌 Persistent task added to backlog."
             } else {
                 if (isSpanish) "Tarea añadida correctamente." else "Task added successfully."
             }

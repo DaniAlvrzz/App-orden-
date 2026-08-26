@@ -19,6 +19,7 @@ data class TaskEntity(
     val category: String = "General",
     val isArchived: Boolean = false,
     val completedDate: String = "",
+    val isPermanent: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
 

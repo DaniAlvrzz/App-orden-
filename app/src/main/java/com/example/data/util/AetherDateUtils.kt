@@ -11,7 +11,7 @@ object AetherDateUtils {
     }
 
     fun getFormattedToday(language: AppLanguage): String {
-        val locale = if (language == AppLanguage.SPANISH) Locale("es", "ES") else Locale.US
+        val locale = if (language == AppLanguage.SPANISH) Locale.forLanguageTag("es-ES") else Locale.US
         val pattern = if (language == AppLanguage.SPANISH) "EEEE, d 'de' MMMM" else "EEEE, MMMM d"
         val formatter = DateTimeFormatter.ofPattern(pattern, locale)
         val formatted = LocalDate.now().format(formatter)

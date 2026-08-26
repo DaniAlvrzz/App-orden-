@@ -141,7 +141,6 @@ fun AetherApp(
                         onReadinessChanged = { viewModel.updateReadiness(it) },
                         onChronotypeChanged = { viewModel.updateChronotype(it) },
                         onToggleRecoveryMode = { viewModel.toggleRecoveryMode() },
-                        onOrchestrateClick = { viewModel.triggerOrchestration() },
                         onToggleTask = { viewModel.toggleTask(it) },
                         onStartFocus = {
                             viewModel.startFocusTimer(it)
@@ -152,11 +151,6 @@ fun AetherApp(
                         onDeleteTask = { viewModel.deleteTaskWithUndo(it) },
                         onMoveMediumTask = { from, to -> viewModel.moveMediumTask(from, to) },
                         onMoveQuickTask = { from, to -> viewModel.moveQuickTask(from, to) },
-                        onToggleTimeBlock = { viewModel.toggleTimeBlock(it) },
-                        onAddTimeBlockClick = { viewModel.setShowAddTimeBlock(true) },
-                        onEditTimeBlock = { viewModel.setEditingTimeBlock(it) },
-                        onDeleteTimeBlock = { viewModel.deleteTimeBlockWithUndo(it) },
-                        onMoveTimeBlock = { from, to -> viewModel.moveTimeBlock(from, to) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenHistory = { viewModel.openHistory() },
                         onOpenSettings = { viewModel.openSettings() },
@@ -239,8 +233,8 @@ fun AetherApp(
                     initialTask = null,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setShowQuickAdd(false) },
-                    onSave = { title, desc, energy, priority, minutes, category, makeFrog ->
-                        viewModel.quickAddTask(title, desc, energy, priority, minutes, category, makeFrog)
+                    onSave = { title, desc, energy, priority, minutes, category, makeFrog, isPermanent ->
+                        viewModel.quickAddTask(title, desc, energy, priority, minutes, category, makeFrog, isPermanent)
                     }
                 )
             }
@@ -251,7 +245,7 @@ fun AetherApp(
                     initialTask = taskToEdit,
                     language = state.currentLanguage,
                     onDismiss = { viewModel.setEditingTask(null) },
-                    onSave = { title, desc, energy, priority, minutes, category, makeFrog ->
+                    onSave = { title, desc, energy, priority, minutes, category, makeFrog, isPermanent ->
                         viewModel.updateTask(
                             taskToEdit.copy(
                                 title = title,
@@ -260,7 +254,8 @@ fun AetherApp(
                                 priorityType = priority,
                                 estimatedMinutes = minutes,
                                 category = category,
-                                isFrog = makeFrog
+                                isFrog = makeFrog,
+                                isPermanent = isPermanent
                             )
                         )
                     }

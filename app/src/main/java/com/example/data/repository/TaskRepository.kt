@@ -38,7 +38,8 @@ interface TaskRepository {
         priorityType: PriorityType,
         estimatedMinutes: Int,
         category: String,
-        makeFrog: Boolean = false
+        makeFrog: Boolean = false,
+        isPermanent: Boolean = false
     )
     suspend fun updateTask(task: TaskItem)
     suspend fun restoreTask(task: TaskItem)
@@ -116,7 +117,8 @@ class TaskRepositoryImpl(
         priorityType: PriorityType,
         estimatedMinutes: Int,
         category: String,
-        makeFrog: Boolean
+        makeFrog: Boolean,
+        isPermanent: Boolean
     ) {
         val id = "task-" + UUID.randomUUID().toString().take(8)
         if (makeFrog || priorityType == PriorityType.FROG) {
@@ -132,7 +134,8 @@ class TaskRepositoryImpl(
             isCompleted = false,
             isFrog = makeFrog || priorityType == PriorityType.FROG,
             scheduledTime = null,
-            category = category.ifBlank { "General" }
+            category = category.ifBlank { "General" },
+            isPermanent = isPermanent
         )
         taskDao.insertTask(entity)
         widgetUpdater.updateWidgets()
@@ -161,20 +164,34 @@ class TaskRepositoryImpl(
 
     override suspend fun toggleTaskComplete(task: TaskItem) {
         val today = AetherDateUtils.getTodayIso()
-        val newCompleted = !task.isCompleted
-        val updated = task.copy(
-            isCompleted = newCompleted,
-            completedDate = if (newCompleted) today else ""
-        )
-        taskDao.updateTask(updated.toEntity())
-        widgetUpdater.updateWidgets()
-
-        if (newCompleted) {
+        if (task.isPermanent) {
+            // Persistent / Recurring task:
+            // Logs completion into today's history log, but remains active in pending tasks list.
             logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+            val updated = task.copy(
+                isCompleted = false,
+                completedDate = today
+            )
+            taskDao.updateTask(updated.toEntity())
         } else {
-            completionLogDao.deleteLogForItemAndDate(task.id, today)
-            recalculateDailySummary(today)
+            // Ephemeral task:
+            // When marked as completed, archives from pending tasks and saves into history log.
+            val newCompleted = !task.isCompleted
+            val updated = task.copy(
+                isCompleted = newCompleted,
+                isArchived = newCompleted,
+                completedDate = if (newCompleted) today else ""
+            )
+            taskDao.updateTask(updated.toEntity())
+
+            if (newCompleted) {
+                logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+            } else {
+                completionLogDao.deleteLogForItemAndDate(task.id, today)
+                recalculateDailySummary(today)
+            }
         }
+        widgetUpdater.updateWidgets()
     }
 
     override suspend fun setTaskAsFrog(taskId: String) {

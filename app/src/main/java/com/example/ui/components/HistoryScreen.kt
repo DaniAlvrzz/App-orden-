@@ -52,7 +52,7 @@ fun HistoryDialog(
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val isSpanish = state.currentLanguage == AppLanguage.SPANISH
-    val locale = if (isSpanish) Locale("es", "ES") else Locale.ENGLISH
+    val locale = if (isSpanish) Locale.forLanguageTag("es-ES") else Locale.ENGLISH
 
     Dialog(
         onDismissRequest = onDismiss,

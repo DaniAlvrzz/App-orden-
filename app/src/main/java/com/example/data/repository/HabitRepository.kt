@@ -31,7 +31,7 @@ interface HabitRepository {
     suspend fun updateHabit(habit: HabitAnchor)
     suspend fun deleteHabit(id: String)
     suspend fun restoreHabit(habit: HabitAnchor)
-    suspend fun toggleHabitComplete(habit: HabitAnchor)
+    suspend fun toggleHabitComplete(habit: HabitAnchor): Result<Unit>
     suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit>
     suspend fun getCognitiveReframe(userFeeling: String, readinessScore: Int): String
 }
@@ -85,9 +85,14 @@ class HabitRepositoryImpl(
         habitDao.insertHabit(habit.toEntity())
     }
 
-    override suspend fun toggleHabitComplete(habit: HabitAnchor) {
+    override suspend fun toggleHabitComplete(habit: HabitAnchor): Result<Unit> {
         val today = AetherDateUtils.getTodayIso()
         val newCompleted = !habit.isCompleted
+
+        // Mutual exclusivity: If Grace Day was used today, cannot mark as completed
+        if (newCompleted && habit.graceDayLastUsedDate == today) {
+            return Result.failure(IllegalStateException("GRACE_ALREADY_USED_TODAY"))
+        }
 
         val (newStreak, newLastCompletedDate) = if (newCompleted) {
             if (habit.lastCompletedDate == today) {
@@ -117,6 +122,7 @@ class HabitRepositoryImpl(
             completionLogDao.deleteLogForItemAndDate(habit.id, today)
             recalculateDailySummary(today)
         }
+        return Result.success(Unit)
     }
 
     override suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit> {

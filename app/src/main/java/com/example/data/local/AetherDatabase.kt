@@ -28,7 +28,7 @@ import java.time.LocalDate
         QuickNoteEntity::class,
         FocusSessionEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -233,6 +233,16 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v8 to v9:
+         * Adds isPermanent to `tasks` table for persistent/recurring tasks vs ephemeral tasks.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `isPermanent` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -240,7 +250,7 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
                 // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
                 // Every schema version bump must ship an explicit Migration, or real user

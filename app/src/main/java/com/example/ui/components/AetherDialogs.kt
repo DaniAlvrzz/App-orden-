@@ -27,18 +27,21 @@ fun QuickAddTaskDialog(
     initialTask: TaskItem? = null,
     language: AppLanguage = AppLanguage.SPANISH,
     onDismiss: () -> Unit,
-    onSave: (title: String, desc: String, energy: EnergyLevel, priority: PriorityType, minutes: Int, category: String, makeFrog: Boolean) -> Unit
+    onSave: (title: String, desc: String, energy: EnergyLevel, priority: PriorityType, minutes: Int, category: String, makeFrog: Boolean, isPermanent: Boolean) -> Unit
 ) {
     val strings = remember(language) { StringsProvider(language) }
     var title by remember { mutableStateOf(initialTask?.title ?: "") }
     var description by remember { mutableStateOf(initialTask?.description ?: "") }
     var energyLevel by remember { mutableStateOf(initialTask?.energyLevel ?: EnergyLevel.MEDIUM) }
     var priorityType by remember { mutableStateOf(initialTask?.priorityType ?: PriorityType.MEDIUM) }
-    var estimatedMinutes by remember { mutableIntStateOf(initialTask?.estimatedMinutes ?: 30) }
+    var estimatedMinutesText by remember { mutableStateOf((initialTask?.estimatedMinutes ?: 30).toString()) }
+    var isPermanent by remember { mutableStateOf(initialTask?.isPermanent ?: false) }
     var category by remember { 
         mutableStateOf(initialTask?.category ?: if (language == AppLanguage.SPANISH) "Trabajo Profundo" else "Deep Work") 
     }
     var isFrog by remember { mutableStateOf(initialTask?.isFrog ?: (initialTask?.priorityType == PriorityType.FROG)) }
+
+    val isSpanish = language == AppLanguage.SPANISH
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -65,12 +68,55 @@ fun QuickAddTaskDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Task Type Selector: Ephemeral vs Permanent
+                Text(
+                    text = if (isSpanish) "Tipo de Tarea en Bandeja" else "Task Persistence Type",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AetherCyan,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterChip(
+                        selected = !isPermanent,
+                        onClick = { isPermanent = false },
+                        label = {
+                            Text(
+                                text = if (isSpanish) "⚡ Puntual (se archiva)" else "⚡ Ephemeral",
+                                fontSize = 11.sp
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AetherCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = AetherCyan
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = isPermanent,
+                        onClick = { isPermanent = true },
+                        label = {
+                            Text(
+                                text = if (isSpanish) "📌 Fija (permanece)" else "📌 Persistent",
+                                fontSize = 11.sp
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AetherPurple.copy(alpha = 0.2f),
+                            selectedLabelColor = AetherPurple
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text(strings.taskTitleLabel) },
                     placeholder = { 
-                        Text(if (language == AppLanguage.SPANISH) "Ej: Diseñar arquitectura del motor" else "e.g. Write core dispatch tests") 
+                        Text(if (isSpanish) "Ej: Diseñar arquitectura / Comprar víveres" else "e.g. Write dispatch tests / Buy groceries") 
                     },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -113,9 +159,9 @@ fun QuickAddTaskDialog(
                             EnergyLevel.LOW -> AetherEmerald
                         }
                         val labelText = when (level) {
-                            EnergyLevel.HIGH -> if (language == AppLanguage.SPANISH) "Alta" else "High"
-                            EnergyLevel.MEDIUM -> if (language == AppLanguage.SPANISH) "Media" else "Medium"
-                            EnergyLevel.LOW -> if (language == AppLanguage.SPANISH) "Baja" else "Low"
+                            EnergyLevel.HIGH -> if (isSpanish) "Alta" else "High"
+                            EnergyLevel.MEDIUM -> if (isSpanish) "Media" else "Medium"
+                            EnergyLevel.LOW -> if (isSpanish) "Baja" else "Low"
                         }
                         FilterChip(
                             selected = isSelected,
@@ -124,6 +170,12 @@ fun QuickAddTaskDialog(
                                 if (level == EnergyLevel.HIGH) {
                                     isFrog = true
                                     priorityType = PriorityType.FROG
+                                } else if (level == EnergyLevel.MEDIUM && priorityType == PriorityType.FROG) {
+                                    priorityType = PriorityType.MEDIUM
+                                    isFrog = false
+                                } else if (level == EnergyLevel.LOW && priorityType == PriorityType.FROG) {
+                                    priorityType = PriorityType.QUICK
+                                    isFrog = false
                                 }
                             },
                             label = { Text(labelText, fontSize = 11.sp) },
@@ -138,7 +190,7 @@ fun QuickAddTaskDialog(
 
                 // 1-3-5 Priority Selection
                 Text(
-                    text = strings.taskPriorityLabel,
+                    text = if (isSpanish) "Triaje 1-3-5 (Destino en Nexus)" else "1-3-5 Priority (Nexus Menu Target)",
                     style = MaterialTheme.typography.labelSmall,
                     color = AetherCyan,
                     fontWeight = FontWeight.Bold
@@ -154,13 +206,20 @@ fun QuickAddTaskDialog(
                             onClick = {
                                 priorityType = pType
                                 isFrog = (pType == PriorityType.FROG)
+                                if (pType == PriorityType.FROG) {
+                                    energyLevel = EnergyLevel.HIGH
+                                } else if (pType == PriorityType.MEDIUM) {
+                                    energyLevel = EnergyLevel.MEDIUM
+                                } else if (pType == PriorityType.QUICK) {
+                                    energyLevel = EnergyLevel.LOW
+                                }
                             },
                             label = {
                                 Text(
                                     when (pType) {
-                                        PriorityType.FROG -> if (language == AppLanguage.SPANISH) "1 Frog" else "1 Frog"
-                                        PriorityType.MEDIUM -> if (language == AppLanguage.SPANISH) "3 Media" else "3 Medium"
-                                        PriorityType.QUICK -> if (language == AppLanguage.SPANISH) "5 Rápida" else "5 Quick"
+                                        PriorityType.FROG -> if (isSpanish) "1 Frog (Tipo A)" else "1 Frog (Type A)"
+                                        PriorityType.MEDIUM -> if (isSpanish) "3 Media (Tipo B)" else "3 Medium (Type B)"
+                                        PriorityType.QUICK -> if (isSpanish) "5 Micro (Tipo C)" else "5 Micro (Type C)"
                                     },
                                     fontSize = 11.sp
                                 )
@@ -170,22 +229,41 @@ fun QuickAddTaskDialog(
                     }
                 }
 
-                // Duration Selector
+                // Custom Duration Input (Free numeric input)
                 Text(
-                    text = strings.taskDurationLabel,
+                    text = if (isSpanish) "Para tú poner el tiempo (minutos)" else "Custom estimated duration (minutes)",
                     style = MaterialTheme.typography.labelSmall,
-                    color = AetherTextSecondary
+                    color = AetherTextSecondary,
+                    fontWeight = FontWeight.SemiBold
                 )
+                OutlinedTextField(
+                    value = estimatedMinutesText,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() } && input.length <= 4) {
+                            estimatedMinutesText = input
+                        }
+                    },
+                    label = { Text(if (isSpanish) "Minutos estimados" else "Estimated minutes") },
+                    placeholder = { Text("Ej: 25") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AetherCyan,
+                        unfocusedBorderColor = AetherBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Quick preset duration chips
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf(15, 30, 45, 90).forEach { mins ->
-                        val isSelected = estimatedMinutes == mins
+                    listOf(10, 15, 30, 45, 60, 90).forEach { mins ->
+                        val isSelected = estimatedMinutesText == mins.toString()
                         FilterChip(
                             selected = isSelected,
-                            onClick = { estimatedMinutes = mins },
-                            label = { Text("${mins}m") },
+                            onClick = { estimatedMinutesText = mins.toString() },
+                            label = { Text("${mins}m", fontSize = 11.sp) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -196,7 +274,8 @@ fun QuickAddTaskDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onSave(title, description, energyLevel, priorityType, estimatedMinutes, category, isFrog)
+                        val parsedMinutes = estimatedMinutesText.toIntOrNull()?.coerceAtLeast(1) ?: 30
+                        onSave(title, description, energyLevel, priorityType, parsedMinutes, category, isFrog, isPermanent)
                     }
                 },
                 enabled = title.isNotBlank(),

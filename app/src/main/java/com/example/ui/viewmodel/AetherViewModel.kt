@@ -121,23 +121,25 @@ data class AetherUiState(
     val totalFocusMinutes: Int = 0
 ) {
     val deepWorkMinutesAllocated: Int
-        get() = timeBlocks
-            .filter { it.blockType == BlockType.DEEP_WORK }
-            .sumOf { block -> calculateMinutesBetween(block.startTime, block.endTime) }
+        get() = tasks
+            .filter { (it.isFrog || it.energyLevel == EnergyLevel.HIGH || it.priorityType == PriorityType.FROG) && !it.isCompleted && !it.isArchived }
+            .sumOf { it.estimatedMinutes }
 
-    val maxCognitiveCeilingMinutes: Int = 210
+    val maxCognitiveCeilingMinutes: Int
+        get() = biometric.dynamicCognitiveCeilingMinutes.takeIf { it > 0 } ?: 210
 
     val isCeilingExceeded: Boolean
         get() = deepWorkMinutesAllocated > maxCognitiveCeilingMinutes
 
     val frogTask: TaskItem?
-        get() = tasks.firstOrNull { it.isFrog } ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH }
+        get() = tasks.firstOrNull { (it.isFrog || it.priorityType == PriorityType.FROG) && !it.isArchived }
+            ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH && !it.isArchived }
 
     val mediumTasks: List<TaskItem>
-        get() = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }
+        get() = tasks.filter { !it.isFrog && it.priorityType != PriorityType.FROG && (it.priorityType == PriorityType.MEDIUM || it.energyLevel == EnergyLevel.MEDIUM) && !it.isArchived }
 
     val quickTasks: List<TaskItem>
-        get() = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.LOW }
+        get() = tasks.filter { !it.isFrog && it.priorityType != PriorityType.FROG && it.priorityType != PriorityType.MEDIUM && (it.priorityType == PriorityType.QUICK || it.energyLevel == EnergyLevel.LOW) && !it.isArchived }
 
     private fun calculateMinutesBetween(start: String, end: String): Int {
         return try {
@@ -380,9 +382,10 @@ class AetherViewModel(
                 if (completedCount >= 10) unlockAchievement(AchievementId.TASKS_10)
                 if (completedCount >= 100) unlockAchievement(AchievementId.TASKS_100)
 
-                val frog = tasks.firstOrNull { it.isFrog } ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH }
-                val mediums = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.MEDIUM }
-                val quicks = tasks.filter { !it.isFrog && it.energyLevel == EnergyLevel.LOW }
+                val frog = tasks.firstOrNull { (it.isFrog || it.priorityType == PriorityType.FROG) && !it.isArchived }
+                    ?: tasks.firstOrNull { it.energyLevel == EnergyLevel.HIGH && !it.isArchived }
+                val mediums = tasks.filter { !it.isFrog && it.priorityType != PriorityType.FROG && (it.priorityType == PriorityType.MEDIUM || it.energyLevel == EnergyLevel.MEDIUM) && !it.isArchived }
+                val quicks = tasks.filter { !it.isFrog && it.priorityType != PriorityType.FROG && it.priorityType != PriorityType.MEDIUM && (it.priorityType == PriorityType.QUICK || it.energyLevel == EnergyLevel.LOW) && !it.isArchived }
 
                 val bFast = meals.firstOrNull { it.slot == MealSlot.BREAKFAST }
                 val lUnch = meals.firstOrNull { it.slot == MealSlot.LUNCH }
@@ -401,9 +404,9 @@ class AetherViewModel(
                     ),
                     time_blocks = timeBlocks,
                     suggested_tasks_by_energy_menu = SuggestedEnergyMenu(
-                        high_energy_backlog = tasks.filter { it.energyLevel == EnergyLevel.HIGH && !it.isFrog },
-                        medium_energy_backlog = tasks.filter { it.energyLevel == EnergyLevel.MEDIUM },
-                        low_energy_backlog = tasks.filter { it.energyLevel == EnergyLevel.LOW }
+                        high_energy_backlog = tasks.filter { (it.energyLevel == EnergyLevel.HIGH || it.priorityType == PriorityType.FROG) && !it.isFrog && !it.isArchived },
+                        medium_energy_backlog = tasks.filter { (it.energyLevel == EnergyLevel.MEDIUM || it.priorityType == PriorityType.MEDIUM) && !it.isArchived },
+                        low_energy_backlog = tasks.filter { (it.energyLevel == EnergyLevel.LOW || it.priorityType == PriorityType.QUICK) && !it.isArchived }
                     ),
                     daily_meals = DailyMealsPlan(
                         breakfast = bFast,
@@ -411,8 +414,8 @@ class AetherViewModel(
                         dinner = dInner,
                         snack = sNack
                     ),
-                    deep_work_minutes_allocated = timeBlocks.filter { it.blockType == BlockType.DEEP_WORK }.sumOf { 60 },
-                    max_cognitive_ceiling_minutes = 210,
+                    deep_work_minutes_allocated = tasks.filter { (it.isFrog || it.energyLevel == EnergyLevel.HIGH || it.priorityType == PriorityType.FROG) && !it.isCompleted && !it.isArchived }.sumOf { it.estimatedMinutes },
+                    max_cognitive_ceiling_minutes = bio.dynamicCognitiveCeilingMinutes.takeIf { it > 0 } ?: 210,
                     active_mode_label = bio.systemMode.title,
                     cognitive_reframing_message = if (bio.systemMode == SystemMode.RECOVERY) {
                         if (isSpanish) "Modo Recuperación activo: Tareas Tipo A eliminadas. Concéntrate en la línea base de descanso."
@@ -690,8 +693,9 @@ class AetherViewModel(
         priorityType: PriorityType,
         estimatedMinutes: Int,
         category: String,
-        makeFrog: Boolean = false
-    ) = tasksDelegate.addTask(title, description, energyLevel, priorityType, estimatedMinutes, category, makeFrog)
+        makeFrog: Boolean = false,
+        isPermanent: Boolean = false
+    ) = tasksDelegate.addTask(title, description, energyLevel, priorityType, estimatedMinutes, category, makeFrog, isPermanent)
     fun updateTask(task: TaskItem) = tasksDelegate.updateTask(task)
     fun setEditingTask(task: TaskItem?) { if (task != null) tasksDelegate.openTaskEditor(task) else tasksDelegate.closeTaskEditor() }
     fun toggleTask(task: TaskItem) = tasksDelegate.toggleTaskComplete(task)

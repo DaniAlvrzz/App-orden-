@@ -53,5 +53,6 @@ data class TaskItem(
     val scheduledTime: String? = null,
     val category: String = "General",
     val isArchived: Boolean = false,
-    val completedDate: String = ""
+    val completedDate: String = "",
+    val isPermanent: Boolean = false
 )

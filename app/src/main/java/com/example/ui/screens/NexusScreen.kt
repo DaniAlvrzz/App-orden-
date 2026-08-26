@@ -16,12 +16,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.AiStatus
 import com.example.data.model.BiometricBaseline
 import com.example.data.model.Chronotype
 import com.example.data.model.SystemMode
 import com.example.data.model.TaskItem
-import com.example.data.model.TimeBlock
 import com.example.ui.components.*
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -34,7 +32,6 @@ fun NexusScreen(
     onReadinessChanged: (Int) -> Unit,
     onChronotypeChanged: (Chronotype) -> Unit,
     onToggleRecoveryMode: () -> Unit,
-    onOrchestrateClick: () -> Unit,
     onToggleTask: (TaskItem) -> Unit,
     onStartFocus: (TaskItem) -> Unit,
     onAddTaskClick: () -> Unit,
@@ -42,11 +39,6 @@ fun NexusScreen(
     onDeleteTask: (TaskItem) -> Unit = {},
     onMoveMediumTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onMoveQuickTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
-    onToggleTimeBlock: (TimeBlock) -> Unit,
-    onAddTimeBlockClick: () -> Unit,
-    onEditTimeBlock: (TimeBlock) -> Unit = {},
-    onDeleteTimeBlock: (TimeBlock) -> Unit = {},
-    onMoveTimeBlock: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onOpenReframe: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onOpenSettings: () -> Unit,
@@ -62,7 +54,6 @@ fun NexusScreen(
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
-    val isSpanish = state.currentLanguage == AppLanguage.SPANISH
     var showSmartCheckInDialog by remember { mutableStateOf(false) }
 
     if (state.showMorningCheckInDialog) {
@@ -200,121 +191,6 @@ fun NexusScreen(
             }
         }
 
-        // AI Engine Source & Orchestration Status Banner with Trigger Button
-        item {
-            val statusColor = when (state.aiEngineStatus) {
-                AiStatus.LIVE, AiStatus.SUCCESS -> AetherEmerald
-                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> AetherAmber
-                AiStatus.ERROR -> Color(0xFFEF4444)
-                else -> AetherTextMuted
-            }
-
-            val statusBg = when (state.aiEngineStatus) {
-                AiStatus.LIVE, AiStatus.SUCCESS -> AetherEmerald.copy(alpha = 0.12f)
-                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> AetherAmber.copy(alpha = 0.12f)
-                AiStatus.ERROR -> Color(0xFFEF4444).copy(alpha = 0.12f)
-                else -> AetherSurfaceElevated
-            }
-
-            val statusIcon = when (state.aiEngineStatus) {
-                AiStatus.LIVE, AiStatus.SUCCESS -> Icons.Default.AutoAwesome
-                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> Icons.Default.Bolt
-                AiStatus.ERROR -> Icons.Default.Warning
-                else -> Icons.Default.Memory
-            }
-
-            val statusLabel = when (state.aiEngineStatus) {
-                AiStatus.LIVE -> if (isSpanish) "Sintetizado en Vivo con Gemini AI" else "Live Gemini AI Synthesis"
-                AiStatus.SUCCESS -> if (isSpanish) "Plan Circadiano Sintetizado" else "Circadian Plan Synthesized"
-                AiStatus.ORCHESTRATING -> if (isSpanish) "Orquestando con IA..." else "Orchestrating with AI..."
-                AiStatus.FALLBACK -> if (isSpanish) "Motor Circadiano de Respaldo Determinista" else "Deterministic Circadian Fallback"
-                AiStatus.ERROR -> if (isSpanish) "Modo Respaldo (Error de Servicio IA)" else "Fallback Mode (AI Service Error)"
-                else -> if (isSpanish) "Motor Circadiano Listo" else "Circadian Engine Ready"
-            }
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = statusBg),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().testTag("ai_engine_status_card")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f, fill = false),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (state.isOrchestrating) {
-                            CircularProgressIndicator(
-                                color = AetherCyan,
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isSpanish) "Sintetizando cronobiología con Gemini AI..." else "Synthesizing chronobiology with Gemini AI...",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AetherCyan,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        } else {
-                            Icon(
-                                imageVector = statusIcon,
-                                contentDescription = null,
-                                tint = statusColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = statusLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = statusColor,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // AI Quick Orchestrate Button
-                    FilledTonalButton(
-                        onClick = onOrchestrateClick,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = AetherCyan.copy(alpha = 0.2f),
-                            contentColor = AetherCyan
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("orchestrate_btn")
-                    ) {
-                        if (state.isOrchestrating) {
-                            CircularProgressIndicator(
-                                color = AetherCyan,
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (state.isOrchestrating) strings.btnAligning else strings.btnOrchestrate,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
         // Cognitive Reframing / Grace Day Banner if active
         if (state.biometric.systemMode == SystemMode.RECOVERY || state.biometric.graceDayActive) {
             item {
@@ -366,7 +242,7 @@ fun NexusScreen(
                 onReadinessChanged = onReadinessChanged,
                 onChronotypeChanged = onChronotypeChanged,
                 onToggleRecoveryMode = onToggleRecoveryMode,
-                onOrchestrateClick = onOrchestrateClick,
+                onOrchestrateClick = {},
                 onOpenSmartCheckIn = { showSmartCheckInDialog = true },
                 language = state.currentLanguage
             )
@@ -381,15 +257,16 @@ fun NexusScreen(
             )
         }
 
-        // 3. Cognitive Ceiling Law Gauge (Max 3.5h Deep Work)
+        // 3. Cognitive Ceiling Law Gauge (Calculated from active high-demand tasks)
         item {
             CognitiveCeilingGauge(
                 allocatedMinutes = state.deepWorkMinutesAllocated,
-                maxCeilingMinutes = state.maxCognitiveCeilingMinutes
+                maxCeilingMinutes = state.maxCognitiveCeilingMinutes,
+                language = state.currentLanguage
             )
         }
 
-        // 4. 1-3-5 Priorities Matrix (1 Frog, 3 Medium, 5 Quick)
+        // 4. 1-3-5 Priorities Matrix (1 Frog, 3 Medium Demand, 5 Quick Wins / Micro-victories)
         item {
             PriorityMatrix135(
                 systemMode = state.biometric.systemMode,
@@ -403,19 +280,6 @@ fun NexusScreen(
                 onDeleteTask = onDeleteTask,
                 onMoveMediumTask = onMoveMediumTask,
                 onMoveQuickTask = onMoveQuickTask,
-                language = state.currentLanguage
-            )
-        }
-
-        // 5. Circadian Time Blocks Timeline
-        item {
-            TimeBlockTimeline(
-                blocks = state.timeBlocks,
-                onToggleBlock = onToggleTimeBlock,
-                onAddBlockClick = onAddTimeBlockClick,
-                onEditBlock = onEditTimeBlock,
-                onDeleteBlock = onDeleteTimeBlock,
-                onMoveBlock = onMoveTimeBlock,
                 language = state.currentLanguage
             )
         }

@@ -479,6 +479,23 @@ fun BacklogTaskCard(
                         )
                     }
 
+                    if (task.isPermanent) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(AetherPurple.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (isSpanish) "📌 FIJA" else "📌 PERSISTENT",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AetherPurple,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
                     if (task.isFrog) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Box(
@@ -495,6 +512,14 @@ fun BacklogTaskCard(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "${task.estimatedMinutes}m",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted,
+                        fontSize = 11.sp
+                    )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -81,13 +81,28 @@ class HabitsDelegate(
     fun toggleHabitComplete(habit: HabitAnchor) {
         scope.launch {
             val willBeCompleted = !habit.isCompleted
-            habitRepository.toggleHabitComplete(habit)
-
+            val result = habitRepository.toggleHabitComplete(habit)
             val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
-            if (willBeCompleted) {
-                uiState.value = uiState.value.copy(habitConfettiKey = System.currentTimeMillis())
-                unlockAchievement(AchievementId.FIRST_HABIT)
-                showFeedback(if (isSpanish) "🌱 Hábito completado: ${habit.title}" else "🌱 Habit completed: ${habit.title}")
+
+            if (result.isSuccess) {
+                if (willBeCompleted) {
+                    uiState.value = uiState.value.copy(habitConfettiKey = System.currentTimeMillis())
+                    unlockAchievement(AchievementId.FIRST_HABIT)
+                    showFeedback(if (isSpanish) "🌱 Hábito completado: ${habit.title}" else "🌱 Habit completed: ${habit.title}")
+                }
+            } else {
+                val err = result.exceptionOrNull()?.message ?: ""
+                if (err.contains("GRACE_ALREADY_USED_TODAY")) {
+                    showFeedback(
+                        if (isSpanish) "⚠️ No puedes completar el hábito porque ya has activado un Día de Gracia hoy."
+                        else "⚠️ Cannot mark completed: Grace Day is already active today."
+                    )
+                } else {
+                    showFeedback(
+                        if (isSpanish) "No se pudo actualizar el hábito."
+                        else "Could not update habit."
+                    )
+                }
             }
         }
     }

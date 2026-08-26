@@ -19,7 +19,8 @@ fun TaskEntity.toModel() = TaskItem(
     scheduledTime = scheduledTime,
     category = category,
     isArchived = isArchived,
-    completedDate = completedDate
+    completedDate = completedDate,
+    isPermanent = isPermanent
 )
 
 fun TaskItem.toEntity() = TaskEntity(
@@ -34,7 +35,8 @@ fun TaskItem.toEntity() = TaskEntity(
     scheduledTime = scheduledTime,
     category = category,
     isArchived = isArchived,
-    completedDate = completedDate
+    completedDate = completedDate,
+    isPermanent = isPermanent
 )
 
 fun TimeBlockEntity.toModel() = TimeBlock(
