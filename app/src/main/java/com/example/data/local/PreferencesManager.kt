@@ -22,6 +22,8 @@ interface PreferencesManager {
     suspend fun saveLanguage(language: AppLanguage)
     suspend fun getLastActiveDate(): String?
     suspend fun saveLastActiveDate(dateIso: String)
+    suspend fun getLastMorningCheckInDate(): String?
+    suspend fun saveLastMorningCheckInDate(dateIso: String)
 }
 
 class DataStorePreferencesManager(private val context: Context) : PreferencesManager {
@@ -29,6 +31,7 @@ class DataStorePreferencesManager(private val context: Context) : PreferencesMan
     companion object {
         private val LANGUAGE_KEY = stringPreferencesKey("app_language")
         private val LAST_ACTIVE_DATE_KEY = stringPreferencesKey("last_active_date")
+        private val LAST_MORNING_CHECK_IN_DATE_KEY = stringPreferencesKey("last_morning_check_in_date")
     }
 
     override val languageFlow: Flow<AppLanguage> = context.aetherDataStore.data
@@ -76,6 +79,21 @@ class DataStorePreferencesManager(private val context: Context) : PreferencesMan
     override suspend fun saveLastActiveDate(dateIso: String) {
         context.aetherDataStore.edit { prefs ->
             prefs[LAST_ACTIVE_DATE_KEY] = dateIso
+        }
+    }
+
+    override suspend fun getLastMorningCheckInDate(): String? {
+        return try {
+            val prefs = context.aetherDataStore.data.first()
+            prefs[LAST_MORNING_CHECK_IN_DATE_KEY]
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveLastMorningCheckInDate(dateIso: String) {
+        context.aetherDataStore.edit { prefs ->
+            prefs[LAST_MORNING_CHECK_IN_DATE_KEY] = dateIso
         }
     }
 }

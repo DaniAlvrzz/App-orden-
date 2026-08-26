@@ -203,31 +203,33 @@ fun NexusScreen(
         // AI Engine Source & Orchestration Status Banner with Trigger Button
         item {
             val statusColor = when (state.aiEngineStatus) {
-                AiStatus.LIVE -> AetherEmerald
-                AiStatus.FALLBACK -> AetherAmber
+                AiStatus.LIVE, AiStatus.SUCCESS -> AetherEmerald
+                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> AetherAmber
                 AiStatus.ERROR -> Color(0xFFEF4444)
-                AiStatus.IDLE -> AetherTextMuted
+                else -> AetherTextMuted
             }
 
             val statusBg = when (state.aiEngineStatus) {
-                AiStatus.LIVE -> AetherEmerald.copy(alpha = 0.12f)
-                AiStatus.FALLBACK -> AetherAmber.copy(alpha = 0.12f)
+                AiStatus.LIVE, AiStatus.SUCCESS -> AetherEmerald.copy(alpha = 0.12f)
+                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> AetherAmber.copy(alpha = 0.12f)
                 AiStatus.ERROR -> Color(0xFFEF4444).copy(alpha = 0.12f)
-                AiStatus.IDLE -> AetherSurfaceElevated
+                else -> AetherSurfaceElevated
             }
 
             val statusIcon = when (state.aiEngineStatus) {
-                AiStatus.LIVE -> Icons.Default.AutoAwesome
-                AiStatus.FALLBACK -> Icons.Default.Bolt
+                AiStatus.LIVE, AiStatus.SUCCESS -> Icons.Default.AutoAwesome
+                AiStatus.FALLBACK, AiStatus.ORCHESTRATING -> Icons.Default.Bolt
                 AiStatus.ERROR -> Icons.Default.Warning
-                AiStatus.IDLE -> Icons.Default.Memory
+                else -> Icons.Default.Memory
             }
 
             val statusLabel = when (state.aiEngineStatus) {
                 AiStatus.LIVE -> if (isSpanish) "Sintetizado en Vivo con Gemini AI" else "Live Gemini AI Synthesis"
+                AiStatus.SUCCESS -> if (isSpanish) "Plan Circadiano Sintetizado" else "Circadian Plan Synthesized"
+                AiStatus.ORCHESTRATING -> if (isSpanish) "Orquestando con IA..." else "Orchestrating with AI..."
                 AiStatus.FALLBACK -> if (isSpanish) "Motor Circadiano de Respaldo Determinista" else "Deterministic Circadian Fallback"
                 AiStatus.ERROR -> if (isSpanish) "Modo Respaldo (Error de Servicio IA)" else "Fallback Mode (AI Service Error)"
-                AiStatus.IDLE -> if (isSpanish) "Motor Circadiano Listo" else "Circadian Engine Ready"
+                else -> if (isSpanish) "Motor Circadiano Listo" else "Circadian Engine Ready"
             }
 
             Card(

@@ -17,4 +17,14 @@ object AetherDateUtils {
         val formatted = LocalDate.now().format(formatter)
         return formatted.replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
     }
+
+    fun daysBetween(fromIso: String, toIso: String): Long {
+        return try {
+            val fromDate = LocalDate.parse(fromIso)
+            val toDate = LocalDate.parse(toIso)
+            java.time.temporal.ChronoUnit.DAYS.between(fromDate, toDate)
+        } catch (e: Exception) {
+            1L
+        }
+    }
 }

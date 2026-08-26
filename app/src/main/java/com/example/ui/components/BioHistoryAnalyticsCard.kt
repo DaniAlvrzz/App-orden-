@@ -44,7 +44,9 @@ fun BioHistoryAnalyticsCard(
                 )
             }
         } else {
-            recentBiometrics.take(selectedRangeDays)
+            // recentBiometrics comes sorted DESC (newest first).
+            // Take the requested amount and reverse so the graph draws past-to-present (left-to-right).
+            recentBiometrics.take(selectedRangeDays).reversed()
         }
     }
 

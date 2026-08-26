@@ -36,6 +36,13 @@ enum class MealRegularity(val titleEs: String, val titleEn: String) {
 }
 
 @JsonClass(generateAdapter = true)
+data class CompassionModeState(
+    val isActive: Boolean = false,
+    val activatedDate: String = "",
+    val reason: String = ""
+)
+
+@JsonClass(generateAdapter = true)
 data class EnergyCurvePoint(
     val hour: String, // "06:00", "09:00", etc.
     val energyLevel: Int, // 0 - 100

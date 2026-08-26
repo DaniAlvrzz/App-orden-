@@ -60,13 +60,21 @@ class AiChatDelegate(
 
             val currentState = uiState.value
             val aiContext = AetherAiContext(
+                dateIso = com.example.data.util.AetherDateUtils.getTodayIso(),
+                language = currentState.currentLanguage,
                 readinessScore = currentState.biometric.readinessScore,
-                systemMode = currentState.biometric.systemMode.title,
-                tasks = currentState.tasks,
-                meals = currentState.meals,
-                pantry = currentState.pantryItems,
+                perceivedEnergy = currentState.biometric.perceivedEnergy,
+                sleepHours = currentState.biometric.sleepHours,
+                sleepQuality = currentState.biometric.sleepQuality,
+                chronotype = currentState.biometric.chronotype,
+                isRecoveryMode = currentState.biometric.systemMode == SystemMode.RECOVERY,
+                isGraceDayActive = currentState.biometric.graceDayActive,
+                pendingTasks = currentState.tasks,
                 habits = currentState.habits,
-                language = currentState.currentLanguage
+                timeBlocks = currentState.timeBlocks,
+                inStockPantry = currentState.pantryItems,
+                meals = currentState.meals,
+                deepWorkMinutesAllocated = currentState.timeBlocks.filter { it.blockType == BlockType.DEEP_WORK }.sumOf { 60 }
             )
 
             val accumulatedText = StringBuilder()

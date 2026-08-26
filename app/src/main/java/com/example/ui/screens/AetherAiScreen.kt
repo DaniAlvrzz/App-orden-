@@ -139,26 +139,28 @@ fun AetherAiScreen(
                 // Engine Status
                 Surface(
                     color = when (state.aiEngineStatus) {
-                        com.example.data.model.AiStatus.LIVE -> AetherEmerald.copy(alpha = 0.15f)
-                        com.example.data.model.AiStatus.FALLBACK -> AetherAmber.copy(alpha = 0.15f)
+                        com.example.data.model.AiStatus.LIVE, com.example.data.model.AiStatus.SUCCESS -> AetherEmerald.copy(alpha = 0.15f)
+                        com.example.data.model.AiStatus.FALLBACK, com.example.data.model.AiStatus.ORCHESTRATING -> AetherAmber.copy(alpha = 0.15f)
                         com.example.data.model.AiStatus.ERROR -> Color(0xFFEF4444).copy(alpha = 0.15f)
-                        com.example.data.model.AiStatus.IDLE -> AetherBorderLight.copy(alpha = 0.15f)
+                        else -> AetherBorderLight.copy(alpha = 0.15f)
                     },
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
                         text = when (state.aiEngineStatus) {
                             com.example.data.model.AiStatus.LIVE -> if (state.currentLanguage == AppLanguage.SPANISH) "● Gemini AI en Vivo" else "● Gemini AI Live"
+                            com.example.data.model.AiStatus.SUCCESS -> if (state.currentLanguage == AppLanguage.SPANISH) "● Plan Sintetizado" else "● Plan Synthesized"
+                            com.example.data.model.AiStatus.ORCHESTRATING -> if (state.currentLanguage == AppLanguage.SPANISH) "● Orquestando..." else "● Orchestrating..."
                             com.example.data.model.AiStatus.FALLBACK -> if (state.currentLanguage == AppLanguage.SPANISH) "● Motor Circadiano Respaldo" else "● Deterministic Fallback"
                             com.example.data.model.AiStatus.ERROR -> if (state.currentLanguage == AppLanguage.SPANISH) "● Error IA / En Respaldo" else "● AI Error / Fallback"
-                            com.example.data.model.AiStatus.IDLE -> if (state.currentLanguage == AppLanguage.SPANISH) "● Motor Listo" else "● Engine Ready"
+                            else -> if (state.currentLanguage == AppLanguage.SPANISH) "● Motor Listo" else "● Engine Ready"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = when (state.aiEngineStatus) {
-                            com.example.data.model.AiStatus.LIVE -> AetherEmerald
-                            com.example.data.model.AiStatus.FALLBACK -> AetherAmber
+                            com.example.data.model.AiStatus.LIVE, com.example.data.model.AiStatus.SUCCESS -> AetherEmerald
+                            com.example.data.model.AiStatus.FALLBACK, com.example.data.model.AiStatus.ORCHESTRATING -> AetherAmber
                             com.example.data.model.AiStatus.ERROR -> Color(0xFFEF4444)
-                            com.example.data.model.AiStatus.IDLE -> AetherTextSecondary
+                            else -> AetherTextSecondary
                         },
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)

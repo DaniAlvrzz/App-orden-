@@ -14,6 +14,32 @@ enum class PriorityType {
     QUICK    // Type C - 5 quick wins per day
 }
 
+enum class FocusPhase {
+    WORK,
+    SHORT_BREAK,
+    LONG_BREAK
+}
+
+@JsonClass(generateAdapter = true)
+data class QuickNoteItem(
+    val id: String,
+    val content: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val isProcessed: Boolean = false,
+    val convertedToTaskId: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class FocusSession(
+    val id: String,
+    val taskTitle: String,
+    val durationMinutes: Int,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isCompleted: Boolean = true,
+    val linkedTaskId: String? = null,
+    val roundNumber: Int = 1
+)
+
 @JsonClass(generateAdapter = true)
 data class TaskItem(
     val id: String,

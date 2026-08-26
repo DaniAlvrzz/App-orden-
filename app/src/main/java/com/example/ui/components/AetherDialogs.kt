@@ -1422,3 +1422,288 @@ Snack: Greek Yogurt with Berries and Walnuts (210 kcal, 15g protein)"""
     )
 }
 
+@Composable
+fun MorningCheckInDialog(
+    unfinishedHabits: List<HabitAnchor>,
+    unfinishedTasks: List<TaskItem>,
+    language: AppLanguage,
+    onConfirmHabit: (HabitAnchor) -> Unit,
+    onConfirmTask: (TaskItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isSpanish = language == AppLanguage.SPANISH
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🌅", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isSpanish) "Check-in Retroactivo" else "Morning Check-In",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AetherTextPrimary
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = if (isSpanish)
+                        "¿Completaste estas actividades anoche antes de dormir? Márcalas para proteger tu racha sin estrés."
+                    else
+                        "Did you complete these activities last night before sleeping? Log them to shield your streak guilt-free.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AetherTextSecondary
+                )
+
+                if (unfinishedHabits.isNotEmpty()) {
+                    Text(
+                        text = if (isSpanish) "Hábitos de ayer:" else "Yesterday's Habits:",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AetherCyan
+                    )
+                    unfinishedHabits.forEach { habit ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = AetherSurfaceCard,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = habit.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AetherTextPrimary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = { onConfirmHabit(habit) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D)),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(if (isSpanish) "Hecho ✓" else "Done ✓", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (unfinishedTasks.isNotEmpty()) {
+                    Text(
+                        text = if (isSpanish) "Tareas de ayer:" else "Yesterday's Tasks:",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AetherAmber
+                    )
+                    unfinishedTasks.forEach { task ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = AetherSurfaceCard,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = task.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AetherTextPrimary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = { onConfirmTask(task) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3E2723)),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(if (isSpanish) "Hecho ✓" else "Done ✓", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D))
+            ) {
+                Text(if (isSpanish) "Continuar al Día de Hoy" else "Continue to Today", fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}
+
+@Composable
+fun BreathworkDialog(
+    language: AppLanguage,
+    onDismiss: () -> Unit
+) {
+    val isSpanish = language == AppLanguage.SPANISH
+    var phase by remember { mutableStateOf(if (isSpanish) "Inhala (4s)" else "Inhale (4s)") }
+    var secondsLeft by remember { mutableIntStateOf(4) }
+
+    LaunchedEffect(Unit) {
+        val phases = listOf(
+            (if (isSpanish) "Inhala (4s)" else "Inhale (4s)") to 4,
+            (if (isSpanish) "Mantén (4s)" else "Hold (4s)") to 4,
+            (if (isSpanish) "Exhala (4s)" else "Exhale (4s)") to 4,
+            (if (isSpanish) "Pausa (4s)" else "Pause (4s)") to 4
+        )
+        var idx = 0
+        while (true) {
+            val (name, duration) = phases[idx % phases.size]
+            phase = name
+            for (s in duration downTo 1) {
+                secondsLeft = s
+                kotlinx.coroutines.delay(1000L)
+            }
+            idx++
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Spa, contentDescription = null, tint = AetherCyan)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isSpanish) "Respiración Cuadrada (Box Breathing)" else "Box Breathing Protocol",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = AetherTextPrimary
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (isSpanish) "Regulación parasimpática del nervio vago." else "Parasympathetic vagus nerve reset.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AetherTextSecondary
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Box(
+                    modifier = Modifier
+                        .size(130.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(AetherCyan.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = phase,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AetherCyan
+                        )
+                        Text(
+                            text = "$secondsLeft",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Black,
+                            color = AetherTextPrimary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = AetherCyan, contentColor = Color(0xFF00363D))
+            ) {
+                Text(if (isSpanish) "Finalizar Sesión" else "Finish Session", fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = AetherSurfaceElevated
+    )
+}
+
+@Composable
+fun CompassionModeBanner(
+    language: AppLanguage,
+    onOpenBreathwork: () -> Unit,
+    onDismissMode: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isSpanish = language == AppLanguage.SPANISH
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("compassion_mode_banner"),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2E1C0A)),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AetherAmber.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🛡️", fontSize = 28.sp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isSpanish) "Modo Compasión y Recuperación" else "Compassion & Recovery Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AetherAmber
+                )
+                Text(
+                    text = if (isSpanish)
+                        "Readiness bajo detectado. Se han pausado las exigencias altas. Prioriza tu bienestar hoy."
+                    else
+                        "Low readiness detected. High demands suspended. Prioritize your well-being today.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AetherTextSecondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onOpenBreathwork,
+                        colors = ButtonDefaults.buttonColors(containerColor = AetherAmber, contentColor = Color(0xFF3E2723)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Spa, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (isSpanish) "Respiración 4x4" else "Box Breathing", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onDismissMode,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AetherTextMuted)
+                    ) {
+                        Text(if (isSpanish) "Entendido" else "Dismiss", fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+

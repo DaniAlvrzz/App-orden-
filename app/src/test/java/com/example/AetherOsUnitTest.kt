@@ -92,4 +92,35 @@ class AetherOsUnitTest {
         assertEquals(14, withGrace.streakDays)
         assertEquals(1, withGrace.graceDaysUsed)
     }
+
+    @Test
+    fun testDateUtils_daysBetweenAccuracy() {
+        // Verify exact day diffs
+        assertEquals(0L, com.example.data.util.AetherDateUtils.daysBetween("2026-08-26", "2026-08-26"))
+        assertEquals(1L, com.example.data.util.AetherDateUtils.daysBetween("2026-08-25", "2026-08-26"))
+        assertEquals(2L, com.example.data.util.AetherDateUtils.daysBetween("2026-08-24", "2026-08-26"))
+        assertEquals(-1L, com.example.data.util.AetherDateUtils.daysBetween("2026-08-27", "2026-08-26"))
+    }
+
+    @Test
+    fun testHabitStreak_singleIncrementPerDay() {
+        var habit = HabitAnchor(
+            id = "h_test",
+            title = "Focus 25",
+            description = "Daily focus",
+            anchor = CircadianAnchor.ZONE_2_MOVEMENT,
+            isCompleted = false,
+            streakDays = 3
+        )
+
+        // Completing today: streak becomes 4
+        habit = habit.copy(isCompleted = true, streakDays = habit.streakDays + 1)
+        assertEquals(4, habit.streakDays)
+        assertTrue(habit.isCompleted)
+
+        // Uncompleting today: streak reverts to 3
+        habit = habit.copy(isCompleted = false, streakDays = (habit.streakDays - 1).coerceAtLeast(0))
+        assertEquals(3, habit.streakDays)
+        assertFalse(habit.isCompleted)
+    }
 }

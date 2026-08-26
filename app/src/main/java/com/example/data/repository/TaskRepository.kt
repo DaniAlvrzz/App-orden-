@@ -65,7 +65,7 @@ interface TaskRepository {
     suspend fun convertQuickNoteToTask(note: QuickNoteItem): TaskItem
     suspend fun recordFocusSession(session: FocusSession)
 
-    suspend fun getYesterdayUnfinishedItems(): Pair<List<HabitAnchor>, List<TaskItem>>
+    suspend fun getYesterdayUnfinishedItems(targetDateIso: String? = null): Pair<List<HabitAnchor>, List<TaskItem>>
     suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String)
 
     suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage): List<String>
@@ -317,16 +317,32 @@ class TaskRepositoryImpl(
         focusSessionDao?.insertSession(session.toEntity())
     }
 
-    override suspend fun getYesterdayUnfinishedItems(): Pair<List<HabitAnchor>, List<TaskItem>> {
-        val yesterdayIso = java.time.LocalDate.now().minusDays(1).toString()
+    override suspend fun getYesterdayUnfinishedItems(targetDateIso: String?): Pair<List<HabitAnchor>, List<TaskItem>> {
+        val yesterdayIso = targetDateIso ?: java.time.LocalDate.now().minusDays(1).toString()
         val yesterdayLogs = completionLogDao.getLogsByDate(yesterdayIso).first()
-        val loggedItemIds = yesterdayLogs.map { it.itemId }.toSet()
+        val completedItemIds = yesterdayLogs.filter { it.status == CompletionStatus.COMPLETED }.map { it.itemId }.toSet()
+
+        val startOfTodayMillis = try {
+            java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } catch (e: Exception) {
+            System.currentTimeMillis() - 86400000L
+        }
 
         val allHabits = habitDao.getAllHabits().first().map { it.toModel() }
-        val allTasks = taskDao.getAllTasks().first().filter { !it.isArchived }.map { it.toModel() }
+        val allTaskEntities = taskDao.getAllTasks().first()
 
-        val unfinishedHabits = allHabits.filter { !loggedItemIds.contains(it.id) }
-        val unfinishedTasks = allTasks.filter { !loggedItemIds.contains(it.id) }
+        // Only real user habits that were not completed yesterday
+        val unfinishedHabits = allHabits.filter { habit ->
+            !completedItemIds.contains(habit.id) && habit.lastCompletedDate != yesterdayIso
+        }
+
+        // Only real user tasks created on or before yesterday that were not completed yesterday
+        val unfinishedTasks = allTaskEntities.filter { task ->
+            !task.isArchived &&
+            !completedItemIds.contains(task.id) &&
+            task.completedDate != yesterdayIso &&
+            task.createdAt < startOfTodayMillis
+        }.map { it.toModel() }
 
         return Pair(unfinishedHabits, unfinishedTasks)
     }
@@ -350,16 +366,19 @@ class TaskRepositoryImpl(
                 habitDao.updateHabit(
                     habit.copy(
                         streakDays = habit.streakDays + 1,
-                        lastCompletedDate = yesterdayIso
+                        lastCompletedDate = yesterdayIso,
+                        isCompleted = false
                     )
                 )
             }
         } else if (itemType == CompletionItemType.TASK) {
             val task = taskDao.getAllTasks().first().find { it.id == itemId }
             if (task != null) {
-                taskDao.updateTask(task.copy(isCompleted = true, completedDate = yesterdayIso))
+                // Retroactively completed: mark completed for yesterday and archive so it does not clutter today
+                taskDao.updateTask(task.copy(isCompleted = true, completedDate = yesterdayIso, isArchived = true))
             }
         }
+        widgetUpdater.updateWidgets()
     }
 
     private suspend fun logActionAndRecalculate(

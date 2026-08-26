@@ -132,6 +132,30 @@ enum class AchievementId(
         descEn = "Synthesize your daily circadian plan with the Aether engine",
         icon = Icons.Default.AutoAwesome,
         xpReward = 30
+    ),
+    FIRST_AI_ORCHESTRATION(
+        titleEs = "Orquestación IA",
+        titleEn = "AI Orchestration",
+        descEs = "Sintetiza tu plan circadiano diario con el motor Aether",
+        descEn = "Synthesize your daily circadian plan with the Aether engine",
+        icon = Icons.Default.AutoAwesome,
+        xpReward = 30
+    ),
+    FIRST_BIO_SYNC(
+        titleEs = "Sincronía Circadiana",
+        titleEn = "Circadian Sync",
+        descEs = "Configura tu cronotipo y ajusta tu readiness biológico",
+        descEn = "Tune your chronotype and biological readiness",
+        icon = Icons.Default.WbSunny,
+        xpReward = 20
+    ),
+    FOCUS_25(
+        titleEs = "Bloque de Foco 25min",
+        titleEn = "25min Focus Block",
+        descEs = "Completa un ciclo Pomodoro de 25 minutos",
+        descEn = "Complete a 25-minute Pomodoro cycle",
+        icon = Icons.Default.Timer,
+        xpReward = 25
     );
 
     fun title(language: AppLanguage): String = if (language == AppLanguage.SPANISH) titleEs else titleEn

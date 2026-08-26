@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.data.model.FocusPhase
 import com.example.data.model.TaskItem
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -38,6 +39,9 @@ fun FocusTimerCard(
     onStart: () -> Unit,
     onPause: () -> Unit,
     onReset: () -> Unit,
+    currentRound: Int = 1,
+    pomodoroPhase: FocusPhase = FocusPhase.WORK,
+    totalFocusMinutes: Int = 0,
     language: AppLanguage = AppLanguage.SPANISH,
     onPermissionDenied: () -> Unit = {},
     modifier: Modifier = Modifier

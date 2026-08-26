@@ -15,11 +15,30 @@ import java.util.Locale
 object AetherNotificationScheduler {
 
     private const val TAG = "AetherScheduler"
+    private const val MAX_TRACKED_BLOCKS = 50
 
     fun scheduleTimeBlockAlerts(context: Context, blocks: List<TimeBlock>) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
 
+        // Cancel all previous timeblock alarms first to avoid ghost notifications
+        for (i in 0 until MAX_TRACKED_BLOCKS) {
+            val intent = Intent(context, TimeBlockNotificationReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                2000 + i,
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
+        }
+
         blocks.forEachIndexed { index, block ->
+            if (index >= MAX_TRACKED_BLOCKS) return@forEachIndexed
+            if (block.isCompleted) return@forEachIndexed
+
             try {
                 val triggerMillis = parseStartTimeToEpochMillis(block.startTime)
                 val nowMillis = System.currentTimeMillis()
@@ -55,6 +74,27 @@ object AetherNotificationScheduler {
             } catch (e: Exception) {
                 Log.e(TAG, "Error scheduling alert for block ${block.title}", e)
             }
+        }
+    }
+
+    fun dismissNotification(context: Context, notificationId: Int) {
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            notificationManager?.cancel(notificationId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error dismissing notification $notificationId", e)
+        }
+    }
+
+    fun dismissAllNotifications(context: Context) {
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? android.app.NotificationManager
+            for (i in 0 until MAX_TRACKED_BLOCKS) {
+                notificationManager?.cancel(2000 + i)
+            }
+            notificationManager?.cancel(3001) // Focus timer notification ID
+        } catch (e: Exception) {
+            Log.e(TAG, "Error dismissing all notifications", e)
         }
     }
 

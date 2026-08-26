@@ -1,7 +1,9 @@
 package com.example.ui.viewmodel
 
+import com.example.data.local.PreferencesManager
 import com.example.data.model.*
 import com.example.data.repository.TaskRepository
+import com.example.data.util.AetherDateUtils
 import com.example.ui.i18n.AppLanguage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -18,7 +20,8 @@ class TasksDelegate(
     private val uiState: MutableStateFlow<AetherUiState>,
     private val scope: CoroutineScope,
     private val showFeedback: (String) -> Unit,
-    private val unlockAchievement: (AchievementId) -> Unit
+    private val unlockAchievement: (AchievementId) -> Unit,
+    private val preferencesManager: PreferencesManager? = null
 ) {
     private var timerJob: Job? = null
     private var celebrationJob: Job? = null
@@ -325,6 +328,9 @@ class TasksDelegate(
             taskRepository.logRetroactiveCompletion(CompletionItemType.HABIT, habit.id, habit.title)
             val remainingHabits = uiState.value.yesterdayUnfinishedHabits.filter { it.id != habit.id }
             val shouldClose = remainingHabits.isEmpty() && uiState.value.yesterdayUnfinishedTasks.isEmpty()
+            if (shouldClose) {
+                preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+            }
             uiState.value = uiState.value.copy(
                 yesterdayUnfinishedHabits = remainingHabits,
                 showMorningCheckInDialog = !shouldClose
@@ -339,6 +345,9 @@ class TasksDelegate(
             taskRepository.logRetroactiveCompletion(CompletionItemType.TASK, task.id, task.title)
             val remainingTasks = uiState.value.yesterdayUnfinishedTasks.filter { it.id != task.id }
             val shouldClose = remainingTasks.isEmpty() && uiState.value.yesterdayUnfinishedHabits.isEmpty()
+            if (shouldClose) {
+                preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+            }
             uiState.value = uiState.value.copy(
                 yesterdayUnfinishedTasks = remainingTasks,
                 showMorningCheckInDialog = !shouldClose
@@ -349,7 +358,10 @@ class TasksDelegate(
     }
 
     fun dismissMorningCheckIn() {
-        uiState.value = uiState.value.copy(showMorningCheckInDialog = false)
+        scope.launch {
+            preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+            uiState.value = uiState.value.copy(showMorningCheckInDialog = false)
+        }
     }
 
     private fun celebrateFrogCompletion(title: String) {

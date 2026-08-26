@@ -200,7 +200,8 @@ class AetherViewModel(
         uiState = _uiState,
         scope = viewModelScope,
         showFeedback = { msg -> showFeedback(msg) },
-        unlockAchievement = { id -> unlockAchievement(id) }
+        unlockAchievement = { id -> unlockAchievement(id) },
+        preferencesManager = (application as? AetherApplication)?.container?.preferencesManager
     )
 
     val habitsDelegate: HabitsDelegate = HabitsDelegate(
@@ -244,12 +245,19 @@ class AetherViewModel(
 
     init {
         performDailyRolloverCheck()
-        checkMorningRetroactiveCheckIn()
         observeData()
     }
 
     private fun performDailyRolloverCheck() {
+        val appContainer = getApplication<AetherApplication>()?.container ?: return
+        val prefs = appContainer.preferencesManager
+        val taskRepo = appContainer.taskRepository
+
         viewModelScope.launch {
+            val today = AetherDateUtils.getTodayIso()
+            val lastDate = prefs.getLastActiveDate()
+            val lastCheckInDate = prefs.getLastMorningCheckInDate()
+
             val rolloverResult = repository.checkAndPerformDailyRollover()
             if (rolloverResult != null) {
                 _uiState.value = _uiState.value.copy(dailyRolloverNotice = rolloverResult)
@@ -259,19 +267,19 @@ class AetherViewModel(
                     else "🌅 New day started! Tasks & habits reset for today."
                 )
             }
-        }
-    }
 
-    private fun checkMorningRetroactiveCheckIn() {
-        val taskRepo = (getApplication() as? AetherApplication)?.container?.taskRepository ?: return
-        viewModelScope.launch {
-            val (habits, tasks) = taskRepo.getYesterdayUnfinishedItems()
-            if (habits.isNotEmpty() || tasks.isNotEmpty()) {
-                _uiState.value = _uiState.value.copy(
-                    yesterdayUnfinishedHabits = habits,
-                    yesterdayUnfinishedTasks = tasks,
-                    showMorningCheckInDialog = true
-                )
+            // After rollover has completed cleanly, check for real unfinished items from the previous day
+            if (lastDate != null && lastDate != today && lastCheckInDate != today) {
+                val (habits, tasks) = taskRepo.getYesterdayUnfinishedItems(lastDate)
+                if (habits.isNotEmpty() || tasks.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        yesterdayUnfinishedHabits = habits,
+                        yesterdayUnfinishedTasks = tasks,
+                        showMorningCheckInDialog = true
+                    )
+                } else {
+                    prefs.saveLastMorningCheckInDate(today)
+                }
             }
         }
     }
