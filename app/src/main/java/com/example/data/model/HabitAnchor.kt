@@ -23,6 +23,7 @@ data class HabitAnchor(
     val reframingTip: String = "Biological consistency is a pattern of return, not perfection.",
     val maxGraceDaysPerPeriod: Int = 2,
     val graceDayLastUsedDate: String = "",
-    val lastCompletedDate: String = ""
+    val lastCompletedDate: String = "",
+    val pendingStreakBeforeReset: Int = 0
 )
 

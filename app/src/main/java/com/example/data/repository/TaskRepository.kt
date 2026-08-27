@@ -68,6 +68,7 @@ interface TaskRepository {
 
     suspend fun getYesterdayUnfinishedItems(targetDateIso: String? = null): Pair<List<HabitAnchor>, List<TaskItem>>
     suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String)
+    suspend fun clearPendingHabitStreaks()
 
     suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage): List<String>
     suspend fun recalculateDailySummary(dateIso: String = AetherDateUtils.getTodayIso())
@@ -390,9 +391,15 @@ class TaskRepositoryImpl(
         if (itemType == CompletionItemType.HABIT) {
             val habit = habitDao.getAllHabits().first().find { it.id == itemId }
             if (habit != null) {
+                val restoredStreak = if (habit.pendingStreakBeforeReset > 0) {
+                    habit.pendingStreakBeforeReset + 1
+                } else {
+                    habit.streakDays + 1
+                }
                 habitDao.updateHabit(
                     habit.copy(
-                        streakDays = habit.streakDays + 1,
+                        streakDays = restoredStreak,
+                        pendingStreakBeforeReset = 0,
                         lastCompletedDate = yesterdayIso,
                         isCompleted = false
                     )
@@ -406,6 +413,10 @@ class TaskRepositoryImpl(
             }
         }
         widgetUpdater.updateWidgets()
+    }
+
+    override suspend fun clearPendingHabitStreaks() {
+        habitDao.clearPendingStreakResets()
     }
 
     private suspend fun logActionAndRecalculate(

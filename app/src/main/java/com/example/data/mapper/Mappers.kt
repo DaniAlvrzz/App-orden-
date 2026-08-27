@@ -177,7 +177,8 @@ fun HabitEntity.toModel() = HabitAnchor(
     maxGraceDaysPerPeriod = maxGraceDaysPerPeriod,
     graceDayLastUsedDate = graceDayLastUsedDate,
     lastCompletedDate = lastCompletedDate,
-    reframingTip = reframingTip
+    reframingTip = reframingTip,
+    pendingStreakBeforeReset = pendingStreakBeforeReset
 )
 
 fun HabitAnchor.toEntity() = HabitEntity(
@@ -191,7 +192,8 @@ fun HabitAnchor.toEntity() = HabitEntity(
     maxGraceDaysPerPeriod = maxGraceDaysPerPeriod,
     graceDayLastUsedDate = graceDayLastUsedDate,
     lastCompletedDate = lastCompletedDate,
-    reframingTip = reframingTip
+    reframingTip = reframingTip,
+    pendingStreakBeforeReset = pendingStreakBeforeReset
 )
 
 fun QuickNoteEntity.toModel() = QuickNoteItem(

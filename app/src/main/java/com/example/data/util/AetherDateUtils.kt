@@ -27,4 +27,20 @@ object AetherDateUtils {
             1L
         }
     }
+
+    /**
+     * Checks if at least one Monday has occurred in the interval (fromIso, toIso],
+     * i.e., from fromDate (exclusive) to toDate (inclusive).
+     */
+    fun hasMondayBetween(fromIso: String, toIso: String): Boolean {
+        return try {
+            val fromDate = LocalDate.parse(fromIso)
+            val toDate = LocalDate.parse(toIso)
+            if (!toDate.isAfter(fromDate)) return false
+            val firstMondayAfterFrom = fromDate.plusDays(1).with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY))
+            !firstMondayAfterFrom.isAfter(toDate)
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

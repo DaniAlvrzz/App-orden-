@@ -99,12 +99,12 @@ class DailyRolloverUseCase(
                     }
                 }
 
-                val isMonday = try { java.time.LocalDate.parse(today).dayOfWeek == java.time.DayOfWeek.MONDAY } catch (e: Exception) { false }
+                val hadMondayPassed = AetherDateUtils.hasMondayBetween(lastDate, today)
 
                 // 2. Process Habits for previous day
                 habits.forEach { habit ->
                     val isGraceProtected = habit.graceDayLastUsedDate == lastDate
-                    val updatedGraceDaysUsed = if (isMonday) 0 else habit.graceDaysUsed
+                    val updatedGraceDaysUsed = if (hadMondayPassed) 0 else habit.graceDaysUsed
                     if (habit.isCompleted) {
                         completedHabits++
                         val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
@@ -121,13 +121,32 @@ class DailyRolloverUseCase(
                                 )
                             )
                         }
-                        habitDao.updateHabit(habit.copy(isCompleted = false, graceDaysUsed = updatedGraceDaysUsed))
+                        habitDao.updateHabit(
+                            habit.copy(
+                                isCompleted = false,
+                                graceDaysUsed = updatedGraceDaysUsed,
+                                pendingStreakBeforeReset = 0
+                            )
+                        )
                     } else if (isGraceProtected) {
                         // Protected by Grace Day: Keep streak intact
-                        habitDao.updateHabit(habit.copy(isCompleted = false, graceDaysUsed = updatedGraceDaysUsed))
+                        habitDao.updateHabit(
+                            habit.copy(
+                                isCompleted = false,
+                                graceDaysUsed = updatedGraceDaysUsed,
+                                pendingStreakBeforeReset = 0
+                            )
+                        )
                     } else {
-                        // Missed without grace day: reset streak to 0
-                        habitDao.updateHabit(habit.copy(isCompleted = false, streakDays = 0, graceDaysUsed = updatedGraceDaysUsed))
+                        // Missed without grace day: store previous streak before resetting to 0
+                        habitDao.updateHabit(
+                            habit.copy(
+                                isCompleted = false,
+                                streakDays = 0,
+                                graceDaysUsed = updatedGraceDaysUsed,
+                                pendingStreakBeforeReset = habit.streakDays
+                            )
+                        )
                     }
                 }
 

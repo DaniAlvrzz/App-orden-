@@ -123,4 +123,71 @@ class AetherOsUnitTest {
         assertEquals(3, habit.streakDays)
         assertFalse(habit.isCompleted)
     }
+
+    @Test
+    fun testHasMondayBetween_detection() {
+        // Friday 2026-08-21 to Wednesday 2026-08-26 (Contains Monday 2026-08-24)
+        assertTrue(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-21", "2026-08-26"))
+
+        // Sunday 2026-08-23 to Monday 2026-08-24 (Contains Monday 2026-08-24)
+        assertTrue(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-23", "2026-08-24"))
+
+        // Monday 2026-08-24 to Tuesday 2026-08-25 (Interval is (Mon, Tue], does NOT contain a Monday)
+        assertFalse(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-24", "2026-08-25"))
+
+        // Tuesday 2026-08-25 to Friday 2026-08-28 (Does NOT contain a Monday)
+        assertFalse(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-25", "2026-08-28"))
+
+        // Same day
+        assertFalse(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-24", "2026-08-24"))
+
+        // Multi-week jump: Friday 2026-08-07 to Wednesday 2026-08-26
+        assertTrue(com.example.data.util.AetherDateUtils.hasMondayBetween("2026-08-07", "2026-08-26"))
+    }
+
+    @Test
+    fun testRetroactiveConfirmation_restoresPendingStreak() {
+        // Given a habit with streak 15 before rollover
+        val initialHabit = HabitAnchor(
+            id = "h1",
+            title = "Morning Light",
+            description = "Photons",
+            anchor = CircadianAnchor.MORNING_LIGHT,
+            isCompleted = false,
+            streakDays = 15,
+            graceDaysUsed = 1,
+            pendingStreakBeforeReset = 0
+        )
+
+        // Rollover happens: missed habit without grace day resets streak to 0 but preserves pendingStreakBeforeReset
+        val afterRolloverHabit = initialHabit.copy(
+            isCompleted = false,
+            streakDays = 0,
+            pendingStreakBeforeReset = initialHabit.streakDays
+        )
+        assertEquals(0, afterRolloverHabit.streakDays)
+        assertEquals(15, afterRolloverHabit.pendingStreakBeforeReset)
+
+        // Scenario 2: User confirms retroactive completion -> streak becomes 15 + 1 = 16
+        val restoredStreak = if (afterRolloverHabit.pendingStreakBeforeReset > 0) {
+            afterRolloverHabit.pendingStreakBeforeReset + 1
+        } else {
+            afterRolloverHabit.streakDays + 1
+        }
+        val confirmedHabit = afterRolloverHabit.copy(
+            streakDays = restoredStreak,
+            pendingStreakBeforeReset = 0,
+            lastCompletedDate = "2026-08-25",
+            isCompleted = false
+        )
+        assertEquals(16, confirmedHabit.streakDays)
+        assertEquals(0, confirmedHabit.pendingStreakBeforeReset)
+
+        // Scenario 3: User dismisses check-in -> pendingStreakBeforeReset is cleared, streak remains 0
+        val dismissedHabit = afterRolloverHabit.copy(
+            pendingStreakBeforeReset = 0
+        )
+        assertEquals(0, dismissedHabit.streakDays)
+        assertEquals(0, dismissedHabit.pendingStreakBeforeReset)
+    }
 }

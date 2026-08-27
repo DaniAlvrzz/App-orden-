@@ -133,6 +133,7 @@ class AetherRepository(
     suspend fun restoreHabit(habit: HabitAnchor) = habitRepo.restoreHabit(habit)
     suspend fun toggleHabitComplete(habit: HabitAnchor) = habitRepo.toggleHabitComplete(habit)
     suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit> = habitRepo.applyGraceDay(habit)
+    suspend fun clearPendingHabitStreaks() = taskRepo.clearPendingHabitStreaks()
     suspend fun getCognitiveReframe(userFeeling: String, readinessScore: Int): String =
         habitRepo.getCognitiveReframe(userFeeling, readinessScore)
 

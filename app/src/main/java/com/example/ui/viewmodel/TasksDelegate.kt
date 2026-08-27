@@ -343,6 +343,7 @@ class TasksDelegate(
             val shouldClose = remainingHabits.isEmpty() && uiState.value.yesterdayUnfinishedTasks.isEmpty()
             if (shouldClose) {
                 preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+                taskRepository.clearPendingHabitStreaks()
             }
             uiState.value = uiState.value.copy(
                 yesterdayUnfinishedHabits = remainingHabits,
@@ -360,6 +361,7 @@ class TasksDelegate(
             val shouldClose = remainingTasks.isEmpty() && uiState.value.yesterdayUnfinishedHabits.isEmpty()
             if (shouldClose) {
                 preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+                taskRepository.clearPendingHabitStreaks()
             }
             uiState.value = uiState.value.copy(
                 yesterdayUnfinishedTasks = remainingTasks,
@@ -373,6 +375,7 @@ class TasksDelegate(
     fun dismissMorningCheckIn() {
         scope.launch {
             preferencesManager?.saveLastMorningCheckInDate(AetherDateUtils.getTodayIso())
+            taskRepository.clearPendingHabitStreaks()
             uiState.value = uiState.value.copy(showMorningCheckInDialog = false)
         }
     }

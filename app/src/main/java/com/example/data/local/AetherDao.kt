@@ -131,6 +131,9 @@ interface HabitDao {
     @Query("UPDATE habits SET isCompleted = 0, graceDaysUsed = 0")
     suspend fun resetForNewDay()
 
+    @Query("UPDATE habits SET pendingStreakBeforeReset = 0")
+    suspend fun clearPendingStreakResets()
+
     @Query("DELETE FROM habits WHERE id = :id")
     suspend fun deleteHabit(id: String)
 
