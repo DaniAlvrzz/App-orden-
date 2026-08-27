@@ -504,7 +504,7 @@ class StringsProvider(val language: AppLanguage) {
     val itemInStockCheck: String get() = if (language == AppLanguage.SPANISH) "Disponible actualmente en despensa" else "Currently available in stock"
     val itemBatchBaseCheck: String get() = if (language == AppLanguage.SPANISH) "Es una base preparada de Batch Cooking" else "Is a prepared Batch Cooking base"
 
-    // Tutorial Steps Content (8 Comprehensive Chapters)
+    // Tutorial Steps Content (10 Comprehensive Chapters covering all Aether OS systems)
     fun getTutorialSteps(): List<TutorialStep> {
         return if (language == AppLanguage.SPANISH) {
             listOf(
@@ -527,120 +527,159 @@ class StringsProvider(val language: AppLanguage) {
                 ),
                 TutorialStep(
                     stepNumber = 2,
-                    title = "Nexus: Centro de Mando Matutino",
-                    subtitle = "Puntuación de Preparación, Cronotipos y Modo Recuperación",
+                    title = "Nexus: Preparación, Cronotipos & Modo Compasivo",
+                    subtitle = "Puntuación de Preparación, Curva Circadiana y Respiración 4-7-8",
                     iconName = "Dashboard",
                     summary = "La pestaña 'Nexus' es tu panel de control matutino. Cada día al despertar, calibras tu nivel de preparación biológica (0 a 100) y observas tu curva de energía según tu cronotipo biológico.",
                     bulletPoints = listOf(
                         "Puntuación de Preparación (Readiness Score): Desliza el control para cuantificar tu energía percibida, calidad de sueño y carga cognitiva.",
                         "4 Cronotipos Circadianos:\n  • 🦁 León: Madrugador con pico máximo de 07:00 a 11:00.\n  • 🐻 Oso: Sincronizado con el ciclo solar, pico de 10:00 a 14:00.\n  • 🐺 Lobo: Vespertino/nocturno, pico creativo de 16:00 a 21:00.\n  • 🐬 Delfín: Sueño ligero y sensible, picos cortos de 10:00 a 12:00.",
-                        "Protocolo de Recuperación Automático (<60): Si tu preparación cae por debajo de 60, Aether OS activa el Modo Recuperación, cancelando tareas de alta exigencia para prevenir agotamiento suprarrenal."
+                        "Modo Compasivo Automático (<60): Si tu preparación cae por debajo de 60, Aether OS escala la exigencia a micro-pasos amables y ofrece un ejercicio de respiración 4-7-8 guiada.",
+                        "Check-in Matutino Retroactivo: Si olvidaste marcar un hábito anoche, el sistema te permite confirmarlo al despertar protegiendo tu racha."
                     ),
                     bioPrinciple = "Ley Biológica: Programa tus tareas por picos hormonales de cortisol y dopamina, nunca por huecos libres en el calendario.",
                     targetTab = 0,
                     exampleScenario = "Caso Real: Como Oso, si marcas 85/100 de preparación, tu tarea Frog de trabajo profundo se agendará automáticamente en la ventana de oro de 10:00 a 12:30.",
-                    actionTip = "Consejo Pro: Selecciona tu cronotipo biológico real para que la curva de energía se ajuste a tus ritmos metabólicos naturales."
+                    actionTip = "Consejo Pro: Si sientes agobio o fatiga extrema, pulsa el botón 'Modo Compasivo' para activar 3 minutos de respiración reguladora."
                 ),
                 TutorialStep(
                     stepNumber = 3,
-                    title = "Techo Cognitivo & Matriz 1-3-5",
-                    subtitle = "La Ley del Frog y el límite biológico de 3.5 horas de foco",
+                    title = "Techo Cognitivo, Matriz 1-3-5 & Bloques",
+                    subtitle = "La Ley del Frog, el límite biológico de 3.5h y la Línea Temporal",
                     iconName = "Speed",
                     summary = "El córtex prefrontal solo puede sostener entre 3 y 4 horas de atención ejecutiva de alta demanda al día. Aether OS impone reglas matemáticas inquebrantables para blindar tu energía mental.",
                     bulletPoints = listOf(
                         "🐸 1 Única Tarea FROG (Tipo A): La prioridad maestra del día con la mayor demanda cognitiva o impacto. Si conquistas tu Frog, tu día es un éxito rotundo.",
                         "⚡ 3 Tareas Medias (Tipo B): Proyectos secundarios de demanda moderada (redacción, análisis, reuniones).",
                         "✨ 5 Micro-Victorias (Tipo C): Gestiones rápidas de logística, pagos o administración (<15 min).",
-                        "⏱️ Techo Cognitivo de 210 min (3.5h): El medidor circular te alertará en rojo si intentas programar más bloques de foco de los que tu cerebro puede procesar."
+                        "⏱️ Techo Cognitivo de 210 min (3.5h): El medidor circular te alertará en rojo si intentas programar más bloques de foco de los que tu cerebro puede procesar.",
+                        "Línea de Tiempo Interactiva: Bloques horarios con estados en tiempo real (En curso, Próximo, Completado) y reordenación ágil."
                     ),
-                    bioPrinciple = "Neurociencia: Forzar más de 3.5 horas de trabajo profundo al día genera deuda cognitiva y fatiga crónica.",
+                    bioPrinciple = "Neurociencia: Forzar más de 3.5 horas de trabajo profundo al día genera deuda cognitiva y fatiga suprarrenal crónica.",
                     targetTab = 0,
                     exampleScenario = "Caso Real: Si marcas tu propuesta de proyecto como Frog, dedícale tu mejor bloque de energía matutina. Al completarla, verás la celebración de Frog conquistado 🔥.",
                     actionTip = "Consejo Pro: En la Bandeja puedes convertir cualquier tarea en Frog pulsando el botón de la rana 🐸."
                 ),
                 TutorialStep(
                     stepNumber = 4,
-                    title = "Bandeja de Energía & Focus Pomodoro",
-                    subtitle = "Captura sin fricción, filtrado bioenergético y alarmas en segundo plano",
+                    title = "Bandeja de Energía, Pomodoro & Brain Dump",
+                    subtitle = "Captura sin fricción, ciclos Pomodoro con alarma y Bandeja de Entrada rápida",
                     iconName = "Bolt",
-                    summary = "La pestaña 'Bandeja' almacena todas tus tareas clasificadas no por listas interminables, sino por su coste energético real (Alta, Media, Baja) para adaptarse a tu estado biológico actual.",
+                    summary = "La pestaña 'Bandeja' almacena tus tareas clasificadas por coste energético real (Alta, Media, Baja) y te ofrece un espacio libre de ideas rápidas.",
                     bulletPoints = listOf(
                         "Captura Rápida (+): Añade cualquier pendiente en segundos especificando únicamente título, energía requerida y duración estimada.",
                         "Filtrado por Nivel de Energía: ¿Tarde con poca energía? Pulsa el filtro 'Baja' para ejecutar micro-tareas sin desgaste mental.",
-                        "Temporizador Focus Integrado: Sesiones de concentración de 25 minutos vinculadas a tu tarea activa.",
-                        "Notificación en Segundo Plano (WorkManager): Programa la alarma de enfoque que te avisará al finalizar la sesión incluso con la app cerrada o pantalla bloqueada.",
-                        "Búsqueda Inteligente & Filtro de Pendientes: Localiza cualquier tarea al instante por título o categoría."
+                        "🧠 Bandeja de Entrada (Brain Dump): Captura notas y pensamientos al vuelo y conviértelos en tareas formales con 1 solo toque.",
+                        "Temporizador Focus con Ciclos (25m / 5m / 15m): Sesiones de concentración con rondas estructuradas vinculadas a tu tarea activa.",
+                        "Notificación en Segundo Plano (WorkManager): Programa la alarma de enfoque que te avisará al finalizar la sesión incluso con la app cerrada."
                     ),
                     bioPrinciple = "Estrategia: Haz coincidir la tarea con tu nivel de energía biológica actual en lugar de forzarte a la fuerza.",
                     targetTab = 1,
-                    exampleScenario = "Caso Real: Tienes 30 minutos antes de almorzar y baja energía. Filtra por 'Baja', selecciona responder 2 correos y activa el temporizador.",
-                    actionTip = "Consejo Pro: Concede el permiso de notificaciones para que el temporizador te alerte al terminar sin tener que mirar el móvil."
+                    exampleScenario = "Caso Real: Tienes una idea rápida mientras trabajas. La escribes en Brain Dump y sigues concentrado. Más tarde, tocas 'Convertir en Tarea'.",
+                    actionTip = "Consejo Pro: Toca el icono de Historial 🕒 en cualquier tarjeta de tarea para ver su cronología individual y estadísticas."
                 ),
                 TutorialStep(
                     stepNumber = 5,
-                    title = "Nutrición Relacional & Batch Cooking",
-                    subtitle = "Comidas en <8 minutos y energía cerebral sin bajones postprandiales",
+                    title = "Nutrición Relacional, Despensa & Duplicador",
+                    subtitle = "Batch Cooking en <8 min, Control de Stock y Duplicación a otros días",
                     iconName = "Restaurant",
                     summary = "La fatiga por decidir qué cocinar destruye la fuerza de voluntad. Aether OS conecta tu stock real de despensa con recetas rápidas basadas en preparaciones de Batch Cooking.",
                     bulletPoints = listOf(
-                        "Bases de Batch Cooking: Cocina 1 o 2 veces por semana bases universales (Quinoa, Batata asada, Pollo marinado, Huevos) y monta comidas completas en menos de 8 minutos.",
+                        "Bases de Batch Cooking: Cocina 1 o 2 veces por semana bases universales (Quinoa, Batata, Pollo, Huevos) y monta comidas completas en menos de 8 minutos.",
                         "Inventario de Despensa & Stock: Alterna qué ingredientes tienes en casa con un simple toque (En stock / Agotado) y genera tu lista de la compra automática.",
-                        "Diseño Anti-Pico Glucémico: Comidas calibradas con bajo índice glucémico y grasas saludables para mantener dopamina estable y evitar niebla mental post-comida."
+                        "Balance Bioenergético de Macros: Visualiza gramos de proteína, carbohidratos, grasas y cálculo de Kcal estimadas en tiempo real.",
+                        "🔁 Duplicador de Comidas: ¿Has cocinado para varios días? Mantén pulsada una comida y duplícala para Mañana (+1), en 2 días o en 3 días con 1 toque."
                     ),
-                    bioPrinciple = "Nutrición Celular: Alimenta tu cerebro sin picos de insulina que provoquen somnolencia reactiva y caída de concentración.",
+                    bioPrinciple = "Nutrición Celular: Alimenta tu cerebro sin picos de insulina que provoquen somnolencia reactiva y niebla mental post-comida.",
                     targetTab = 2,
-                    exampleScenario = "Caso Real: Llegaste cansado a casa. Abres Nutrición, verificas tu base de Quinoa y verduras cocinadas, calientas 4 minutos y cenas sin pedir comida ultraprocesada.",
+                    exampleScenario = "Caso Real: Preparas un salteado de verduras y pollo. Lo registras para hoy y pulsas 'Duplicar a mañana (+1 día)' para tener resuelto tu almuerzo siguiente.",
                     actionTip = "Consejo Pro: Usa la pestaña 'Despensa & Stock' para marcar qué ingredientes necesitas reponer antes de ir al supermercado."
                 ),
                 TutorialStep(
                     stepNumber = 6,
-                    title = "Anclajes Circadianos & Grace Days",
-                    subtitle = "Hábitos anclados a la luz solar y constancia sin remordimientos",
+                    title = "Anclajes Circadianos, Grace Days & Metas Elásticas",
+                    subtitle = "Hábitos solares, elasticidad conductual y protección de rachas",
                     iconName = "WbSunny",
                     summary = "La constancia duradera no depende del castigo ni de la fuerza bruta, sino de anclar tus rutinas a desencadenantes biológicos naturales (fotones solares, temperatura, hidratación).",
                     bulletPoints = listOf(
-                        "5 Anclajes Circadianos Maestros:\n  • ☀️ Fotones Solares Matutinos (10-15 min) para sincronizar tu reloj central (SCN).\n  • 💧 Hidratación con Electrolitos en ayunas.\n  • ☕ Límite de Cafeína a las 14:00 para proteger la adenosina y el sueño profundo.\n  • 🚶 Movimiento Zona 2 (30-45 min de caminata aeróbica suave).\n  • 🌙 Digital Sunset a las 22:00 para estimular la secreción natural de melatonina.",
+                        "5 Anclajes Circadianos Maestros:\n  • ☀️ Luz Solar Matutina (10-15 min) para sincronizar tu reloj central (SCN).\n  • 💧 Hidratación con Electrolitos en ayunas.\n  • ☕ Límite de Cafeína a las 14:00 para proteger la adenosina y el sueño profundo.\n  • 🚶 Movimiento Zona 2 (30-45 min de caminata aeróbica suave).\n  • 🌙 Digital Sunset a las 22:00 para estimular la secreción natural de melatonina.",
                         "Metas Elásticas: Versión 'Mini' (para días de crisis), 'Plus' (estándar diario) y 'Élite' (para días de máxima vitalidad).",
-                        "🛡️ Tokens de Días de Gracia (Grace Days): Si un día imprevisto no puedes realizar un hábito, pulsa 'Activar Grace Day'. Tu racha permanece protegida sin culpa."
+                        "🛡️ Tokens de Días de Gracia (Grace Days): Si un día imprevisto no puedes realizar un hábito, pulsa 'Activar Grace Day'. Tu racha permanece protegida sin culpa.",
+                        "Consistencia de la Semana Actual (L-D): Visualiza de un vistazo tu progreso de la semana en curso directamente en cada tarjeta de hábito."
                     ),
                     bioPrinciple = "Psicología del Comportamiento: Fallar un día es humano; regresar hoy es tu verdadera línea base. Cero culpa.",
                     targetTab = 3,
                     exampleScenario = "Caso Real: Tuviste un viaje inesperado y no pudiste salir a caminar. Activas un Grace Day: tu racha de 47 días sigue intacta y tu identidad se mantiene fuerte.",
-                    actionTip = "Consejo Pro: Los Grace Days son una herramienta biológica, no una trampa. Úsalos con compasión estratégica."
+                    actionTip = "Consejo Pro: Toca la barra semanal o el icono de Historial 🕒 de cualquier hábito para explorar su historial profundo de semanas, meses o años."
                 ),
                 TutorialStep(
                     stepNumber = 7,
-                    title = "Núcleo IA & Reencuadre Cognitivo",
-                    subtitle = "Orquestación Gemini, disolución del autosabotaje y portabilidad de datos",
-                    iconName = "Psychology",
-                    summary = "En el 'Núcleo IA' cuentas con el motor inteligente de Aether OS. Sintetiza planes diarios equilibrados y te ofrece soporte cognitivo en momentos de fricción mental.",
+                    title = "Núcleo IA: Asistente Conversacional & Reencuadre",
+                    subtitle = "Chat Gemini con contexto bio real, Atajos rápidos y Notas Favoritas",
+                    iconName = "Chat",
+                    summary = "En el 'Núcleo IA' cuentas con el motor inteligente de Aether OS. Mantén conversaciones naturales con Gemini, recibe planes horarios y disuelve el autosabotaje mental.",
                     bulletPoints = listOf(
-                        "Orquestación Automática Gemini: Analiza tu preparación matutina, tareas pendientes y cronotipo para generar un plan horario circadiano perfecto.",
-                        "Motor de Respaldo Determinista: Si no tienes conexión o API Key, el motor determinista local genera el plan de inmediato sin fallos.",
-                        "🧠 Reencuadre Cognitivo: ¿Sientes pereza, frustración o culpa por postergar? Escribe tu bloqueo. La IA te responderá con argumentos biológicos para disolver la resistencia.",
-                        "Esquema JSON Maestro: Inspecciona y exporta tu plan diario como JSON estándar para compartirlo o archivarlo."
+                        "Contexto Biológico Real: Gemini analiza en tiempo real tu preparación, tareas pendientes, cronotipo, hábitos y stock de despensa para darte respuestas 100% personalizadas.",
+                        "Atajos Rápidos de 1 Toque:\n  • 🚀 'Planifica mi día'\n  • ⚡ 'Tengo poca energía'\n  • 📊 'Revisión semanal'\n  • ⏱️ '¿Qué hago con 30 min?'",
+                        "⭐ Notas Guardadas: Toca la estrella en cualquier respuesta para anclarla permanentemente en tu pestaña de Notas Favoritas.",
+                        "🧠 Motor de Reencuadre Cognitivo: ¿Sientes pereza o culpa? Escribe tu bloqueo y la IA te devolverá una perspectiva biológica compasiva.",
+                        "Motor de Respaldo Offline Determinista: Si no hay conexión o API Key, el sistema continúa funcionando y generando planes al instante."
                     ),
-                    bioPrinciple = "Integración Holística: Toda tu vida cotidiana sincronizada en una arquitectura limpia, comprensible y exportable.",
+                    bioPrinciple = "Integración Holística: Toda tu vida cotidiana sincronizada en una arquitectura limpia, respetuosa y comprensible.",
                     targetTab = 4,
-                    exampleScenario = "Caso Real: Te sientes culpable por no haber avanzado en un informe. Escribes 'Tengo culpa por no avanzar hoy' y la IA te recuerda que tras 7 horas de trabajo tu córtex está en reposo necesario.",
-                    actionTip = "Consejo Pro: Puedes pulsar 'Copiar JSON' o 'Compartir' en la pestaña IA para guardar tu plan diario en cualquier otra aplicación."
+                    exampleScenario = "Caso Real: Te sientes abrumado por la tarde. Pulsas '¿Qué hago con 30 min?' y la IA te selecciona una tarea de baja energía que puedes liquidar de inmediato.",
+                    actionTip = "Consejo Pro: Puedes copiar cualquier respuesta al portapapeles o exportar el plan diario como JSON con un solo botón."
                 ),
                 TutorialStep(
                     stepNumber = 8,
-                    title = "Sistema de Logros & Maestría Diaria",
-                    subtitle = "10 Medallas bioenergéticas, personalización y soporte bilingüe",
-                    iconName = "EmojiEvents",
-                    summary = "Aether OS premia tu constancia y respeto por tu biología con un sistema de 10 logros desbloqueables que refuerzan tu identidad positiva.",
+                    title = "Historial Persistente & Análisis Individual",
+                    subtitle = "Vistas Anual, Mensual y Diaria con 3 Niveles de Zoom por Elemento",
+                    iconName = "Analytics",
+                    summary = "Aether OS registra tu evolución temporal sin juicio. Accede a métricas globales de consistencia y analiza el rendimiento individual de cada tarea, hábito o comida.",
                     bulletPoints = listOf(
-                        "🏆 10 Medallas Desbloqueables: Conquista tu primera Frog, alcanza rachas de 7 y 30 días, completa 10 y 100 tareas, usa tu primer Grace Day y sintetiza con IA.",
-                        "🔔 Banner de Desbloqueo: Cada vez que alcanzas un hito, aparece una notificación animada en la parte superior.",
-                        "🌐 Soporte Bilingüe Instantáneo: Alterna entre Español e Inglés en cualquier momento con el botón [🇪🇸/🇬🇧] de la barra superior.",
-                        "⚙️ Pizarra Limpia vs Datos Demo: Restaura el estado limpio o carga datos de ejemplo en cualquier momento desde los Ajustes."
+                        "Navegación Temporal Global: Explora tu historial organizado por Año → Mes → Semana/Día.",
+                        "Métricas Clave de Rendimiento: Promedio de cumplimiento, total de acciones completadas, racha máxima y desglose de días óptimos vs moderados.",
+                        "🔍 Historial Individual con 3 Niveles de Zoom:\n  • Vista Semanal: Línea de tiempo diaria con estados y detalles.\n  • Vista Mensual: Calendario interactivo con celdas de calor (Verde = Cumplido, Ámbar = Grace Day, Rojo = Pendiente).\n  • Vista Anual: Matriz de 12 meses con porcentajes acumulados de consistencia.",
+                        "Acceso Directo: Abre el historial individual desde el icono 🕒 de cualquier tarjeta o haciendo clic en los mini-heatmaps."
+                    ),
+                    bioPrinciple = "Ciencia de Datos Personal: Lo que se mide con compasión se consolida; lo que se juzga con culpa se abandona.",
+                    targetTab = 0,
+                    exampleScenario = "Caso Real: ¿Quieres saber qué días completaste el hábito de Luz Solar este mes? Abre su Historial Individual y verás el calendario completo con cada día registrado.",
+                    actionTip = "Consejo Pro: Abre el menú superior de Historial en Nexus para ver las estadísticas globales de todo el sistema."
+                ),
+                TutorialStep(
+                    stepNumber = 9,
+                    title = "Niveles de Usuario, Gamificación & Vitrina de Logros",
+                    subtitle = "Puntos de Experiencia (XP), 10 Ranks Bioenergéticos y Medallas",
+                    iconName = "EmojiEvents",
+                    summary = "Aether OS premia tu constancia y respeto por tu biología con un sistema de progresión de niveles por XP y una vitrina de logros desbloqueables.",
+                    bulletPoints = listOf(
+                        "Barra de Progreso de Nivel (XP): Gana experiencia completando tareas, anclando hábitos, conquistando Frogs y manteniendo sesiones de foco.",
+                        "Ranks Progresivos: Desde 'Semilla Bio' y 'Explorador Circadiano' hasta 'Arquitecto del Foco' y rangos superiores.",
+                        "🏆 10 Medallas de Trofeo: Desbloquea hitos como Primera Victoria, Domador de Ranas, Maestro Circadiano, Escudo de Gracia e Iluminación IA.",
+                        "Animaciones de Dopamina: Casillas con efectos de confetti y fuegos de racha animados que celebran tu progreso intrínseco."
                     ),
                     bioPrinciple = "Dopamina Intrínseca: Recompensar los micro-avances fortalece las rutas neuronales de la constancia.",
                     targetTab = 0,
-                    exampleScenario = "Caso Real: Al completar tu 7mo día consecutivo de hábitos circadianos, desbloquearás la medalla 'Constancia Circadiana' en tu panel de trofeos.",
-                    actionTip = "Consejo Pro: Abre los Ajustes ⚙️ en la esquina superior derecha y toca 'Ver Vitrina de Logros' para consultar tu progreso."
+                    exampleScenario = "Caso Real: Al completar tu 7mo día consecutivo de hábitos circadianos, desbloquearás la medalla 'Constancia Circadiana' con una celebración animada.",
+                    actionTip = "Consejo Pro: Toca la barra de nivel o abre los Ajustes ⚙️ para explorar la vitrina de logros y tu progreso hacia el siguiente nivel."
+                ),
+                TutorialStep(
+                    stepNumber = 10,
+                    title = "Copias de Seguridad, Portabilidad & Pizarra Limpia",
+                    subtitle = "Soberanía total de datos: Backup/Restore JSON y Modo Limpio",
+                    iconName = "Backup",
+                    summary = "Tus datos te pertenecen al 100%. Aether OS incluye herramientas completas de respaldo, restauración y personalización para que tu experiencia sea totalmente tuya.",
+                    bulletPoints = listOf(
+                        "📦 Copia de Seguridad Completa (Backup JSON): Exporta todo el estado de tu app (tareas, hábitos, comidas, despensa, historial, notas y nivel) en un archivo JSON seguro.",
+                        "📥 Restaurar Datos (Restore JSON): Importa tu copia de seguridad en cualquier momento para restaurar tu progreso al instante con validación de esquema.",
+                        "🧹 Pizarra Limpia (Clean Slate): Vacía todos los datos de demostración con 1 toque para comenzar a usar Aether OS con tu vida real.",
+                        "🌐 Soporte Bilingüe Instantáneo: Alterna entre Español e Inglés con el botón [🇪🇸/🇬🇧] en la barra superior."
+                    ),
+                    bioPrinciple = "Soberanía Digital: Sin bloqueos ni servidores cautivos. Tus hábitos y productividad son portables y privados.",
+                    targetTab = 0,
+                    exampleScenario = "Caso Real: Tras explorar las funciones en modo demo, ve a Ajustes ⚙️, pulsa 'Empezar de Cero (Modo Limpio)' y crea tu primer Frog real.",
+                    actionTip = "Consejo Pro: Realiza una copia de seguridad periódica desde Ajustes ⚙️ para guardar tu progreso en tu almacenamiento local o nube personal."
                 )
             )
         } else {
@@ -664,31 +703,33 @@ class StringsProvider(val language: AppLanguage) {
                 ),
                 TutorialStep(
                     stepNumber = 2,
-                    title = "Nexus: Morning Command Hub",
-                    subtitle = "Readiness Score, Chronotypes & Automatic Recovery",
+                    title = "Nexus: Readiness, Chronotypes & Compassion Mode",
+                    subtitle = "Readiness Score, Circadian Energy Curve & 4-7-8 Breathwork",
                     iconName = "Dashboard",
                     summary = "The 'Nexus' tab is your morning command center. Each morning, calibrate your biological readiness score (0-100) and observe your circadian curve mapped to your chronotype.",
                     bulletPoints = listOf(
                         "Biometric Readiness Score (0-100): Slide to quantify your perceived energy, sleep recovery, and mental clarity.",
                         "4 Biological Chronotypes:\n  • 🦁 Lion: Early riser with peak alert from 07:00 to 11:00.\n  • 🐻 Bear: Solar-synchronized, peak focus from 10:00 to 14:00.\n  • 🐺 Wolf: Evening/night peak from 16:00 to 21:00.\n  • 🐬 Dolphin: Light/fragmented sleeper, short focus sprints 10:00 to 12:00.",
-                        "Automatic Recovery Protocol (<60): If readiness drops below 60, Aether OS activates Recovery Mode, pausing high-demand tasks to protect adrenal health."
+                        "Automatic Compassion Mode (<60): If readiness drops below 60, Aether OS scales demand to gentle micro-steps and offers 4-7-8 guided breathwork.",
+                        "Retroactive Morning Check-In: If you forgot to check off a habit last night, confirm it upon waking to protect your streak."
                     ),
                     bioPrinciple = "Biological Law: Schedule tasks by hormonal peaks of cortisol and dopamine, never empty calendar slots.",
                     targetTab = 0,
                     exampleScenario = "Real Scenario: As a Bear with 85/100 readiness, your deep work Frog task is scheduled into your golden window from 10:00 to 12:30.",
-                    actionTip = "Pro Tip: Set your true chronotype in Nexus so your circadian energy curve reflects your biological rhythms."
+                    actionTip = "Pro Tip: If you feel acute overwhelm, tap the Compassion Mode banner to engage in 3 minutes of nervous system regulation."
                 ),
                 TutorialStep(
                     stepNumber = 3,
-                    title = "Cognitive Ceiling & 1-3-5 Matrix",
-                    subtitle = "The Frog Law & 3.5h Deep Work Biological Limit",
+                    title = "Cognitive Ceiling, 1-3-5 Matrix & Timeline",
+                    subtitle = "The Frog Law, 3.5h Deep Work Limit and Interactive Timeline",
                     iconName = "Speed",
                     summary = "The prefrontal cortex can only sustain 3 to 4 hours of high-demand executive focus per day. Aether OS applies mathematical limits to safeguard your mental bandwidth.",
                     bulletPoints = listOf(
                         "🐸 1 Primary FROG Task (Type A): The single most impactful high-demand task of the day. Completing it guarantees a successful day.",
                         "⚡ 3 Medium Tasks (Type B): Secondary projects with moderate cognitive load (writing, analysis, meetings).",
                         "✨ 5 Quick Wins (Type C): Frictionless logistics, admin, or payments (<15 min).",
-                        "⏱️ 210 min Cognitive Ceiling (3.5h): Real-time gauge alerts you in red if you schedule more deep work than your biology can handle."
+                        "⏱️ 210 min Cognitive Ceiling (3.5h): Real-time gauge alerts you in red if you schedule more deep work than your biology can handle.",
+                        "Interactive TimeBlock Timeline: Live status tags (Current, Upcoming, Completed) and instant reordering."
                     ),
                     bioPrinciple = "Neuroscience: Forcing more than 3.5 hours of deep work daily creates cognitive debt and burnout.",
                     targetTab = 0,
@@ -697,87 +738,124 @@ class StringsProvider(val language: AppLanguage) {
                 ),
                 TutorialStep(
                     stepNumber = 4,
-                    title = "Energy Backlog & Focus Pomodoro",
-                    subtitle = "Zero-friction capture, energy filtering and background alarms",
+                    title = "Energy Backlog, Pomodoro & Brain Dump",
+                    subtitle = "Zero-friction capture, Pomodoro cycles with alarms & Brain Dump inbox",
                     iconName = "Bolt",
-                    summary = "The 'Backlog' tab stores all pending tasks organized by biological energy cost (High, Medium, Low) rather than endless unmanageable lists.",
+                    summary = "The 'Backlog' tab stores all pending tasks organized by biological energy cost (High, Medium, Low) and gives you a frictionless ideas inbox.",
                     bulletPoints = listOf(
                         "Quick Capture (+): Log any task in seconds with title, energy level, and estimated duration.",
                         "Dynamic Energy Filter: Feeling tired in the afternoon? Filter by 'Low' to execute quick micro-wins without friction.",
-                        "Integrated Focus Timer: 25-minute single-tasking sprints tied to your active task.",
-                        "Background WorkManager Alarms: Schedules a notification that triggers when your timer ends even if the screen is locked.",
-                        "Smart Search & Pending Filter: Instantly find any task by keywords or category."
+                        "🧠 Brain Dump Inbox: Capture spontaneous thoughts on the fly and convert them into full tasks with 1 tap.",
+                        "Pomodoro Focus Cycles (25m / 5m / 15m): Single-tasking sprints with structured rounds tied to your active task.",
+                        "Background WorkManager Alarms: Schedules an alert that triggers when your timer finishes even with screen locked."
                     ),
                     bioPrinciple = "Strategy: Match the task to your current biological energy instead of forcing motivation.",
                     targetTab = 1,
-                    exampleScenario = "Real Scenario: You have 30 minutes before lunch. Filter by 'Low', select answering 2 emails, and start the timer.",
-                    actionTip = "Pro Tip: Grant notification permissions so the timer alerts you upon completion without keeping the app open."
+                    exampleScenario = "Real Scenario: You have a sudden idea while working. Dump it into the Inbox. Later, tap 'Convert to Task'.",
+                    actionTip = "Pro Tip: Tap the History icon 🕒 on any task card to inspect its individual completion logs and streak metrics."
                 ),
                 TutorialStep(
                     stepNumber = 5,
-                    title = "Relational Nutrition & Batch Cooking",
-                    subtitle = "Meals in <8 minutes and sustained dopamine without post-meal crashes",
+                    title = "Relational Nutrition, Pantry & Meal Duplicator",
+                    subtitle = "Batch Cooking in <8 min, Pantry Stock & 1-Tap Duplication",
                     iconName = "Restaurant",
                     summary = "Food decision fatigue drains executive function. Aether OS links your real pantry inventory to swift, nourishing meals built from pre-cooked batch bases.",
                     bulletPoints = listOf(
                         "Batch Cooking Bases: Cook universal bases 1-2x weekly (Quinoa, Sweet Potato, Roasted Chicken, Eggs) and assemble meals in under 8 minutes.",
                         "Smart Pantry & Stock: Toggle what you have in stock with a single tap (In Stock / Out of Stock) to generate an automated shopping list.",
-                        "Anti-Spike Glycemic Design: Meals calibrated with low glycemic impact and healthy fats for steady dopamine without brain fog."
+                        "Bioenergetic Macro Balance: Real-time grams of protein, carbs, fats, and estimated calorie calculations.",
+                        "🔁 Meal Duplicator: Cooked a double portion? Long-press any meal card and duplicate it to Tomorrow (+1), in 2 days, or in 3 days."
                     ),
-                    bioPrinciple = "Cellular Nutrition: Fuel your brain without insulin spikes that cause reactive fatigue and lethargy.",
+                    bioPrinciple = "Cellular Nutrition: Fuel your brain without insulin spikes that cause reactive fatigue and post-meal lethargy.",
                     targetTab = 2,
-                    exampleScenario = "Real Scenario: Arriving home tired, check your available bases in Nutrition, reheat for 4 minutes, and eat healthy without ordering delivery.",
+                    exampleScenario = "Real Scenario: Prep a stir-fry, log it for today, and tap 'Duplicate to Tomorrow (+1 day)' to have tomorrow's lunch sorted.",
                     actionTip = "Pro Tip: Use the 'Pantry & Stock' tab to mark items that need replenishment before going to the supermarket."
                 ),
                 TutorialStep(
                     stepNumber = 6,
-                    title = "Circadian Habits & Grace Days",
-                    subtitle = "Sunlight-anchored habits and guilt-free consistency",
+                    title = "Circadian Habits, Grace Days & Elastic Targets",
+                    subtitle = "Sunlight anchors, behavioral elasticity and streak shields",
                     iconName = "WbSunny",
                     summary = "Sustainable habits rely on natural biological cues (photons, temperature, hydration) rather than rigid willpower.",
                     bulletPoints = listOf(
                         "5 Master Circadian Anchors:\n  • ☀️ Morning Sunlight Photons (10-15 min) to calibrate your central pacemaker (SCN).\n  • 💧 Mineral Hydration upon waking.\n  • ☕ Caffeine Cutoff at 14:00 to protect adenosine and deep sleep.\n  • 🚶 Zone 2 Movement (30-45 min aerobic walk).\n  • 🌙 Digital Sunset at 22:00 to facilitate natural melatonin secretion.",
                         "Elastic Targets: 'Mini' version (crisis days), 'Plus' (daily standard), and 'Elite' (peak energy days).",
-                        "🛡️ Grace Day Tokens: When unexpected fatigue or events happen, tap 'Apply Grace Day'. Your streak stays protected without guilt."
+                        "🛡️ Grace Day Tokens: When unexpected fatigue or events happen, tap 'Apply Grace Day'. Your streak stays protected without guilt.",
+                        "Current Week Consistency (M-S): Visual calendar pills tracking your progress during the current calendar week."
                     ),
                     bioPrinciple = "Behavioral Psychology: Slipping once is human; returning today is your true baseline. Zero guilt.",
                     targetTab = 3,
                     exampleScenario = "Real Scenario: An unexpected travel day prevented your workout. Activate a Grace Day: your 47-day streak stays intact and identity preserved.",
-                    actionTip = "Pro Tip: Grace Days are a biological tool, not a cheat. Use them with strategic self-compassion."
+                    actionTip = "Pro Tip: Tap any habit's weekly bar or History icon 🕒 to open its comprehensive Week, Month, or Year history view."
                 ),
                 TutorialStep(
                     stepNumber = 7,
-                    title = "Core AI & Cognitive Reframing",
-                    subtitle = "Gemini orchestration, overcoming resistance and portable data",
-                    iconName = "Psychology",
-                    summary = "Access Aether's intelligent core to orchestrate your day and overcome cognitive friction.",
+                    title = "Core AI: Conversational Assistant & Reframing",
+                    subtitle = "Gemini chat with live bio-context, Quick prompts & Favorite notes",
+                    iconName = "Chat",
+                    summary = "Access Aether's intelligent core to converse with Gemini, generate optimal circadian schedules, and dissolve mental friction.",
                     bulletPoints = listOf(
-                        "Automatic Gemini Orchestration: Analyzes your readiness score, tasks, and chronotype to generate an optimal circadian schedule.",
-                        "Deterministic Fallback Engine: If offline or without API key, the offline engine generates a balanced schedule instantly.",
+                        "Live Biological Context: Gemini evaluates your readiness score, tasks, chronotype, habits, and pantry stock for truly personalized advice.",
+                        "1-Tap Quick Action Prompts:\n  • 🚀 'Plan my day'\n  • ⚡ 'I have low energy'\n  • 📊 'Weekly review'\n  • ⏱️ 'What to do in 30 min?'",
+                        "⭐ Saved Notes: Star any response to keep it pinned permanently in your Favorite Notes tab.",
                         "🧠 Cognitive Reframing Engine: Feeling stuck, guilty, or procrastinating? Submit your thought. AI responds with biological reframing to dissolve resistance.",
-                        "Master JSON Schema: Inspect and export your complete daily plan as standard JSON to share or backup."
+                        "Deterministic Offline Fallback: If offline or without API key, the offline engine generates a balanced schedule instantly."
                     ),
                     bioPrinciple = "Holistic Integration: Your entire life orchestrated through an elegant, respectful, and exportable architecture.",
                     targetTab = 4,
-                    exampleScenario = "Real Scenario: Feeling guilty for not finishing a project? Submit 'I feel guilty' and AI reminds you that after 7 hours of focus your prefrontal cortex needs recovery.",
-                    actionTip = "Pro Tip: Tap 'Copy JSON' or 'Share' in the AI tab to export your daily plan to any other app."
+                    exampleScenario = "Real Scenario: Feeling overwhelmed in the afternoon? Tap 'What to do in 30 min?' and AI selects the best low-energy task to clear immediately.",
+                    actionTip = "Pro Tip: You can copy any response to clipboard or export the daily plan as JSON with 1 tap."
                 ),
                 TutorialStep(
                     stepNumber = 8,
-                    title = "Achievement System & Daily Mastery",
-                    subtitle = "10 Bioenergetic Badges, Customization & Bilingual Support",
-                    iconName = "EmojiEvents",
-                    summary = "Aether OS rewards your continuous consistency and biological respect with 10 unlockable achievement badges that reinforce positive habits.",
+                    title = "Persistent History & Individual Analytics",
+                    subtitle = "Year, Month & Day views with 3-Level Zoom per Item",
+                    iconName = "Analytics",
+                    summary = "Aether OS records your evolution over time with zero judgment. View global consistency metrics or drill down into any task, habit, or meal.",
                     bulletPoints = listOf(
-                        "🏆 10 Unlockable Badges: Conquer your first Frog, reach 7-day and 30-day streaks, complete 10 and 100 tasks, use a Grace Day, and orchestrate with AI.",
-                        "🔔 Unlock Banner: When reaching a milestone, an animated celebratory banner appears at the top.",
-                        "🌐 Instant Bilingual Support: Toggle seamlessly between Spanish and English using the top bar chip [🇪🇸/🇬🇧].",
-                        "⚙️ Clean Slate vs Demo Data: Reset to a clean baseline or load demo data anytime in Settings."
+                        "Global Temporal Navigation: Explore your historical performance by Year → Month → Week/Day.",
+                        "Key Bio-Analytics: Average completion rate, total actions completed, maximum streak, and optimal vs moderate day breakdown.",
+                        "🔍 Individual History with 3 Zoom Levels:\n  • Week View: Daily timeline with completion tags and timestamps.\n  • Month View: Full calendar matrix with color-coded heatmap cells.\n  • Year View: 12-month consistency grid with yearly completion percentages.",
+                        "Direct Access: Open individual history by tapping the 🕒 icon on any card or clicking any mini-heatmap."
+                    ),
+                    bioPrinciple = "Personal Data Science: What is measured with compassion grows; what is judged with guilt is abandoned.",
+                    targetTab = 0,
+                    exampleScenario = "Real Scenario: Want to see which days you completed Morning Sunlight this month? Open its Individual History to see the full color-coded calendar.",
+                    actionTip = "Pro Tip: Open the History screen in Nexus to review system-wide consistency across all categories."
+                ),
+                TutorialStep(
+                    stepNumber = 9,
+                    title = "User Levels, Gamification & Trophy Showcase",
+                    subtitle = "Experience Points (XP), 10 Bioenergetic Ranks & Medals",
+                    iconName = "EmojiEvents",
+                    summary = "Aether OS rewards your consistency and biological alignment with an XP progression system and an unlockable achievement showcase.",
+                    bulletPoints = listOf(
+                        "Dynamic Level XP Bar: Earn XP by completing tasks, ticking habits, conquering Frogs, and finishing focus sessions.",
+                        "Progressive Ranks: Climb from 'Bio Seed' and 'Circadian Explorer' to 'Focus Architect' and beyond.",
+                        "🏆 10 Trophy Badges: Unlock milestones like First Win, Frog Conqueror, Circadian Master, Grace Shield, and AI Enlightenment.",
+                        "Dopamine Animations: Custom confetti checkboxes and animated streak flames celebrating your intrinsic progress."
                     ),
                     bioPrinciple = "Intrinsic Dopamine: Rewarding small wins strengthens neural pathways of consistency.",
                     targetTab = 0,
-                    exampleScenario = "Real Scenario: Completing 7 consecutive days of circadian habits unlocks the 'Circadian Consistency' trophy in your achievements dialog.",
-                    actionTip = "Pro Tip: Open Settings ⚙️ in the top right corner and tap 'View Achievement Showcase' to see your badges."
+                    exampleScenario = "Real Scenario: Completing 7 consecutive days of circadian habits unlocks the 'Circadian Consistency' trophy with an animated celebration.",
+                    actionTip = "Pro Tip: Tap your level header bar or open Settings ⚙️ to view your complete achievement trophy showcase."
+                ),
+                TutorialStep(
+                    stepNumber = 10,
+                    title = "Backups, JSON Portability & Clean Slate",
+                    subtitle = "Total data sovereignty: JSON Backup/Restore and Clean Slate Mode",
+                    iconName = "Backup",
+                    summary = "Your data belongs 100% to you. Aether OS includes comprehensive backup, restore, and reset tools so your experience is entirely in your control.",
+                    bulletPoints = listOf(
+                        "📦 Full JSON Backup: Export your entire app state (tasks, habits, meals, pantry, logs, notes, and level) to a secure JSON file.",
+                        "📥 Restore Data: Import your JSON backup at any time to instantly restore your data with schema validation.",
+                        "🧹 Clean Slate Mode: Clear all sample demo data with 1 tap to use Aether OS with your real-world tasks and habits.",
+                        "🌐 Instant Bilingual Support: Switch between Spanish and English anytime with the [🇪🇸/🇬🇧] button in the top bar."
+                    ),
+                    bioPrinciple = "Digital Sovereignty: No lock-in or proprietary walls. Your habits and productivity are completely portable and private.",
+                    targetTab = 0,
+                    exampleScenario = "Real Scenario: After testing demo data, open Settings ⚙️, tap 'Reset to Clean Slate' and begin logging your real life.",
+                    actionTip = "Pro Tip: Make periodic backups from Settings ⚙️ to keep your productivity journey securely backed up on your device or cloud."
                 )
             )
         }

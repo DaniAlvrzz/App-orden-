@@ -415,7 +415,12 @@ private fun getIconForName(name: String): ImageVector {
         "Restaurant" -> Icons.Default.Restaurant
         "WbSunny" -> Icons.Default.WbSunny
         "Psychology" -> Icons.Default.Psychology
+        "History" -> Icons.Default.History
         "EmojiEvents" -> Icons.Default.EmojiEvents
+        "Backup" -> Icons.Default.Backup
+        "SelfImprovement" -> Icons.Default.SelfImprovement
+        "Chat" -> Icons.Default.Chat
+        "Analytics" -> Icons.Default.Analytics
         else -> Icons.Default.Info
     }
 }

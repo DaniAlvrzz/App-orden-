@@ -1315,24 +1315,34 @@ fun AddEditHabitDialog(
                     fontWeight = FontWeight.Bold
                 )
 
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    CircadianAnchor.entries.forEach { a ->
-                        val label = when (a) {
-                            CircadianAnchor.MORNING_LIGHT -> if (language == AppLanguage.SPANISH) "Luz Solar" else "Morning Light"
-                            CircadianAnchor.HYDRATION_ELECTROLYTES -> if (language == AppLanguage.SPANISH) "Hidratación" else "Hydration"
-                            CircadianAnchor.ZONE_2_MOVEMENT -> if (language == AppLanguage.SPANISH) "Zona 2" else "Zone 2"
-                            CircadianAnchor.CAFFEINE_CUTOFF -> if (language == AppLanguage.SPANISH) "Corte Café" else "Caffeine"
-                            CircadianAnchor.DIGITAL_SUNSET -> if (language == AppLanguage.SPANISH) "Ocaso Digital" else "Sunset"
+                    val anchors = CircadianAnchor.entries
+                    val chunked = anchors.chunked(3)
+                    chunked.forEach { rowAnchors ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowAnchors.forEach { a ->
+                                val label = when (a) {
+                                    CircadianAnchor.MORNING_LIGHT -> if (language == AppLanguage.SPANISH) "Luz Solar" else "Morning Light"
+                                    CircadianAnchor.HYDRATION_ELECTROLYTES -> if (language == AppLanguage.SPANISH) "Hidratación" else "Hydration"
+                                    CircadianAnchor.ZONE_2_MOVEMENT -> if (language == AppLanguage.SPANISH) "Zona 2" else "Zone 2"
+                                    CircadianAnchor.CAFFEINE_CUTOFF -> if (language == AppLanguage.SPANISH) "Corte Café" else "Caffeine"
+                                    CircadianAnchor.DIGITAL_SUNSET -> if (language == AppLanguage.SPANISH) "Ocaso Digital" else "Sunset"
+                                    CircadianAnchor.ALL_DAY -> if (language == AppLanguage.SPANISH) "Todo el Día" else "All Day"
+                                }
+                                FilterChip(
+                                    selected = anchor == a,
+                                    onClick = { anchor = a },
+                                    label = { Text(label, fontSize = 10.sp, maxLines = 1) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
-                        FilterChip(
-                            selected = anchor == a,
-                            onClick = { anchor = a },
-                            label = { Text(label, fontSize = 9.sp) },
-                            modifier = Modifier.weight(1f)
-                        )
                     }
                 }
 

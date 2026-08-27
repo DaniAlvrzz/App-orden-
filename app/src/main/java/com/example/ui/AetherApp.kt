@@ -151,6 +151,12 @@ fun AetherApp(
                         onDeleteTask = { viewModel.deleteTaskWithUndo(it) },
                         onMoveMediumTask = { from, to -> viewModel.moveMediumTask(from, to) },
                         onMoveQuickTask = { from, to -> viewModel.moveQuickTask(from, to) },
+                        onOrchestrateClick = { viewModel.triggerOrchestration() },
+                        onToggleTimeBlock = { viewModel.toggleTimeBlock(it) },
+                        onAddTimeBlockClick = { viewModel.setShowAddTimeBlock(true) },
+                        onEditTimeBlock = { viewModel.setEditingTimeBlock(it) },
+                        onDeleteTimeBlock = { viewModel.deleteTimeBlockWithUndo(it) },
+                        onMoveTimeBlock = { from, to -> viewModel.moveTimeBlock(from, to) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenHistory = { viewModel.openHistory() },
                         onOpenSettings = { viewModel.openSettings() },
@@ -181,6 +187,7 @@ fun AetherApp(
                         onResetFocusTimer = { viewModel.resetFocusTimer() },
                         onOpenQuickAdd = { viewModel.setShowQuickAdd(true) },
                         onOpenHistory = { viewModel.openHistory() },
+                        onOpenTaskHistory = { viewModel.openTaskHistory(it) },
                         onAddQuickNote = { viewModel.addQuickNote(it) },
                         onDeleteQuickNote = { viewModel.deleteQuickNote(it) },
                         onConvertQuickNoteToTask = { viewModel.convertQuickNoteToTask(it) }
@@ -208,6 +215,7 @@ fun AetherApp(
                         onOpenAddHabit = { viewModel.setShowAddHabit(true) },
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenHistory = { viewModel.openHistory() },
+                        onOpenHabitHistory = { viewModel.openHabitHistory(it) },
                         onOpenAchievements = { viewModel.setShowAchievementsDialog(true) }
                     )
                     4 -> AetherAiScreen(
@@ -469,6 +477,16 @@ fun AetherApp(
                     state = state,
                     viewModel = viewModel,
                     onDismiss = { viewModel.closeHistory() }
+                )
+            }
+
+            // 14.5 Individual Item History Dialog (Deep dive for specific Task/Habit/Meal/TimeBlock)
+            state.individualHistoryTarget?.let { target ->
+                IndividualHistoryDialog(
+                    target = target,
+                    logs = state.individualHistoryLogs,
+                    language = state.currentLanguage,
+                    onDismiss = { viewModel.closeIndividualHistory() }
                 )
             }
 

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,6 +49,7 @@ fun HabitsScreen(
     onOpenAddHabit: () -> Unit = {},
     onOpenReframe: () -> Unit,
     onOpenHistory: () -> Unit = {},
+    onOpenHabitHistory: (HabitAnchor) -> Unit = {},
     onOpenAchievements: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -59,6 +61,15 @@ fun HabitsScreen(
     val totalGraceDays = state.habits.sumOf { it.graceDaysUsed }
     val consistencyPct = if (totalCount > 0) ((completedCount + totalGraceDays).coerceAtMost(totalCount) * 100 / totalCount) else 0
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var habitPendingDeletion by remember { mutableStateOf<com.example.data.model.HabitAnchor?>(null) }
+    val isSpanish = state.currentLanguage == AppLanguage.SPANISH
+
+    val groupedHabits = remember(state.habits) {
+        CircadianAnchor.entries.associateWith { anchor ->
+            state.habits.filter { it.anchor == anchor }
+        }
+    }
+    var expandedAnchors by remember { mutableStateOf(emptySet<CircadianAnchor>()) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -339,7 +350,7 @@ fun HabitsScreen(
                 }
             }
 
-            // Habit Cards
+            // Habit Cards Grouped by Circadian Anchors
             if (state.habits.isEmpty()) {
                 item {
                     EmptyStateCard(
@@ -356,29 +367,120 @@ fun HabitsScreen(
                     )
                 }
             } else {
-                items(state.habits, key = { it.id }) { habit ->
-                    AetherSwipeToDismissContainer(
-                        onDismiss = { onDeleteHabit(habit) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        HabitAnchorCard(
-                            habit = habit,
-                            language = state.currentLanguage,
-                            recentSummaries = state.historySummaries,
-                            logs = state.historyLogsForSelectedDay,
-                            onToggle = {
-                                try {
-                                    view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                } catch (_: Exception) {}
-                                onToggleHabit(habit)
-                            },
-                            onApplyGrace = { onApplyGraceDay(habit) },
-                            onEdit = { onEditHabit(habit) },
-                            onDelete = { onDeleteHabit(habit) }
-                        )
+                CircadianAnchor.entries.forEach { anchor ->
+                    val habitsForAnchor = groupedHabits[anchor] ?: emptyList()
+                    if (habitsForAnchor.isNotEmpty()) {
+                        val (anchorTitle, anchorIcon, anchorColor) = getAnchorDetails(anchor, isSpanish)
+                        val isExpanded = expandedAnchors.contains(anchor)
+                        val completedInAnchor = habitsForAnchor.count { it.isCompleted }
+                        val totalInAnchor = habitsForAnchor.size
+
+                        item(key = "anchor_header_${anchor.name}") {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            HabitAnchorSectionHeader(
+                                title = anchorTitle,
+                                completedCount = completedInAnchor,
+                                totalCount = totalInAnchor,
+                                icon = anchorIcon,
+                                iconTint = anchorColor,
+                                isExpanded = isExpanded,
+                                onToggle = {
+                                    expandedAnchors = if (isExpanded) {
+                                        expandedAnchors - anchor
+                                    } else {
+                                        expandedAnchors + anchor
+                                    }
+                                },
+                                testTag = "toggle_anchor_${anchor.name}"
+                            )
+                        }
+
+                        if (isExpanded) {
+                            items(habitsForAnchor, key = { it.id }) { habit ->
+                                val requestDelete = {
+                                    if (habit.streakDays > 0) {
+                                        habitPendingDeletion = habit
+                                    } else {
+                                        onDeleteHabit(habit)
+                                    }
+                                }
+
+                                AetherSwipeToDismissContainer(
+                                    onDismiss = requestDelete,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    HabitAnchorCard(
+                                        habit = habit,
+                                        language = state.currentLanguage,
+                                        recentSummaries = state.historySummaries,
+                                        logs = state.historyLogsForSelectedDay,
+                                        onToggle = {
+                                            try {
+                                                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                            } catch (_: Exception) {}
+                                            onToggleHabit(habit)
+                                        },
+                                        onApplyGrace = { onApplyGraceDay(habit) },
+                                        onOpenHistory = { onOpenHabitHistory(habit) },
+                                        onEdit = { onEditHabit(habit) },
+                                        onDelete = requestDelete
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
+        }
+
+        // Habit Streak Deletion Confirmation Dialog
+        habitPendingDeletion?.let { habitToDelete ->
+            val isSpanish = state.currentLanguage == AppLanguage.SPANISH
+            AlertDialog(
+                onDismissRequest = { habitPendingDeletion = null },
+                title = {
+                    Text(
+                        text = if (isSpanish) "🔥 ¿Eliminar hábito con racha activa?" else "🔥 Delete habit with active streak?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AetherCoral
+                    )
+                },
+                text = {
+                    Text(
+                        text = if (isSpanish)
+                            "El hábito \"${habitToDelete.title}\" tiene una racha activa de ${habitToDelete.streakDays} días. Si lo eliminas, perderás este progreso histórico."
+                        else
+                            "The habit \"${habitToDelete.title}\" currently has an active streak of ${habitToDelete.streakDays} days. Deleting it will permanently remove this streak history.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextSecondary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val h = habitPendingDeletion
+                            habitPendingDeletion = null
+                            if (h != null) onDeleteHabit(h)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AetherCoral, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("confirm_delete_habit_btn")
+                    ) {
+                        Text(if (isSpanish) "Eliminar Hábito" else "Delete Habit", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { habitPendingDeletion = null },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(strings.btnCancel, color = AetherTextSecondary)
+                    }
+                },
+                containerColor = AetherSurfaceElevated,
+                shape = RoundedCornerShape(16.dp)
+            )
         }
 
         // 4.1 Confetti Canvas Layer (1.5s particles)
@@ -446,6 +548,7 @@ fun HabitAnchorCard(
     logs: List<CompletionLog> = emptyList(),
     onToggle: () -> Unit,
     onApplyGrace: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     onEdit: () -> Unit = {},
     onDelete: () -> Unit = {}
 ) {
@@ -468,6 +571,16 @@ fun HabitAnchorCard(
         CircadianAnchor.CAFFEINE_CUTOFF -> if (isSpanish) "LÍMITE 14:00" else "CUTOFF 14:00"
         CircadianAnchor.ZONE_2_MOVEMENT -> if (isSpanish) "TARDE CIRCADIANO" else "AFTERNOON (16:00-18:00)"
         CircadianAnchor.DIGITAL_SUNSET -> if (isSpanish) "NOCHE 22:00" else "NIGHT (22:00)"
+        CircadianAnchor.ALL_DAY -> if (isSpanish) "TODO EL DÍA (FLEXIBLE)" else "ALL DAY (FLEXIBLE)"
+    }
+
+    val (anchorIcon, anchorTint) = when (habit.anchor) {
+        CircadianAnchor.MORNING_LIGHT -> Pair(Icons.Default.WbSunny, AetherAmber)
+        CircadianAnchor.HYDRATION_ELECTROLYTES -> Pair(Icons.Default.WaterDrop, AetherCyan)
+        CircadianAnchor.CAFFEINE_CUTOFF -> Pair(Icons.Default.Schedule, AetherCoral)
+        CircadianAnchor.ZONE_2_MOVEMENT -> Pair(Icons.Default.DirectionsRun, AetherEmerald)
+        CircadianAnchor.DIGITAL_SUNSET -> Pair(Icons.Default.NightsStay, AetherPurple)
+        CircadianAnchor.ALL_DAY -> Pair(Icons.Default.AllInclusive, AetherCyan)
     }
 
     Card(
@@ -492,16 +605,16 @@ fun HabitAnchorCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.WbSunny,
+                        imageVector = anchorIcon,
                         contentDescription = null,
-                        tint = AetherAmber,
+                        tint = anchorTint,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = windowLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AetherAmber,
+                        color = anchorTint,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -515,6 +628,19 @@ fun HabitAnchorCard(
                     AnimatedStreakFlameBadge(streakDays = habit.streakDays, language = language)
                     if (habit.graceDaysUsed > 0) {
                         GraceDayBadge(graceDaysUsed = habit.graceDaysUsed, language = language)
+                    }
+                    IconButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .testTag("habit_history_btn_${habit.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = if (isSpanish) "Historial" else "History",
+                            tint = AetherTextMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                     IconButton(onClick = onEdit, modifier = Modifier.size(26.dp)) {
                         Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = AetherTextMuted, modifier = Modifier.size(15.dp))
@@ -553,14 +679,17 @@ fun HabitAnchorCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 4.6 Mini Heatmap Mensual de Consistencia
-            HabitMonthlyHeatmap(
+            // Consistencia de la Semana Actual (L-D) (Clickable para abrir historial completo)
+            HabitWeeklyConsistency(
                 habitId = habit.id,
                 streakDays = habit.streakDays,
                 isCompletedToday = habit.isCompleted,
                 recentSummaries = recentSummaries,
                 logs = logs,
-                language = language
+                language = language,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onOpenHistory() }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -617,3 +746,119 @@ fun HabitAnchorCard(
         }
     }
 }
+
+fun getAnchorDetails(anchor: CircadianAnchor, isSpanish: Boolean): Triple<String, androidx.compose.ui.graphics.vector.ImageVector, Color> {
+    return when (anchor) {
+        CircadianAnchor.MORNING_LIGHT -> Triple(
+            if (isSpanish) "Luz Solar Matutina (Mañana)" else "Morning Sunlight (Early)",
+            Icons.Default.WbSunny,
+            AetherAmber
+        )
+        CircadianAnchor.HYDRATION_ELECTROLYTES -> Triple(
+            if (isSpanish) "Hidratación y Carga Mineral" else "Hydration & Mineral Charge",
+            Icons.Default.WaterDrop,
+            AetherCyan
+        )
+        CircadianAnchor.ZONE_2_MOVEMENT -> Triple(
+            if (isSpanish) "Movimiento Aeróbico Zona 2" else "Zone 2 Movement",
+            Icons.Default.DirectionsRun,
+            AetherEmerald
+        )
+        CircadianAnchor.CAFFEINE_CUTOFF -> Triple(
+            if (isSpanish) "Límite de Cafeína (14:00)" else "Caffeine Cutoff (14:00)",
+            Icons.Default.Schedule,
+            AetherCoral
+        )
+        CircadianAnchor.DIGITAL_SUNSET -> Triple(
+            if (isSpanish) "Ocaso Digital (Noche)" else "Digital Sunset (Night)",
+            Icons.Default.NightsStay,
+            AetherPurple
+        )
+        CircadianAnchor.ALL_DAY -> Triple(
+            if (isSpanish) "A lo Largo del Día (Flexible)" else "Throughout the Day (Flexible)",
+            Icons.Default.AllInclusive,
+            AetherCyan
+        )
+    }
+}
+
+@Composable
+fun HabitAnchorSectionHeader(
+    title: String,
+    completedCount: Int,
+    totalCount: Int,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    val allDone = totalCount > 0 && completedCount == totalCount
+
+    Surface(
+        onClick = onToggle,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (testTag.isNotBlank()) Modifier.testTag(testTag) else Modifier),
+        shape = RoundedCornerShape(12.dp),
+        color = AetherSurfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (allDone) AetherEmerald.copy(alpha = 0.5f) else AetherBorder.copy(alpha = 0.6f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (allDone) AetherEmerald.copy(alpha = 0.2f) else iconTint.copy(alpha = 0.15f),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "$completedCount/$totalCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (allDone) AetherEmerald else iconTint,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isExpanded) "Colapsar" else "Expandir",
+                tint = AetherTextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+

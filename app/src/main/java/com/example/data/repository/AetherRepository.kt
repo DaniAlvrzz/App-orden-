@@ -74,6 +74,12 @@ class AetherRepository(
         }
     }
 
+    fun getLogsByItemId(itemId: String): Flow<List<CompletionLog>> {
+        return completionLogDao.getLogsByItemId(itemId).map { list ->
+            list.map { it.toModel() }
+        }
+    }
+
     suspend fun recalculateDailySummary(dateIso: String = AetherDateUtils.getTodayIso()) {
         taskRepo.recalculateDailySummary(dateIso)
     }

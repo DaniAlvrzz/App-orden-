@@ -86,6 +86,8 @@ data class AetherUiState(
     val selectedHistoryDateIso: String = LocalDate.now().toString(),
     val historySummaries: List<DailySummary> = emptyList(),
     val historyLogsForSelectedDay: List<CompletionLog> = emptyList(),
+    val individualHistoryTarget: IndividualHistoryTarget? = null,
+    val individualHistoryLogs: List<CompletionLog> = emptyList(),
     // Clean Slate & Backup Options
     val wipeHistoryWithCleanSlate: Boolean = false,
     val showRestoreBackupDialog: Boolean = false,
@@ -194,6 +196,7 @@ class AetherViewModel(
     private val feedbackMessageQueue = ArrayDeque<FeedbackMessage>()
     private val feedbackMutex = Mutex()
     private var historyLogsJob: Job? = null
+    private var individualHistoryJob: Job? = null
 
     // Domain Delegates
     val tasksDelegate: TasksDelegate = TasksDelegate(
@@ -519,6 +522,71 @@ class AetherViewModel(
         }
     }
 
+    // --- Individual Item History ---
+    fun openIndividualHistory(target: IndividualHistoryTarget) {
+        _uiState.value = _uiState.value.copy(
+            individualHistoryTarget = target,
+            individualHistoryLogs = emptyList()
+        )
+        individualHistoryJob?.cancel()
+        individualHistoryJob = viewModelScope.launch {
+            repository.getLogsByItemId(target.id).collect { logs ->
+                _uiState.value = _uiState.value.copy(individualHistoryLogs = logs)
+            }
+        }
+    }
+
+    fun openTaskHistory(task: TaskItem) {
+        val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+        val subtitle = when {
+            task.isPermanent -> if (isSpanish) "Tarea Fija / Recurrente" else "Persistent / Daily Task"
+            task.isFrog -> if (isSpanish) "Prioridad Frog" else "Frog Priority"
+            else -> if (isSpanish) "Tarea Puntual" else "Standard Task"
+        }
+        openIndividualHistory(
+            IndividualHistoryTarget(
+                id = task.id,
+                title = task.title,
+                itemType = CompletionItemType.TASK,
+                subtitle = subtitle,
+                isPermanent = task.isPermanent,
+                energyLevel = task.energyLevel,
+                isFrog = task.isFrog
+            )
+        )
+    }
+
+    fun openHabitHistory(habit: HabitAnchor) {
+        val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
+        val anchorDesc = when (habit.anchor) {
+            CircadianAnchor.MORNING_LIGHT -> if (isSpanish) "Luz Solar Matutina" else "Morning Light"
+            CircadianAnchor.HYDRATION_ELECTROLYTES -> if (isSpanish) "Hidratación y Minerales" else "Hydration & Minerals"
+            CircadianAnchor.CAFFEINE_CUTOFF -> if (isSpanish) "Límite Cafeína 14:00" else "Caffeine Cutoff"
+            CircadianAnchor.ZONE_2_MOVEMENT -> if (isSpanish) "Movimiento Zona 2" else "Zone 2 Movement"
+            CircadianAnchor.DIGITAL_SUNSET -> if (isSpanish) "Ocaso Digital" else "Digital Sunset"
+            CircadianAnchor.ALL_DAY -> if (isSpanish) "A lo largo del día" else "Throughout the Day"
+        }
+        openIndividualHistory(
+            IndividualHistoryTarget(
+                id = habit.id,
+                title = habit.title,
+                itemType = CompletionItemType.HABIT,
+                subtitle = anchorDesc,
+                streakDays = habit.streakDays,
+                anchor = habit.anchor,
+                graceDaysUsed = habit.graceDaysUsed
+            )
+        )
+    }
+
+    fun closeIndividualHistory() {
+        individualHistoryJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            individualHistoryTarget = null,
+            individualHistoryLogs = emptyList()
+        )
+    }
+
     // --- Full Backup & Restore ---
     fun toggleWipeHistoryWithCleanSlate() {
         _uiState.value = _uiState.value.copy(wipeHistoryWithCleanSlate = !_uiState.value.wipeHistoryWithCleanSlate)
@@ -762,8 +830,8 @@ class AetherViewModel(
 
     // Focus Timer
     fun startFocusTimer(task: TaskItem? = null) {
-        val currentTask = task ?: _uiState.value.frogTask ?: _uiState.value.tasks.firstOrNull { !it.isCompleted }
-        val durationMinutes = currentTask?.estimatedMinutes ?: 25
+        val currentTask = task ?: _uiState.value.activeFocusTask ?: _uiState.value.frogTask ?: _uiState.value.tasks.firstOrNull { !it.isCompleted }
+        val durationMinutes = currentTask?.estimatedMinutes?.takeIf { it > 0 } ?: 25
         val durationSeconds = durationMinutes * 60
         val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
 

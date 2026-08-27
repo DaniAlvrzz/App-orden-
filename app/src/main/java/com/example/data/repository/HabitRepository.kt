@@ -173,14 +173,15 @@ class HabitRepositoryImpl(
 
     private suspend fun recalculateDailySummary(dateIso: String) {
         val logs = completionLogDao.getLogsByDate(dateIso).first()
-        val allTasks = taskDao.getAllTasks().first()
         val allHabits = habitDao.getAllHabits().first()
         val todaysMeals = mealDao.getMealsForDate(dateIso).first()
 
-        val activeCount = (allTasks.size + allHabits.size + todaysMeals.size).coerceAtLeast(logs.size)
+        // Tasks count for history logs, but not towards the completion percentage
+        val relevantLogs = logs.filter { it.itemType != CompletionItemType.TASK }
+        val activeCount = (allHabits.size + todaysMeals.size).coerceAtLeast(relevantLogs.size)
         val totalCount = activeCount.coerceAtLeast(1)
-        val completedCount = logs.count { it.status == CompletionStatus.COMPLETED }
-        val partialCount = logs.count { it.status == CompletionStatus.PARTIAL }
+        val completedCount = relevantLogs.count { it.status == CompletionStatus.COMPLETED }
+        val partialCount = relevantLogs.count { it.status == CompletionStatus.PARTIAL }
         val ratio = ((completedCount.toFloat() + partialCount.toFloat() * 0.5f) / totalCount.toFloat()).coerceIn(0f, 1f)
 
         dailySummaryDao.insertOrUpdateSummary(

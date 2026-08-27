@@ -231,10 +231,17 @@ class TasksDelegate(
 
     // --- Focus Timer Engine (25/5/15 Pomodoro Cycles) ---
     fun startFocusTimer(task: TaskItem? = null) {
-        val currentTask = task ?: uiState.value.frogTask ?: uiState.value.tasks.firstOrNull { !it.isCompleted }
+        val currentTask = task ?: uiState.value.activeFocusTask ?: uiState.value.frogTask ?: uiState.value.tasks.firstOrNull { !it.isCompleted }
+        val taskDurationMinutes = currentTask?.estimatedMinutes?.takeIf { it > 0 } ?: 25
+        val taskDurationSeconds = taskDurationMinutes * 60
+        val isDifferentTask = task != null && task.id != uiState.value.activeFocusTask?.id
+        val shouldSetDuration = isDifferentTask || !uiState.value.isFocusTimerRunning || uiState.value.focusSecondsRemaining <= 0 || uiState.value.focusSecondsRemaining == 25 * 60
+        val secondsRemaining = if (shouldSetDuration) taskDurationSeconds else uiState.value.focusSecondsRemaining
+
         uiState.value = uiState.value.copy(
             isFocusTimerRunning = true,
-            activeFocusTask = currentTask
+            activeFocusTask = currentTask,
+            focusSecondsRemaining = secondsRemaining
         )
         timerJob?.cancel()
         timerJob = scope.launch {
@@ -255,7 +262,7 @@ class TasksDelegate(
                                 FocusSession(
                                     id = java.util.UUID.randomUUID().toString().take(8),
                                     taskTitle = currentTask?.title ?: "Bloque de Enfoque",
-                                    durationMinutes = 25,
+                                    durationMinutes = taskDurationMinutes,
                                     roundNumber = currentRound
                                 )
                             )
@@ -278,7 +285,7 @@ class TasksDelegate(
                         uiState.value = uiState.value.copy(
                             pomodoroPhase = FocusPhase.WORK,
                             currentPomodoroRound = nextRound,
-                            focusSecondsRemaining = 25 * 60
+                            focusSecondsRemaining = taskDurationSeconds
                         )
                         showFeedback(if (isSpanish) "🚀 ¡Descanso terminado! Iniciando Ronda $nextRound." else "🚀 Break over! Starting Round $nextRound.")
                     }
@@ -293,11 +300,13 @@ class TasksDelegate(
         timerJob?.cancel()
     }
 
-    fun resetFocusTimer(minutes: Int = 25) {
+    fun resetFocusTimer(minutes: Int? = null) {
         timerJob?.cancel()
+        val currentTask = uiState.value.activeFocusTask ?: uiState.value.frogTask ?: uiState.value.tasks.firstOrNull { !it.isCompleted }
+        val targetMinutes = minutes ?: currentTask?.estimatedMinutes?.takeIf { it > 0 } ?: 25
         uiState.value = uiState.value.copy(
             isFocusTimerRunning = false,
-            focusSecondsRemaining = minutes * 60,
+            focusSecondsRemaining = targetMinutes * 60,
             pomodoroPhase = FocusPhase.WORK,
             currentPomodoroRound = 1
         )

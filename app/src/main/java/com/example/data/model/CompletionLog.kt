@@ -22,3 +22,16 @@ data class CompletionLog(
     val status: CompletionStatus,
     val timestamp: Long
 )
+
+data class IndividualHistoryTarget(
+    val id: String,
+    val title: String,
+    val itemType: CompletionItemType,
+    val subtitle: String = "",
+    val streakDays: Int = 0,
+    val isPermanent: Boolean = false,
+    val energyLevel: EnergyLevel? = null,
+    val isFrog: Boolean = false,
+    val anchor: CircadianAnchor? = null,
+    val graceDaysUsed: Int = 0
+)

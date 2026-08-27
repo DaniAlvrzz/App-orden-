@@ -45,6 +45,7 @@ fun SettingsDialog(
 ) {
     val strings = remember(currentLanguage) { StringsProvider(currentLanguage) }
     val isSpanish = currentLanguage == AppLanguage.SPANISH
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -503,7 +504,7 @@ fun SettingsDialog(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 OutlinedButton(
-                                    onClick = onResetToCleanSlate,
+                                    onClick = { showResetConfirmDialog = true },
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = AetherCoral
                                     ),
@@ -548,6 +549,53 @@ fun SettingsDialog(
                     Text(strings.btnClose, fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        if (showResetConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmDialog = false },
+                title = {
+                    Text(
+                        text = if (isSpanish) "⚠️ ¿Restablecer todos los datos?" else "⚠️ Reset all data?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AetherCoral
+                    )
+                },
+                text = {
+                    Text(
+                        text = if (isSpanish) 
+                            "Esta acción eliminará todas tus tareas, bloques y hábitos activos para dejar la app vacía (Clean Slate). Esta acción no se puede deshacer."
+                        else 
+                            "This action will remove all active tasks, time blocks, and habits to start fresh with a Clean Slate. This cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextSecondary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showResetConfirmDialog = false
+                            onResetToCleanSlate()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AetherCoral, contentColor = Color.White),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("confirm_clean_slate_btn")
+                    ) {
+                        Text(if (isSpanish) "Restablecer" else "Reset", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showResetConfirmDialog = false },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(strings.btnCancel, color = AetherTextSecondary)
+                    }
+                },
+                containerColor = AetherSurfaceElevated,
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }

@@ -282,15 +282,17 @@ class TaskRepositoryImpl(
 
     override suspend fun recalculateDailySummary(dateIso: String) {
         val logs = completionLogDao.getLogsByDate(dateIso).first()
-        val allTasks = taskDao.getAllTasks().first()
         val allHabits = habitDao.getAllHabits().first()
         val todaysMeals = mealDao.getMealsForDate(dateIso).first()
 
-        val activeCount = (allTasks.size + allHabits.size + todaysMeals.size).coerceAtLeast(logs.size)
+        val nonTaskLogs = logs.filter { it.itemType != CompletionItemType.TASK }
+        val activeCount = (allHabits.size + todaysMeals.size).coerceAtLeast(nonTaskLogs.size)
         val totalCount = activeCount.coerceAtLeast(1)
-        val completedCount = logs.count { it.status == CompletionStatus.COMPLETED }
-        val partialCount = logs.count { it.status == CompletionStatus.PARTIAL }
-        val ratio = ((completedCount.toFloat() + partialCount.toFloat() * 0.5f) / totalCount.toFloat()).coerceIn(0f, 1f)
+        val completedCount = nonTaskLogs.count { it.status == CompletionStatus.COMPLETED }
+        val partialCount = nonTaskLogs.count { it.status == CompletionStatus.PARTIAL }
+        val ratio = if (allHabits.isNotEmpty() || todaysMeals.isNotEmpty() || nonTaskLogs.isNotEmpty()) {
+            ((completedCount.toFloat() + partialCount.toFloat() * 0.5f) / totalCount.toFloat()).coerceIn(0f, 1f)
+        } else 0f
 
         dailySummaryDao.insertOrUpdateSummary(
             DailySummaryEntity(

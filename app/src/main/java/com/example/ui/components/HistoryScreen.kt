@@ -673,9 +673,13 @@ fun DayHistoryView(
     val partialLogs = remember(logs) { logs.filter { it.status == CompletionStatus.PARTIAL } }
     val missedLogs = remember(logs) { logs.filter { it.status == CompletionStatus.MISSED } }
 
+    val nonTaskLogs = remember(logs) { logs.filter { it.itemType != CompletionItemType.TASK } }
+    val nonTaskCompleted = remember(completedLogs) { completedLogs.filter { it.itemType != CompletionItemType.TASK } }
+    val nonTaskPartial = remember(partialLogs) { partialLogs.filter { it.itemType != CompletionItemType.TASK } }
+
     val daySummary = state.historySummaries.find { it.dateIso == dateIso }
-    val ratio = daySummary?.ratio ?: if (logs.isNotEmpty()) {
-        ((completedLogs.size.toFloat() + partialLogs.size.toFloat() * 0.5f) / logs.size.toFloat()).coerceIn(0f, 1f)
+    val ratio = daySummary?.ratio ?: if (nonTaskLogs.isNotEmpty()) {
+        ((nonTaskCompleted.size.toFloat() + nonTaskPartial.size.toFloat() * 0.5f) / nonTaskLogs.size.toFloat()).coerceIn(0f, 1f)
     } else 0f
 
     LazyColumn(

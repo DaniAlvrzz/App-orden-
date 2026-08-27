@@ -39,6 +39,12 @@ fun NexusScreen(
     onDeleteTask: (TaskItem) -> Unit = {},
     onMoveMediumTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onMoveQuickTask: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
+    onOrchestrateClick: () -> Unit = {},
+    onToggleTimeBlock: (com.example.data.model.TimeBlock) -> Unit = {},
+    onAddTimeBlockClick: () -> Unit = {},
+    onEditTimeBlock: (com.example.data.model.TimeBlock) -> Unit = {},
+    onDeleteTimeBlock: (com.example.data.model.TimeBlock) -> Unit = {},
+    onMoveTimeBlock: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     onOpenReframe: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onOpenSettings: () -> Unit,
@@ -242,7 +248,6 @@ fun NexusScreen(
                 onReadinessChanged = onReadinessChanged,
                 onChronotypeChanged = onChronotypeChanged,
                 onToggleRecoveryMode = onToggleRecoveryMode,
-                onOrchestrateClick = {},
                 onOpenSmartCheckIn = { showSmartCheckInDialog = true },
                 language = state.currentLanguage
             )

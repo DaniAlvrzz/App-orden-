@@ -47,6 +47,7 @@ fun BacklogScreen(
     onResetFocusTimer: () -> Unit,
     onOpenQuickAdd: () -> Unit,
     onOpenHistory: () -> Unit = {},
+    onOpenTaskHistory: (TaskItem) -> Unit = {},
     onPermissionDenied: () -> Unit = {},
     onAddQuickNote: (String) -> Unit = {},
     onDeleteQuickNote: (String) -> Unit = {},
@@ -56,6 +57,8 @@ fun BacklogScreen(
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val isSpanish = state.currentLanguage == AppLanguage.SPANISH
     var onlyPending by remember { mutableStateOf(false) }
+    var isPermanentExpanded by remember { mutableStateOf(false) }
+    var isNonPermanentExpanded by remember { mutableStateOf(false) }
 
     val filteredTasks = state.tasks.filter { task ->
         val matchesEnergy = state.filterEnergyLevel == null || task.energyLevel == state.filterEnergyLevel
@@ -275,7 +278,7 @@ fun BacklogScreen(
             }
         }
 
-        // Task Items List
+        // Task Items List with Collapsible Sections (Fixed vs Non-Fixed Tasks)
         if (filteredTasks.isEmpty()) {
             item {
                 EmptyStateCard(
@@ -292,24 +295,121 @@ fun BacklogScreen(
                 )
             }
         } else {
-            itemsIndexed(filteredTasks, key = { _, task -> task.id }) { index, task ->
-                AetherSwipeToDismissContainer(
-                    onDismiss = { onDeleteTask(task) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    BacklogTaskCard(
-                        task = task,
-                        canMoveUp = index > 0,
-                        canMoveDown = index < filteredTasks.lastIndex,
-                        language = state.currentLanguage,
-                        onToggle = { onToggleTask(task) },
-                        onPromoteToFrog = { onPromoteToFrog(task.id) },
-                        onStartFocus = { onStartFocusTimer(task) },
-                        onEdit = { onEditTask(task) },
-                        onDelete = { onDeleteTask(task) },
-                        onMoveUp = { onMoveTask(index, index - 1) },
-                        onMoveDown = { onMoveTask(index, index + 1) }
-                    )
+            val permanentTasks = filteredTasks.filter { it.isPermanent }
+            val nonPermanentTasks = filteredTasks.filter { !it.isPermanent }
+
+            // 1. Desplegable: Tareas Fijas / Recurrentes
+            item {
+                CollapsibleSectionHeader(
+                    title = if (isSpanish) "Tareas Fijas / Recurrentes" else "Fixed / Persistent Tasks",
+                    count = permanentTasks.size,
+                    icon = Icons.Default.PushPin,
+                    iconTint = AetherPurple,
+                    isExpanded = isPermanentExpanded,
+                    onToggle = { isPermanentExpanded = !isPermanentExpanded },
+                    testTag = "toggle_permanent_tasks_header"
+                )
+            }
+
+            if (isPermanentExpanded) {
+                if (permanentTasks.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard.copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = if (isSpanish) "No hay tareas fijas con los filtros actuales." else "No fixed tasks match current filters.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AetherTextMuted,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                } else {
+                    itemsIndexed(permanentTasks, key = { _, task -> task.id }) { index, task ->
+                        val globalIndex = state.tasks.indexOfFirst { it.id == task.id }
+                        AetherSwipeToDismissContainer(
+                            onDismiss = { onDeleteTask(task) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            BacklogTaskCard(
+                                task = task,
+                                canMoveUp = globalIndex > 0,
+                                canMoveDown = globalIndex >= 0 && globalIndex < state.tasks.lastIndex,
+                                language = state.currentLanguage,
+                                onToggle = { onToggleTask(task) },
+                                onPromoteToFrog = { onPromoteToFrog(task.id) },
+                                onStartFocus = { onStartFocusTimer(task) },
+                                onOpenHistory = { onOpenTaskHistory(task) },
+                                onEdit = { onEditTask(task) },
+                                onDelete = { onDeleteTask(task) },
+                                onMoveUp = { if (globalIndex > 0) onMoveTask(globalIndex, globalIndex - 1) },
+                                onMoveDown = { if (globalIndex >= 0 && globalIndex < state.tasks.lastIndex) onMoveTask(globalIndex, globalIndex + 1) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Desplegable: Tareas Puntuales / No Fijas
+            item {
+                Spacer(modifier = Modifier.height(6.dp))
+                CollapsibleSectionHeader(
+                    title = if (isSpanish) "Tareas Puntuales / No Fijas" else "Standard / Non-Fixed Tasks",
+                    count = nonPermanentTasks.size,
+                    icon = Icons.Default.FormatListBulleted,
+                    iconTint = AetherCyan,
+                    isExpanded = isNonPermanentExpanded,
+                    onToggle = { isNonPermanentExpanded = !isNonPermanentExpanded },
+                    testTag = "toggle_non_permanent_tasks_header"
+                )
+            }
+
+            if (isNonPermanentExpanded) {
+                if (nonPermanentTasks.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = AetherSurfaceCard.copy(alpha = 0.4f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = if (isSpanish) "No hay tareas puntuales con los filtros actuales." else "No standard tasks match current filters.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AetherTextMuted,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                } else {
+                    itemsIndexed(nonPermanentTasks, key = { _, task -> task.id }) { index, task ->
+                        val globalIndex = state.tasks.indexOfFirst { it.id == task.id }
+                        AetherSwipeToDismissContainer(
+                            onDismiss = { onDeleteTask(task) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            BacklogTaskCard(
+                                task = task,
+                                canMoveUp = globalIndex > 0,
+                                canMoveDown = globalIndex >= 0 && globalIndex < state.tasks.lastIndex,
+                                language = state.currentLanguage,
+                                onToggle = { onToggleTask(task) },
+                                onPromoteToFrog = { onPromoteToFrog(task.id) },
+                                onStartFocus = { onStartFocusTimer(task) },
+                                onOpenHistory = { onOpenTaskHistory(task) },
+                                onEdit = { onEditTask(task) },
+                                onDelete = { onDeleteTask(task) },
+                                onMoveUp = { if (globalIndex > 0) onMoveTask(globalIndex, globalIndex - 1) },
+                                onMoveDown = { if (globalIndex >= 0 && globalIndex < state.tasks.lastIndex) onMoveTask(globalIndex, globalIndex + 1) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -408,6 +508,7 @@ fun BacklogTaskCard(
     onToggle: () -> Unit,
     onPromoteToFrog: () -> Unit,
     onStartFocus: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onMoveUp: () -> Unit,
@@ -531,6 +632,19 @@ fun BacklogTaskCard(
                             Text(strings.btnMakeFrog, style = MaterialTheme.typography.labelSmall, color = AetherAmber)
                         }
                     }
+                    IconButton(
+                        onClick = onOpenHistory,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .testTag("task_history_btn_${task.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = if (isSpanish) "Historial" else "History",
+                            tint = AetherTextMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     IconButton(onClick = onEdit, modifier = Modifier.size(26.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
@@ -592,3 +706,71 @@ fun BacklogTaskCard(
         }
     }
 }
+
+@Composable
+fun CollapsibleSectionHeader(
+    title: String,
+    count: Int,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    Surface(
+        onClick = onToggle,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (testTag.isNotBlank()) Modifier.testTag(testTag) else Modifier),
+        shape = RoundedCornerShape(12.dp),
+        color = AetherSurfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AetherBorder.copy(alpha = 0.6f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AetherTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .background(iconTint.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "$count",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = iconTint,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isExpanded) "Colapsar" else "Expandir",
+                tint = AetherTextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+

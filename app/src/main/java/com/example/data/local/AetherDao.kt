@@ -164,6 +164,9 @@ interface CompletionLogDao {
     @Query("SELECT * FROM completion_logs WHERE dateIso BETWEEN :startDateIso AND :endDateIso ORDER BY timestamp DESC")
     fun getLogsBetweenDates(startDateIso: String, endDateIso: String): Flow<List<CompletionLogEntity>>
 
+    @Query("SELECT * FROM completion_logs WHERE itemId = :itemId ORDER BY dateIso ASC, timestamp ASC")
+    fun getLogsByItemId(itemId: String): Flow<List<CompletionLogEntity>>
+
     @Query("SELECT * FROM completion_logs ORDER BY timestamp DESC")
     fun getAllLogs(): Flow<List<CompletionLogEntity>>
 

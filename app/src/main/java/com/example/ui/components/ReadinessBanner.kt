@@ -34,7 +34,6 @@ fun ReadinessBanner(
     onReadinessChanged: (Int) -> Unit,
     onChronotypeChanged: (Chronotype) -> Unit,
     onToggleRecoveryMode: () -> Unit,
-    onOrchestrateClick: () -> Unit,
     onOpenSmartCheckIn: () -> Unit = {},
     language: AppLanguage = AppLanguage.SPANISH,
     modifier: Modifier = Modifier
@@ -132,7 +131,7 @@ fun ReadinessBanner(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 2. Main Interactive Actions Row (Equally Weighted, Spacious & Clear)
+            // 2. Main Interactive Actions Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -152,19 +151,19 @@ fun ReadinessBanner(
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,
-                            contentDescription = null,
+                            contentDescription = if (isSpanish) "Calibración" else "Calibration",
                             tint = AetherCyan,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isSpanish) "Chequeo IA" else "Smart Check",
+                            text = if (isSpanish) "Calibrar" else "Calibrate",
                             style = MaterialTheme.typography.labelMedium,
                             color = AetherCyan,
                             fontWeight = FontWeight.Bold,
@@ -191,22 +190,22 @@ fun ReadinessBanner(
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
                             imageVector = if (isRecovery) Icons.Default.Spa else Icons.Default.Bedtime,
-                            contentDescription = null,
+                            contentDescription = if (isRecovery) "Modo Recuperación" else "Modo Estándar",
                             tint = if (isRecovery) AetherEmerald else AetherTextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (isRecovery) {
-                                if (isSpanish) "Recuperación ON" else "Recovery ON"
+                                if (isSpanish) "Recuperación" else "Recovery"
                             } else {
-                                if (isSpanish) "Modo Suave" else "Shift Recovery"
+                                if (isSpanish) "Modo Suave" else "Gentle Mode"
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = if (isRecovery) AetherEmerald else AetherTextSecondary,
