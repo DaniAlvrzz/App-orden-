@@ -28,7 +28,7 @@ import java.time.LocalDate
         QuickNoteEntity::class,
         FocusSessionEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -254,6 +254,25 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v10 to v11:
+         * One-time data repair for the "phantom grace days" bug. Before this fix, the weekly
+         * Grace Day counter only reset when the app happened to be opened ON a Monday
+         * (checking `today.dayOfWeek == MONDAY`) instead of checking whether a Monday had
+         * occurred at all since the last time the app was used. Any user who skipped opening
+         * the app across a Monday kept a stale, non-zero `graceDaysUsed` carried over from a
+         * previous week — even though they never actually used a Grace Day in the new week.
+         * The rollover logic itself is already fixed (see AetherDateUtils.hasMondayBetween),
+         * but that fix only affects the calculation going forward: it cannot retroactively
+         * correct values already sitting in the database from before the fix existed. This
+         * migration clears that stale count once so every habit starts the new logic clean.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE `habits` SET `graceDaysUsed` = 0")
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -261,7 +280,7 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
                 // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
                 // Every schema version bump must ship an explicit Migration, or real user
