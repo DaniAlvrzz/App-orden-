@@ -178,7 +178,8 @@ fun HabitEntity.toModel() = HabitAnchor(
     graceDayLastUsedDate = graceDayLastUsedDate,
     lastCompletedDate = lastCompletedDate,
     reframingTip = reframingTip,
-    pendingStreakBeforeReset = pendingStreakBeforeReset
+    pendingStreakBeforeReset = pendingStreakBeforeReset,
+    bestStreakDays = bestStreakDays
 )
 
 fun HabitAnchor.toEntity() = HabitEntity(
@@ -193,7 +194,8 @@ fun HabitAnchor.toEntity() = HabitEntity(
     graceDayLastUsedDate = graceDayLastUsedDate,
     lastCompletedDate = lastCompletedDate,
     reframingTip = reframingTip,
-    pendingStreakBeforeReset = pendingStreakBeforeReset
+    pendingStreakBeforeReset = pendingStreakBeforeReset,
+    bestStreakDays = bestStreakDays
 )
 
 fun QuickNoteEntity.toModel() = QuickNoteItem(

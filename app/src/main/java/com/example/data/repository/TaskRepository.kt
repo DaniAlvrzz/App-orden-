@@ -399,6 +399,7 @@ class TaskRepositoryImpl(
                 habitDao.updateHabit(
                     habit.copy(
                         streakDays = restoredStreak,
+                        bestStreakDays = maxOf(habit.bestStreakDays, restoredStreak),
                         pendingStreakBeforeReset = 0,
                         lastCompletedDate = yesterdayIso,
                         isCompleted = false

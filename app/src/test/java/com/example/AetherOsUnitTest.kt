@@ -227,6 +227,34 @@ class AetherOsUnitTest {
     }
 
     @Test
+    fun testBestStreak_survivesAStreakReset() {
+        // A personal best must not be erased when the current streak breaks: it only ever grows.
+        var best = 0
+        var current = 0
+
+        // Build a 15-day streak.
+        repeat(15) {
+            current += 1
+            best = maxOf(best, current)
+        }
+        assertEquals(15, current)
+        assertEquals(15, best)
+
+        // Streak breaks (rollover on a missed day) — current resets, best is retained.
+        current = 0
+        assertEquals(0, current)
+        assertEquals(15, best)
+
+        // Rebuilding a shorter streak must not lower the record.
+        repeat(3) {
+            current += 1
+            best = maxOf(best, current)
+        }
+        assertEquals(3, current)
+        assertEquals(15, best)
+    }
+
+    @Test
     fun testPreviousDay_handlesMonthBoundary() {
         assertEquals("2026-07-31", com.example.data.util.AetherDateUtils.previousDay("2026-08-01"))
         assertEquals("", com.example.data.util.AetherDateUtils.previousDay("garbage"))

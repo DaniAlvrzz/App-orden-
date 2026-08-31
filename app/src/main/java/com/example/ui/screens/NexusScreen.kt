@@ -57,6 +57,7 @@ fun NexusScreen(
     onOpenBreathwork: () -> Unit = {},
     onDismissBreathwork: () -> Unit = {},
     onDismissCompassionMode: () -> Unit = {},
+    onDismissRolloverNotice: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
@@ -227,6 +228,17 @@ fun NexusScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // Daily Rollover Summary (what happened to yesterday / the days you were away)
+        state.dailyRolloverNotice?.let { notice ->
+            item {
+                com.example.ui.components.DailyRolloverSummaryCard(
+                    notice = notice,
+                    language = state.currentLanguage,
+                    onDismiss = onDismissRolloverNotice
+                )
             }
         }
 

@@ -122,7 +122,9 @@ class HabitRepositoryImpl(
             habit.toEntity().copy(
                 isCompleted = newCompleted,
                 streakDays = newStreak,
-                lastCompletedDate = newLastCompletedDate
+                lastCompletedDate = newLastCompletedDate,
+                // Personal best only ever grows; it must survive future streak resets.
+                bestStreakDays = maxOf(habit.bestStreakDays, newStreak)
             )
         )
 

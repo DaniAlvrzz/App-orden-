@@ -171,7 +171,8 @@ fun AetherApp(
                         onDismissMorningCheckIn = { viewModel.dismissMorningCheckIn() },
                         onOpenBreathwork = { viewModel.setShowBreathwork(true) },
                         onDismissBreathwork = { viewModel.setShowBreathwork(false) },
-                        onDismissCompassionMode = { viewModel.dismissCompassionMode() }
+                        onDismissCompassionMode = { viewModel.dismissCompassionMode() },
+                        onDismissRolloverNotice = { viewModel.dismissDailyRolloverNotice() }
                     )
                     1 -> BacklogScreen(
                         state = state,

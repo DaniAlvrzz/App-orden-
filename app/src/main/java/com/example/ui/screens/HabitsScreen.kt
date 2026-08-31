@@ -537,6 +537,42 @@ fun GraceDayBadge(
 }
 
 /**
+ * Personal best streak badge. Kept visually quieter than the active streak flame so it reads
+ * as a record to aim back at rather than a competing "current" status.
+ */
+@Composable
+fun BestStreakBadge(
+    bestStreakDays: Int,
+    language: AppLanguage = AppLanguage.SPANISH,
+    modifier: Modifier = Modifier
+) {
+    val isSpanish = language == AppLanguage.SPANISH
+    Surface(
+        color = AetherAmber.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(AetherAmber.copy(alpha = 0.35f)),
+            width = 1.dp
+        ),
+        modifier = modifier.testTag("best_streak_badge")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "🏆", fontSize = 12.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (isSpanish) "Récord $bestStreakDays" else "Best $bestStreakDays",
+                style = MaterialTheme.typography.labelSmall,
+                color = AetherAmber,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+/**
  * 4.1 Habit Card with Spring Bounce Animation on completion toggle
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -626,6 +662,11 @@ fun HabitAnchorCard(
                 ) {
                     // 4.2 Animated Streak Flame Badge
                     AnimatedStreakFlameBadge(streakDays = habit.streakDays, language = language)
+                    // Personal best — only worth showing once it exceeds the current streak,
+                    // otherwise the flame badge already conveys the same number.
+                    if (habit.bestStreakDays > habit.streakDays) {
+                        BestStreakBadge(bestStreakDays = habit.bestStreakDays, language = language)
+                    }
                     if (habit.graceDaysUsed > 0) {
                         GraceDayBadge(graceDaysUsed = habit.graceDaysUsed, language = language)
                     }

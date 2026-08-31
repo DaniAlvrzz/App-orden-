@@ -28,7 +28,7 @@ import java.time.LocalDate
         QuickNoteEntity::class,
         FocusSessionEntity::class
     ],
-    version = 11,
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -273,6 +273,35 @@ abstract class AetherDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Non-destructive Migration from Database v11 to v12:
+         * Adds the indices that day-scoped queries actually rely on. Every meal query now
+         * filters by dateIso, and completion logs are frequently looked up by itemId (per-item
+         * history, duplicate-log checks during rollover). Without these, both were full table
+         * scans that get progressively slower as history accumulates.
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_meals_dateIso` ON `meals` (`dateIso`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_completion_logs_itemId` ON `completion_logs` (`itemId`)")
+            }
+        }
+
+        /**
+         * Non-destructive Migration from Database v12 to v13:
+         * Adds bestStreakDays so a personal best survives a broken streak. Existing rows are
+         * backfilled from whatever streak they currently hold (and from pendingStreakBeforeReset
+         * if a reset is mid-flight), so users don't start at zero having already earned a streak.
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `bestStreakDays` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    "UPDATE `habits` SET `bestStreakDays` = MAX(`streakDays`, `pendingStreakBeforeReset`)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AetherDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -280,7 +309,7 @@ abstract class AetherDatabase : RoomDatabase() {
                     AetherDatabase::class.java,
                     "aether_os_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 .fallbackToDestructiveMigrationOnDowngrade() // Safe fallback on downgrade only
                 // NOTE: no blanket fallbackToDestructiveMigration() here on purpose.
                 // Every schema version bump must ship an explicit Migration, or real user

@@ -46,7 +46,10 @@ data class PantryEntity(
     val quantityDesc: String = "Sufficient"
 )
 
-@Entity(tableName = "meals")
+@Entity(
+    tableName = "meals",
+    indices = [Index(value = ["dateIso"])]
+)
 data class MealEntity(
     @PrimaryKey val id: String,
     val slot: MealSlot,
@@ -79,7 +82,13 @@ data class HabitEntity(
     val maxGraceDaysPerPeriod: Int = 2,
     val graceDayLastUsedDate: String = "",
     val lastCompletedDate: String = "",
-    val pendingStreakBeforeReset: Int = 0
+    val pendingStreakBeforeReset: Int = 0,
+    /**
+     * Highest streak this habit has ever reached. Kept separately from [streakDays] so that
+     * breaking a long streak doesn't erase the record of having achieved it — the personal
+     * best survives the reset and gives the user something to aim back at.
+     */
+    val bestStreakDays: Int = 0
 )
 
 @Entity(
@@ -115,7 +124,7 @@ data class BiometricEntity(
 
 @Entity(
     tableName = "completion_logs",
-    indices = [Index(value = ["dateIso"])]
+    indices = [Index(value = ["dateIso"]), Index(value = ["itemId"])]
 )
 data class CompletionLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

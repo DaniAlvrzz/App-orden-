@@ -36,7 +36,10 @@ class DailyEndOfDayWorker(
 
             val tasks = taskDao.getAllTasks().first()
             val habits = habitDao.getAllHabits().first()
-            val meals = mealDao.getAllMeals().first()
+            // Meals are per-day (dateIso). getAllMeals() would return every meal ever logged,
+            // so the MISSED sweep below would rewrite historical meals from past days every
+            // night at 23:55, corrupting completed history.
+            val meals = mealDao.getMealsForDate(todayIso).first()
             val blocks = timeBlockDao.getAllTimeBlocks().first()
 
             val existingLogs = completionLogDao.getLogsByDate(todayIso).first()

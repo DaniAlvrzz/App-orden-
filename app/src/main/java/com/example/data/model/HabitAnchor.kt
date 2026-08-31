@@ -24,6 +24,8 @@ data class HabitAnchor(
     val maxGraceDaysPerPeriod: Int = 2,
     val graceDayLastUsedDate: String = "",
     val lastCompletedDate: String = "",
-    val pendingStreakBeforeReset: Int = 0
+    val pendingStreakBeforeReset: Int = 0,
+    /** Highest streak ever reached for this habit; survives a streak reset. */
+    val bestStreakDays: Int = 0
 )
 

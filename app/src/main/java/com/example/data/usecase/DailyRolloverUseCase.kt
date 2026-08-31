@@ -57,6 +57,9 @@ class DailyRolloverUseCase(
             var completedTasks = 0
             var completedHabits = 0
             var completedMeals = 0
+            var preservedStreaks = 0
+            var brokenStreaks = 0
+            var rolledOverTasks = 0
 
             database.withTransaction {
                 val tasks = taskDao.getAllTasks().first()
@@ -95,6 +98,7 @@ class DailyRolloverUseCase(
                         }
                     } else if (!task.isArchived) {
                         // Preserved in backlog as uncompleted
+                        rolledOverTasks++
                         taskDao.updateTask(task.copy(isCompleted = false))
                     }
                 }
@@ -130,6 +134,7 @@ class DailyRolloverUseCase(
                         )
                     } else if (isGraceProtected) {
                         // Protected by Grace Day: Keep streak intact
+                        preservedStreaks++
                         habitDao.updateHabit(
                             habit.copy(
                                 isCompleted = false,
@@ -142,6 +147,7 @@ class DailyRolloverUseCase(
                         // lastCompletedDate is deliberately cleared here: leaving a stale date
                         // behind desynchronises it from streakDays (which is now 0) and corrupts
                         // the streak arithmetic in toggleHabitComplete on later days.
+                        if (habit.streakDays > 0) brokenStreaks++
                         habitDao.updateHabit(
                             habit.copy(
                                 isCompleted = false,
@@ -245,6 +251,10 @@ class DailyRolloverUseCase(
             DailyRolloverResult(
                 previousDateIso = lastDate,
                 currentDateIso = today,
+                daysDiff = AetherDateUtils.daysBetween(lastDate, today),
+                preservedHabitStreaksCount = preservedStreaks,
+                brokenHabitStreaksCount = brokenStreaks,
+                rolledOverTasksCount = rolledOverTasks,
                 completedTasksCount = completedTasks,
                 completedHabitsCount = completedHabits,
                 completedMealsCount = completedMeals
