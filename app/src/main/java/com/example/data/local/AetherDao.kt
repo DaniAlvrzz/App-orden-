@@ -113,7 +113,23 @@ interface MealDao {
 
 @Dao
 interface HabitDao {
-    @Query("SELECT * FROM habits")
+    // Explicit, stable ordering. Without an ORDER BY, SQLite gives no guarantee of row order,
+    // so the habit list could silently reshuffle between sessions or after an update. The enum
+    // is stored as its NAME (text), so a plain "ORDER BY anchor" would sort alphabetically
+    // (ALL_DAY, CAFFEINE_CUTOFF, ... MORNING_LIGHT) instead of chronologically — hence the
+    // explicit CASE mapping to the real circadian order, with title as a stable tie-breaker.
+    @Query("""
+        SELECT * FROM habits
+        ORDER BY CASE anchor
+            WHEN 'MORNING_LIGHT' THEN 0
+            WHEN 'HYDRATION_ELECTROLYTES' THEN 1
+            WHEN 'ZONE_2_MOVEMENT' THEN 2
+            WHEN 'CAFFEINE_CUTOFF' THEN 3
+            WHEN 'DIGITAL_SUNSET' THEN 4
+            WHEN 'ALL_DAY' THEN 5
+            ELSE 6
+        END ASC, title ASC
+    """)
     fun getAllHabits(): Flow<List<HabitEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

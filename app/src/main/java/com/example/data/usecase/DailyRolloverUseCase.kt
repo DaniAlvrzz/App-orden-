@@ -138,11 +138,15 @@ class DailyRolloverUseCase(
                             )
                         )
                     } else {
-                        // Missed without grace day: store previous streak before resetting to 0
+                        // Missed without grace day: store previous streak before resetting to 0.
+                        // lastCompletedDate is deliberately cleared here: leaving a stale date
+                        // behind desynchronises it from streakDays (which is now 0) and corrupts
+                        // the streak arithmetic in toggleHabitComplete on later days.
                         habitDao.updateHabit(
                             habit.copy(
                                 isCompleted = false,
                                 streakDays = 0,
+                                lastCompletedDate = "",
                                 graceDaysUsed = updatedGraceDaysUsed,
                                 pendingStreakBeforeReset = habit.streakDays
                             )
@@ -181,6 +185,42 @@ class DailyRolloverUseCase(
 
                 // 5. Summarize previous day's metrics
                 recalculateDailySummary(lastDate)
+
+                // 5b. Backfill the skipped days between lastDate and today.
+                // The rollover only runs when the app is opened, and it processes a single
+                // transition (lastDate -> today). If the user didn't open the app for several
+                // days, every day in between was never closed out: those dates had no logs and
+                // no daily summary at all, so history/heatmap showed silent holes and streak
+                // maths behaved as if only ONE day had been missed instead of N. Writing an
+                // explicit MISSED entry per habit for each skipped day makes "the user wasn't
+                // there" indistinguishable-in-outcome from "the user didn't do it" — which is
+                // the correct semantics for a streak — while keeping the history honest.
+                // Capped to avoid pathological writes if the app is reopened months later.
+                val skippedDates = AetherDateUtils.datesBetweenExclusive(lastDate, today)
+                if (skippedDates.isNotEmpty()) {
+                    val habitsForBackfill = habitDao.getAllHabits().first()
+                    skippedDates.forEach { skippedDate ->
+                        val existingLogs = completionLogDao.getLogsByDate(skippedDate).first()
+                        val alreadyLoggedIds = existingLogs.map { it.itemId }.toSet()
+                        habitsForBackfill.forEach { habit ->
+                            // Never overwrite a log the user created themselves for that date
+                            // (e.g. a retroactive confirmation) — only fill genuine gaps.
+                            if (!alreadyLoggedIds.contains(habit.id)) {
+                                completionLogDao.insertLog(
+                                    CompletionLogEntity(
+                                        dateIso = skippedDate,
+                                        itemType = CompletionItemType.HABIT,
+                                        itemId = habit.id,
+                                        title = habit.title,
+                                        status = CompletionStatus.MISSED,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                )
+                            }
+                        }
+                        recalculateDailySummary(skippedDate)
+                    }
+                }
 
                 // 6. Ensure baseline biometrics for today
                 val latestBio = biometricDao.getLatestBiometric().first()

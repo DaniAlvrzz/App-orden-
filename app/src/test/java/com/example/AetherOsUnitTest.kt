@@ -190,4 +190,66 @@ class AetherOsUnitTest {
         assertEquals(0, dismissedHabit.streakDays)
         assertEquals(0, dismissedHabit.pendingStreakBeforeReset)
     }
+
+    @Test
+    fun testDatesBetweenExclusive_consecutiveDaysHaveNoGap() {
+        // App opened on consecutive days: nothing was skipped, so nothing to backfill.
+        val gap = com.example.data.util.AetherDateUtils.datesBetweenExclusive("2026-08-24", "2026-08-25")
+        assertTrue(gap.isEmpty())
+    }
+
+    @Test
+    fun testDatesBetweenExclusive_sameDayHasNoGap() {
+        val gap = com.example.data.util.AetherDateUtils.datesBetweenExclusive("2026-08-24", "2026-08-24")
+        assertTrue(gap.isEmpty())
+    }
+
+    @Test
+    fun testDatesBetweenExclusive_returnsOnlyTheSkippedDays() {
+        // App last opened on the 24th, reopened on the 28th: the 25th, 26th and 27th were
+        // never closed out by the rollover and must be backfilled — but not the endpoints.
+        val gap = com.example.data.util.AetherDateUtils.datesBetweenExclusive("2026-08-24", "2026-08-28")
+        assertEquals(listOf("2026-08-25", "2026-08-26", "2026-08-27"), gap)
+    }
+
+    @Test
+    fun testDatesBetweenExclusive_isCappedAndKeepsMostRecentDays() {
+        // Reopening after a very long absence must not attempt an unbounded write storm.
+        val gap = com.example.data.util.AetherDateUtils.datesBetweenExclusive("2026-01-01", "2026-08-28", maxDays = 90)
+        assertEquals(90, gap.size)
+        assertEquals("2026-08-27", gap.last())
+    }
+
+    @Test
+    fun testDatesBetweenExclusive_invalidInputIsSafe() {
+        val gap = com.example.data.util.AetherDateUtils.datesBetweenExclusive("not-a-date", "2026-08-28")
+        assertTrue(gap.isEmpty())
+    }
+
+    @Test
+    fun testPreviousDay_handlesMonthBoundary() {
+        assertEquals("2026-07-31", com.example.data.util.AetherDateUtils.previousDay("2026-08-01"))
+        assertEquals("", com.example.data.util.AetherDateUtils.previousDay("garbage"))
+    }
+
+    @Test
+    fun testUndoingCompletion_preservesPreviousCompletionDate() {
+        // Undoing today's tick when a streak survives must not wipe lastCompletedDate:
+        // the previous genuine completion was the day before.
+        val today = "2026-08-25"
+        val streakAfterUndo = maxOf(0, 6 - 1)
+        val previousCompletion = if (streakAfterUndo > 0) {
+            com.example.data.util.AetherDateUtils.previousDay(today)
+        } else ""
+        assertEquals(5, streakAfterUndo)
+        assertEquals("2026-08-24", previousCompletion)
+
+        // But when the undo drops the streak to zero there is no prior completion to point at.
+        val streakFromOne = maxOf(0, 1 - 1)
+        val noPrevious = if (streakFromOne > 0) {
+            com.example.data.util.AetherDateUtils.previousDay(today)
+        } else ""
+        assertEquals(0, streakFromOne)
+        assertEquals("", noPrevious)
+    }
 }

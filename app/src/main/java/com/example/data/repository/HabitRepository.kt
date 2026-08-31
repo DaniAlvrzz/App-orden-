@@ -102,7 +102,17 @@ class HabitRepositoryImpl(
             }
         } else {
             if (habit.lastCompletedDate == today) {
-                Pair(maxOf(0, habit.streakDays - 1), "")
+                // Undoing today's completion. Clearing lastCompletedDate outright would erase
+                // the record of the previous genuine completion, so derive it from the streak
+                // that remains: if a streak survives the undo, the last real completion was
+                // yesterday; if the streak drops to 0 there is no prior completion to point at.
+                val revertedStreak = maxOf(0, habit.streakDays - 1)
+                val previousCompletion = if (revertedStreak > 0) {
+                    AetherDateUtils.previousDay(today)
+                } else {
+                    ""
+                }
+                Pair(revertedStreak, previousCompletion)
             } else {
                 Pair(habit.streakDays, habit.lastCompletedDate)
             }
