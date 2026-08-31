@@ -77,12 +77,10 @@ fun HabitWeeklyConsistency(
         logs.filter { it.itemId == habitId }.associateBy { it.dateIso }
     }
 
-    val summaryByDate = remember(recentSummaries) {
-        recentSummaries.associateBy { it.dateIso }
-    }
-
-    // 7 days of the CURRENT week (Monday to Sunday)
-    val weekDays = remember(startOfWeek, today, habitId, streakDays, isCompletedToday, habitLogsByDate, summaryByDate) {
+    // The global daily summary is intentionally NOT consulted for per-habit day states:
+    // it aggregates every habit, task and meal, so it can't tell us anything about whether
+    // THIS habit was done. Kept as a parameter for API compatibility with existing callers.
+    val weekDays = remember(startOfWeek, today, habitId, isCompletedToday, habitLogsByDate) {
         (0..6).map { dayOffset ->
             val date = startOfWeek.plusDays(dayOffset.toLong())
             val dateIso = date.toString()
@@ -107,29 +105,25 @@ fun HabitWeeklyConsistency(
                         CompletionStatus.COMPLETED -> DayCompletionState.COMPLETED to AetherEmerald
                         CompletionStatus.PARTIAL -> DayCompletionState.GRACE to AetherAmber
                         CompletionStatus.MISSED -> DayCompletionState.MISSED to AetherCoral.copy(alpha = 0.6f)
-                        null -> DayCompletionState.MISSED to AetherSurfaceCard.copy(alpha = 0.35f)
+                        null -> DayCompletionState.NO_DATA to AetherSurfaceCard.copy(alpha = 0.35f)
                     }
                 }
-                summaryByDate.containsKey(dateIso) -> {
-                    val summary = summaryByDate[dateIso]
-                    if (summary != null && summary.ratio >= 0.7f) {
-                        DayCompletionState.COMPLETED to AetherEmerald
-                    } else if (summary != null && summary.ratio > 0f) {
-                        DayCompletionState.GRACE to AetherAmber
-                    } else {
-                        DayCompletionState.MISSED to AetherSurfaceCard.copy(alpha = 0.35f)
-                    }
-                }
-                // Fallback simulation based on streak (strictly for past days within current streak)
+                // No per-habit log for this past date.
+                //
+                // Previously this fell back to (a) the GLOBAL daily summary and (b) a simulation
+                // derived from the current streak. Both were wrong for a per-habit view:
+                // the daily summary aggregates EVERY habit, task and meal, so completing any
+                // other item that day produced ratio > 0 and painted THIS habit — untouched —
+                // as an amber "grace day used", which is a state the user never triggered.
+                // The streak-based simulation had the mirror problem, inventing green ticks
+                // for days that were never actually logged.
+                //
+                // With the rollover now backfilling explicit MISSED logs for skipped days, a
+                // genuine miss always has its own record. So an absent record here means only
+                // one thing: this habit wasn't being tracked that day (created later, or before
+                // logging began). That is NO_DATA, not a miss and certainly not a grace day.
                 isPast -> {
-                    val daysAgo = java.time.temporal.ChronoUnit.DAYS.between(date, today).toInt()
-                    val wasCompleted = if (isCompletedToday) {
-                        daysAgo in 1 until streakDays
-                    } else {
-                        daysAgo in 1..streakDays
-                    }
-                    if (wasCompleted) DayCompletionState.COMPLETED to AetherEmerald
-                    else DayCompletionState.MISSED to AetherSurfaceCard.copy(alpha = 0.35f)
+                    DayCompletionState.NO_DATA to AetherSurfaceCard.copy(alpha = 0.35f)
                 }
                 else -> DayCompletionState.FUTURE to AetherSurfaceCard.copy(alpha = 0.25f)
             }
@@ -257,6 +251,7 @@ private fun RowScope.DayPill(item: WeekDayItem) {
                         DayCompletionState.COMPLETED -> AetherEmerald.copy(alpha = 0.2f)
                         DayCompletionState.GRACE -> AetherAmber.copy(alpha = 0.2f)
                         DayCompletionState.MISSED -> AetherSurfaceCard.copy(alpha = 0.35f)
+                        DayCompletionState.NO_DATA -> Color.Transparent
                         DayCompletionState.PENDING_TODAY -> AetherCyan.copy(alpha = 0.15f)
                         DayCompletionState.FUTURE -> Color.Transparent
                     }
@@ -312,6 +307,15 @@ private fun RowScope.DayPill(item: WeekDayItem) {
                         color = AetherTextMuted.copy(alpha = 0.6f)
                     )
                 }
+                DayCompletionState.NO_DATA -> {
+                    // A dash, not a number: visually says "nothing was tracked here" rather
+                    // than implying the day was assessed and failed.
+                    Text(
+                        text = "–",
+                        fontSize = 9.sp,
+                        color = AetherTextMuted.copy(alpha = 0.3f)
+                    )
+                }
                 DayCompletionState.FUTURE -> {
                     Text(
                         text = item.dayNumber.toString(),
@@ -329,6 +333,13 @@ private enum class DayCompletionState {
     GRACE,
     PENDING_TODAY,
     MISSED,
+    /**
+     * No record exists for this habit on this date — typically a day before the habit was
+     * created, or before the app started logging. Deliberately distinct from MISSED: "we have
+     * no data" is not the same claim as "the user failed to do it", and rendering the two
+     * identically makes the history lie about days the user was never even tracked on.
+     */
+    NO_DATA,
     FUTURE
 }
 
