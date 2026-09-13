@@ -4,7 +4,9 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -57,6 +59,8 @@ fun IndividualHistoryDialog(
     target: IndividualHistoryTarget,
     logs: List<CompletionLog>,
     language: AppLanguage,
+    onToggleTargetForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> },
+    onMarkNotDoneForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
     val isSpanish = language == AppLanguage.SPANISH
@@ -207,7 +211,9 @@ fun IndividualHistoryDialog(
                             typeColor = typeColor,
                             selectedDateIso = selectedDateIso,
                             onSelectDate = { selectedDateIso = it },
-                            onOffsetChange = { selectedWeekOffset = it }
+                            onOffsetChange = { selectedWeekOffset = it },
+                            onToggleTargetForDate = onToggleTargetForDate,
+                            onMarkNotDoneForDate = onMarkNotDoneForDate
                         )
                     }
                     IndividualHistoryViewMode.MONTH -> {
@@ -224,7 +230,9 @@ fun IndividualHistoryDialog(
                             onMonthChange = { newMonth, newYear ->
                                 selectedMonth = newMonth
                                 selectedYear = newYear
-                            }
+                            },
+                            onToggleTargetForDate = onToggleTargetForDate,
+                            onMarkNotDoneForDate = onMarkNotDoneForDate
                         )
                     }
                     IndividualHistoryViewMode.YEAR -> {
@@ -242,9 +250,169 @@ fun IndividualHistoryDialog(
                             },
                             onYearChange = { newYear ->
                                 selectedYear = newYear
+                            },
+                            onSelectDate = { dateIso ->
+                                selectedDateIso = dateIso
+                                val parsed = try { LocalDate.parse(dateIso) } catch (e: Exception) { null }
+                                if (parsed != null) {
+                                    selectedYear = parsed.year
+                                    selectedMonth = parsed.monthValue
+                                }
+                                viewMode = IndividualHistoryViewMode.MONTH
                             }
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// REUSABLE SELECTED DAY DETAILS & ACTION CARD (Allows marking complete or not done for any date)
+// -------------------------------------------------------------------------------------------------
+@Composable
+fun IndividualSelectedDayCard(
+    target: IndividualHistoryTarget,
+    inspectedDateIso: String,
+    inspectedLog: CompletionLog?,
+    locale: Locale,
+    isSpanish: Boolean,
+    onToggleCompletion: (dateIso: String) -> Unit,
+    onMarkNotDone: (dateIso: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val today = remember { LocalDate.now() }
+    val inspectedDate = try { LocalDate.parse(inspectedDateIso) } catch (e: Exception) { today }
+    val isCompleted = inspectedLog?.status == CompletionStatus.COMPLETED
+    val isMissed = inspectedLog?.status == CompletionStatus.MISSED
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AetherBorder.copy(alpha = 0.5f)),
+        modifier = modifier.fillMaxWidth().testTag("individual_selected_day_card")
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${inspectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }}, ${inspectedDate.dayOfMonth} de ${inspectedDate.month.getDisplayName(TextStyle.FULL, locale)}",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = AetherTextPrimary
+                )
+
+                if (inspectedLog != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = when (inspectedLog.status) {
+                            CompletionStatus.COMPLETED -> AetherEmerald.copy(alpha = 0.2f)
+                            CompletionStatus.PARTIAL -> AetherAmber.copy(alpha = 0.2f)
+                            CompletionStatus.MISSED -> AetherCoral.copy(alpha = 0.2f)
+                        }
+                    ) {
+                        Text(
+                            text = when (inspectedLog.status) {
+                                CompletionStatus.COMPLETED -> if (isSpanish) "✓ Completado" else "✓ Completed"
+                                CompletionStatus.PARTIAL -> if (isSpanish) "🛡️ Gracia Aplicada" else "🛡️ Grace Applied"
+                                CompletionStatus.MISSED -> if (isSpanish) "✕ No Realizado" else "✕ Missed"
+                            },
+                            color = when (inspectedLog.status) {
+                                CompletionStatus.COMPLETED -> AetherEmerald
+                                CompletionStatus.PARTIAL -> AetherAmber
+                                CompletionStatus.MISSED -> AetherCoral
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = if (inspectedDate.isAfter(today)) (if (isSpanish) "Día futuro" else "Future day") else (if (isSpanish) "Sin registro" else "No log"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted
+                    )
+                }
+            }
+
+            if (inspectedLog != null && inspectedLog.status == CompletionStatus.COMPLETED) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val timeStr = remember(inspectedLog.timestamp) {
+                    val instant = java.time.Instant.ofEpochMilli(inspectedLog.timestamp)
+                    val zdt = instant.atZone(java.time.ZoneId.systemDefault())
+                    String.format(Locale.US, "%02d:%02d", zdt.hour, zdt.minute)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = AetherTextMuted, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isSpanish) "Registrado a las $timeStr" else "Recorded at $timeStr",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AetherTextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action Buttons: Marcar como hecha / Marcar como no hecha
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Button 1: Toggle/Complete
+                FilledTonalButton(
+                    onClick = { onToggleCompletion(inspectedDateIso) },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (isCompleted) AetherEmerald.copy(alpha = 0.25f) else AetherCyan.copy(alpha = 0.18f),
+                        contentColor = if (isCompleted) AetherEmerald else AetherCyan
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).testTag("dialog_mark_complete_btn")
+                ) {
+                    Icon(
+                        imageVector = if (isCompleted) Icons.Default.CheckCircle else Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isCompleted) {
+                            if (isSpanish) "Completada ✓" else "Completed ✓"
+                        } else {
+                            if (isSpanish) "Marcar Hecha" else "Mark Done"
+                        },
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                // Button 2: Mark as Not Done (No hecha)
+                FilledTonalButton(
+                    onClick = { onMarkNotDone(inspectedDateIso) },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (isMissed) AetherCoral.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (isMissed) AetherCoral else AetherTextSecondary
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f).testTag("dialog_mark_not_done_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isMissed) {
+                            if (isSpanish) "No Hecha ✕" else "Missed ✕"
+                        } else {
+                            if (isSpanish) "Marcar No Hecha" else "Mark Not Done"
+                        },
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
                 }
             }
         }
@@ -264,7 +432,9 @@ fun IndividualWeekHistoryView(
     typeColor: Color,
     selectedDateIso: String?,
     onSelectDate: (String) -> Unit,
-    onOffsetChange: (Int) -> Unit
+    onOffsetChange: (Int) -> Unit,
+    onToggleTargetForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> },
+    onMarkNotDoneForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> }
 ) {
     val today = remember { LocalDate.now() }
     val todayIso = today.toString()
@@ -499,81 +669,20 @@ fun IndividualWeekHistoryView(
             }
         }
 
-        // Selected Day Details / Log info
+        // Selected Day Details / Log info with interactive actions
         item {
             val inspectedDateIso = selectedDateIso ?: todayIso
-            val inspectedDate = try { LocalDate.parse(inspectedDateIso) } catch (e: Exception) { today }
             val inspectedLog = logsByDate[inspectedDateIso]
 
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AetherBorder.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${inspectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }}, ${inspectedDate.dayOfMonth} de ${inspectedDate.month.getDisplayName(TextStyle.FULL, locale)}",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = AetherTextPrimary
-                        )
-
-                        if (inspectedLog != null) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = when (inspectedLog.status) {
-                                    CompletionStatus.COMPLETED -> AetherEmerald.copy(alpha = 0.2f)
-                                    CompletionStatus.PARTIAL -> AetherAmber.copy(alpha = 0.2f)
-                                    CompletionStatus.MISSED -> AetherCoral.copy(alpha = 0.2f)
-                                }
-                            ) {
-                                Text(
-                                    text = when (inspectedLog.status) {
-                                        CompletionStatus.COMPLETED -> if (isSpanish) "✓ Completado" else "✓ Completed"
-                                        CompletionStatus.PARTIAL -> if (isSpanish) "🛡️ Gracia Aplicada" else "🛡️ Grace Applied"
-                                        CompletionStatus.MISSED -> if (isSpanish) "✕ No Realizado" else "✕ Missed"
-                                    },
-                                    color = when (inspectedLog.status) {
-                                        CompletionStatus.COMPLETED -> AetherEmerald
-                                        CompletionStatus.PARTIAL -> AetherAmber
-                                        CompletionStatus.MISSED -> AetherCoral
-                                    },
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = if (inspectedDate.isAfter(today)) (if (isSpanish) "Día futuro" else "Future day") else (if (isSpanish) "Sin registro" else "No log"),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AetherTextMuted
-                            )
-                        }
-                    }
-
-                    if (inspectedLog != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val timeStr = remember(inspectedLog.timestamp) {
-                            val instant = java.time.Instant.ofEpochMilli(inspectedLog.timestamp)
-                            val zdt = instant.atZone(java.time.ZoneId.systemDefault())
-                            String.format(Locale.US, "%02d:%02d", zdt.hour, zdt.minute)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AccessTime, contentDescription = null, tint = AetherTextMuted, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (isSpanish) "Completado a las $timeStr" else "Completed at $timeStr",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AetherTextSecondary
-                            )
-                        }
-                    }
-                }
-            }
+            IndividualSelectedDayCard(
+                target = target,
+                inspectedDateIso = inspectedDateIso,
+                inspectedLog = inspectedLog,
+                locale = locale,
+                isSpanish = isSpanish,
+                onToggleCompletion = { dateIso -> onToggleTargetForDate(target, dateIso) },
+                onMarkNotDone = { dateIso -> onMarkNotDoneForDate(target, dateIso) }
+            )
         }
     }
 }
@@ -592,7 +701,9 @@ fun IndividualMonthHistoryView(
     typeColor: Color,
     selectedDateIso: String?,
     onSelectDate: (String) -> Unit,
-    onMonthChange: (newMonth: Int, newYear: Int) -> Unit
+    onMonthChange: (newMonth: Int, newYear: Int) -> Unit,
+    onToggleTargetForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> },
+    onMarkNotDoneForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> }
 ) {
     val ym = remember(year, month) { YearMonth.of(year, month) }
     val monthName = ym.month.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }
@@ -837,85 +948,27 @@ fun IndividualMonthHistoryView(
             }
         }
 
-        // Selected Day Details
+        // Selected Day Details / Log info with interactive actions
         if (selectedDateIso != null) {
-            val inspectedDate = try { LocalDate.parse(selectedDateIso) } catch (e: Exception) { today }
             val inspectedLog = logsByDate[selectedDateIso]
 
             item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AetherBorder.copy(alpha = 0.5f))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "${inspectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }}, ${inspectedDate.dayOfMonth} de ${inspectedDate.month.getDisplayName(TextStyle.FULL, locale)}",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = AetherTextPrimary
-                            )
-
-                            if (inspectedLog != null) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = when (inspectedLog.status) {
-                                        CompletionStatus.COMPLETED -> AetherEmerald.copy(alpha = 0.2f)
-                                        CompletionStatus.PARTIAL -> AetherAmber.copy(alpha = 0.2f)
-                                        CompletionStatus.MISSED -> AetherCoral.copy(alpha = 0.2f)
-                                    }
-                                ) {
-                                    Text(
-                                        text = when (inspectedLog.status) {
-                                            CompletionStatus.COMPLETED -> if (isSpanish) "✓ Cumplido" else "✓ Completed"
-                                            CompletionStatus.PARTIAL -> if (isSpanish) "🛡️ Gracia" else "🛡️ Grace"
-                                            CompletionStatus.MISSED -> if (isSpanish) "✕ No Realizado" else "✕ Missed"
-                                        },
-                                        color = when (inspectedLog.status) {
-                                            CompletionStatus.COMPLETED -> AetherEmerald
-                                            CompletionStatus.PARTIAL -> AetherAmber
-                                            CompletionStatus.MISSED -> AetherCoral
-                                        },
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        if (inspectedLog != null) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            val timeStr = remember(inspectedLog.timestamp) {
-                                val instant = java.time.Instant.ofEpochMilli(inspectedLog.timestamp)
-                                val zdt = instant.atZone(java.time.ZoneId.systemDefault())
-                                String.format(Locale.US, "%02d:%02d", zdt.hour, zdt.minute)
-                            }
-                            Text(
-                                text = if (isSpanish) "Registrado a las $timeStr" else "Recorded at $timeStr",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AetherTextSecondary
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (inspectedDate.isAfter(today)) (if (isSpanish) "Día futuro sin completar" else "Future day") else (if (isSpanish) "Sin registro para este día" else "No completion logged"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AetherTextMuted
-                            )
-                        }
-                    }
-                }
+                IndividualSelectedDayCard(
+                    target = target,
+                    inspectedDateIso = selectedDateIso,
+                    inspectedLog = inspectedLog,
+                    locale = locale,
+                    isSpanish = isSpanish,
+                    onToggleCompletion = { dateIso -> onToggleTargetForDate(target, dateIso) },
+                    onMarkNotDone = { dateIso -> onMarkNotDoneForDate(target, dateIso) }
+                )
             }
         }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
-// LEVEL 3: INDIVIDUAL YEAR VIEW (12 MONTH CARDS WITH MINI HEATMAP SQUARES)
+// LEVEL 3: INDIVIDUAL YEAR VIEW (12 MONTH CARDS WITH REAL CALENDAR ALIGNMENT + 52-WEEK HEATMAP)
 // -------------------------------------------------------------------------------------------------
 @Composable
 fun IndividualYearHistoryView(
@@ -926,10 +979,9 @@ fun IndividualYearHistoryView(
     locale: Locale,
     typeColor: Color,
     onSelectMonth: (year: Int, month: Int) -> Unit,
-    onYearChange: (newYear: Int) -> Unit
+    onYearChange: (newYear: Int) -> Unit,
+    onSelectDate: (dateIso: String) -> Unit = {}
 ) {
-    val currentYear = LocalDate.now().year
-
     // Year completions count
     val yearPrefix = "$year-"
     val yearLogs = remember(logsByDate, yearPrefix) {
@@ -942,11 +994,13 @@ fun IndividualYearHistoryView(
         yearLogs.count { it.value.status == CompletionStatus.PARTIAL }
     }
 
+    var subViewMode by remember { mutableStateOf(0) } // 0 = 12 Meses, 1 = 52 Semanas
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Year Navigation Header
         Card(
@@ -972,7 +1026,7 @@ fun IndividualYearHistoryView(
                         color = AetherTextPrimary
                     )
                     Text(
-                        text = "$totalYearCompleted ${if (isSpanish) "días completados en el año" else "completed days this year"}",
+                        text = "$totalYearCompleted ${if (isSpanish) "días completados en el año" else "completed days this year"}${if (totalYearGrace > 0) " (+$totalYearGrace parciales)" else ""}",
                         style = MaterialTheme.typography.labelMedium,
                         color = AetherEmerald,
                         fontWeight = FontWeight.SemiBold
@@ -985,30 +1039,70 @@ fun IndividualYearHistoryView(
             }
         }
 
-        // 12 Months Grid with Mini-Heatmap Squares
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 145.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize()
+        // Sub-view toggle (12 Meses vs Muro 52 Semanas)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items((1..12).toList()) { month ->
-                val ym = YearMonth.of(year, month)
-                val monthName = ym.month.getDisplayName(TextStyle.SHORT, locale).replaceFirstChar { it.uppercase() }
-                val daysInMonth = ym.lengthOfMonth()
-                val prefix = String.format(Locale.US, "%04d-%02d", year, month)
-                val monthLogsCount = logsByDate.filter { it.key.startsWith(prefix) && it.value.status == CompletionStatus.COMPLETED }.size
+            FilterChip(
+                selected = subViewMode == 0,
+                onClick = { subViewMode = 0 },
+                leadingIcon = {
+                    Icon(Icons.Default.CalendarViewMonth, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+                label = { Text(if (isSpanish) "12 Meses" else "12 Months") },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = subViewMode == 1,
+                onClick = { subViewMode = 1 },
+                leadingIcon = {
+                    Icon(Icons.Default.ViewWeek, contentDescription = null, modifier = Modifier.size(16.dp))
+                },
+                label = { Text(if (isSpanish) "52 Semanas" else "52 Weeks") },
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-                IndividualMonthMiniHeatmapCard(
-                    monthName = monthName,
-                    monthNumber = month,
-                    year = year,
-                    daysInMonth = daysInMonth,
-                    completedCount = monthLogsCount,
-                    logsByDate = logsByDate,
-                    onClick = { onSelectMonth(year, month) }
-                )
+        if (subViewMode == 0) {
+            // 12 Months Grid with True Calendar Alignment & Weekday Headers
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 150.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items((1..12).toList()) { month ->
+                    val ym = YearMonth.of(year, month)
+                    val monthName = ym.month.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }
+                    val daysInMonth = ym.lengthOfMonth()
+                    val prefix = String.format(Locale.US, "%04d-%02d", year, month)
+                    val monthLogsCount = logsByDate.filter { it.key.startsWith(prefix) && it.value.status == CompletionStatus.COMPLETED }.size
+
+                    IndividualMonthMiniHeatmapCard(
+                        monthName = monthName,
+                        monthNumber = month,
+                        year = year,
+                        daysInMonth = daysInMonth,
+                        completedCount = monthLogsCount,
+                        logsByDate = logsByDate,
+                        typeColor = typeColor,
+                        isSpanish = isSpanish,
+                        onSelectDate = onSelectDate,
+                        onClick = { onSelectMonth(year, month) }
+                    )
+                }
             }
+        } else {
+            // 52-Week Continuous Annual Heatmap Wall
+            IndividualAnnualContinuousHeatmapCard(
+                year = year,
+                logsByDate = logsByDate,
+                typeColor = typeColor,
+                isSpanish = isSpanish,
+                onSelectDate = onSelectDate
+            )
         }
     }
 }
@@ -1021,9 +1115,26 @@ fun IndividualMonthMiniHeatmapCard(
     daysInMonth: Int,
     completedCount: Int,
     logsByDate: Map<String, CompletionLog>,
+    typeColor: Color,
+    isSpanish: Boolean = true,
+    onSelectDate: ((String) -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val todayIso = remember { LocalDate.now().toString() }
     val today = remember { LocalDate.now() }
+
+    // First day of month offset (1 = Monday, 7 = Sunday)
+    val firstDayOfWeek = remember(year, monthNumber) {
+        LocalDate.of(year, monthNumber, 1).dayOfWeek.value
+    }
+    val offset = firstDayOfWeek - 1 // 0 for Monday, 6 for Sunday
+    val totalCells = offset + daysInMonth
+    val totalRows = (totalCells + 6) / 7
+
+    val weekdayHeaders = remember(isSpanish) {
+        if (isSpanish) listOf("L", "M", "X", "J", "V", "S", "D")
+        else listOf("M", "T", "W", "T", "F", "S", "S")
+    }
 
     Card(
         shape = RoundedCornerShape(14.dp),
@@ -1038,6 +1149,7 @@ fun IndividualMonthMiniHeatmapCard(
             modifier = Modifier.padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Month title and completed days badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1046,57 +1158,361 @@ fun IndividualMonthMiniHeatmapCard(
                 Text(
                     text = monthName,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = AetherTextPrimary
+                    color = AetherTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (completedCount > 0) AetherEmerald.copy(alpha = 0.2f) else AetherSurfaceCard
+                    color = if (completedCount > 0) AetherEmerald.copy(alpha = 0.18f) else AetherSurfaceCard
                 ) {
                     Text(
-                        text = "$completedCount d",
+                        text = "$completedCount/$daysInMonth d",
                         color = if (completedCount > 0) AetherEmerald else AetherTextMuted,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp),
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                         fontSize = 10.sp
                     )
                 }
             }
 
-            // Mini Heatmap Squares (7 columns x total weeks)
+            // Weekday Headers: L M X J V S D with Weekend Highlighting
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                weekdayHeaders.forEachIndexed { index, letter ->
+                    val isWeekend = index >= 5
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 0.5.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                if (isWeekend) AetherIndigo.copy(alpha = 0.18f)
+                                else Color.Transparent
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = letter,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isWeekend) FontWeight.ExtraBold else FontWeight.Medium
+                            ),
+                            color = if (isWeekend) AetherIndigo else AetherTextMuted,
+                            textAlign = TextAlign.Center,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(vertical = 1.dp)
+                        )
+                    }
+                }
+            }
+
+            // Real Calendar Days Grid (Properly offset by firstDayOfWeek)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                val totalWeeks = (daysInMonth + 6) / 7
-                for (w in 0 until totalWeeks) {
+                for (r in 0 until totalRows) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        for (d in 1..7) {
-                            val dayNum = w * 7 + d
-                            if (dayNum <= daysInMonth) {
+                        for (c in 0 until 7) {
+                            val cellIndex = r * 7 + c
+                            val dayNum = cellIndex - offset + 1
+                            val isWeekend = c >= 5
+
+                            if (dayNum in 1..daysInMonth) {
                                 val dateIso = String.format(Locale.US, "%04d-%02d-%02d", year, monthNumber, dayNum)
                                 val log = logsByDate[dateIso]
-                                val date = LocalDate.of(year, monthNumber, dayNum)
-                                val isFuture = date.isAfter(today)
+                                val cellDate = LocalDate.of(year, monthNumber, dayNum)
+                                val isFuture = cellDate.isAfter(today)
+                                val isToday = dateIso == todayIso
 
                                 val color = when {
                                     log?.status == CompletionStatus.COMPLETED -> AetherEmerald
                                     log?.status == CompletionStatus.PARTIAL -> AetherAmber
                                     log?.status == CompletionStatus.MISSED -> AetherCoral.copy(alpha = 0.6f)
-                                    isFuture -> AetherSurfaceCard.copy(alpha = 0.2f)
+                                    isFuture -> AetherSurfaceCard.copy(alpha = 0.15f)
+                                    isWeekend -> AetherIndigo.copy(alpha = 0.12f)
                                     else -> AetherSurfaceCard.copy(alpha = 0.45f)
                                 }
 
                                 Box(
                                     modifier = Modifier
-                                        .size(9.dp)
-                                        .clip(RoundedCornerShape(2.dp))
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(1.dp)
+                                        .clip(RoundedCornerShape(2.5.dp))
                                         .background(color)
-                                )
+                                        .then(
+                                            if (isToday) Modifier.border(1.2.dp, typeColor, RoundedCornerShape(2.5.dp))
+                                            else if (isWeekend && !isFuture && log?.status != CompletionStatus.COMPLETED) {
+                                                Modifier.border(0.5.dp, AetherIndigo.copy(alpha = 0.35f), RoundedCornerShape(2.5.dp))
+                                            } else Modifier
+                                        )
+                                        .clickable {
+                                            if (onSelectDate != null) onSelectDate(dateIso)
+                                            else onClick()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isToday) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(2.5.dp)
+                                                .clip(CircleShape)
+                                                .background(typeColor)
+                                        )
+                                    }
+                                }
                             } else {
-                                Spacer(modifier = Modifier.size(9.dp))
+                                Spacer(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(1.dp)
+                                )
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun IndividualAnnualContinuousHeatmapCard(
+    year: Int,
+    logsByDate: Map<String, CompletionLog>,
+    typeColor: Color,
+    isSpanish: Boolean,
+    onSelectDate: (String) -> Unit
+) {
+    val todayIso = remember { LocalDate.now().toString() }
+    val today = remember { LocalDate.now() }
+    
+    val jan1 = remember(year) { LocalDate.of(year, 1, 1) }
+    val firstMonday = remember(jan1) {
+        val dow = jan1.dayOfWeek.value
+        jan1.minusDays((dow - 1).toLong())
+    }
+    
+    var hoveredDateIso by remember { mutableStateOf<String?>(null) }
+    val scrollState = rememberScrollState()
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AetherSurfaceElevated),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AetherBorder.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = if (isSpanish) "Muro de Consistencia (52 Semanas)" else "Consistency Wall (52 Weeks)",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = AetherTextPrimary
+                    )
+                    Text(
+                        text = if (isSpanish) "Ritmo semanal continuo • Fines de semana destacados" 
+                               else "Continuous weekly rhythm • Weekends highlighted",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AetherTextMuted
+                    )
+                }
+            }
+
+            // Interactive date banner if a square is tapped
+            if (hoveredDateIso != null) {
+                val hoveredLog = logsByDate[hoveredDateIso]
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AetherSurfaceCard,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📅 $hoveredDateIso: ${
+                                when (hoveredLog?.status) {
+                                    CompletionStatus.COMPLETED -> if (isSpanish) "Completado ✓" else "Completed ✓"
+                                    CompletionStatus.PARTIAL -> if (isSpanish) "Completado parcial / Gracia" else "Partial / Grace"
+                                    CompletionStatus.MISSED -> if (isSpanish) "No completado ✗" else "Missed ✗"
+                                    else -> if (isSpanish) "Sin registro" else "No entry"
+                                }
+                            }",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = when (hoveredLog?.status) {
+                                CompletionStatus.COMPLETED -> AetherEmerald
+                                CompletionStatus.PARTIAL -> AetherAmber
+                                CompletionStatus.MISSED -> AetherCoral
+                                else -> AetherTextMuted
+                            }
+                        )
+                        TextButton(
+                            onClick = { onSelectDate(hoveredDateIso!!) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(if (isSpanish) "Ir al mes →" else "Go to month →", fontSize = 11.sp, color = typeColor)
+                        }
+                    }
+                }
+            }
+
+            // Horizontally scrollable heatmap
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(vertical = 4.dp)
+            ) {
+                // Fixed Left labels column for days of week
+                Column(
+                    modifier = Modifier.padding(end = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val rowDayLabels = if (isSpanish) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("M", "T", "W", "T", "F", "S", "S")
+                    rowDayLabels.forEachIndexed { idx, label ->
+                        val isWeekend = idx >= 5
+                        Box(
+                            modifier = Modifier.size(13.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 8.sp,
+                                fontWeight = if (isWeekend) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isWeekend) AetherIndigo else AetherTextMuted
+                            )
+                        }
+                    }
+                }
+
+                // 53 week columns
+                for (w in 0 until 53) {
+                    val weekMonday = firstMonday.plusWeeks(w.toLong())
+                    
+                    val monthLabel = (0..6).map { weekMonday.plusDays(it.toLong()) }
+                        .firstOrNull { it.year == year && it.dayOfMonth == 1 }
+                        ?.let {
+                            if (isSpanish) when (it.monthValue) {
+                                1 -> "Ene"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Abr"; 5 -> "May"; 6 -> "Jun"
+                                7 -> "Jul"; 8 -> "Ago"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dic"
+                            } else when (it.monthValue) {
+                                1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"; 5 -> "May"; 6 -> "Jun"
+                                7 -> "Jul"; 8 -> "Aug"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dec"
+                            }
+                        }
+
+                    Column(
+                        modifier = Modifier.padding(horizontal = 1.5.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        // Month label cell
+                        Box(
+                            modifier = Modifier
+                                .width(13.dp)
+                                .height(16.dp),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            if (monthLabel != null) {
+                                Text(
+                                    text = monthLabel,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = typeColor,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        // 7 Day cells in this week (Mon to Sun)
+                        for (d in 0..6) {
+                            val currentDay = weekMonday.plusDays(d.toLong())
+                            val isInYear = currentDay.year == year
+                            val dateIso = currentDay.toString()
+                            val log = logsByDate[dateIso]
+                            val isWeekend = d >= 5
+                            val isToday = dateIso == todayIso
+                            val isFuture = currentDay.isAfter(today)
+
+                            if (isInYear) {
+                                val cellColor = when {
+                                    log?.status == CompletionStatus.COMPLETED -> AetherEmerald
+                                    log?.status == CompletionStatus.PARTIAL -> AetherAmber
+                                    log?.status == CompletionStatus.MISSED -> AetherCoral.copy(alpha = 0.6f)
+                                    isFuture -> AetherSurfaceCard.copy(alpha = 0.15f)
+                                    isWeekend -> AetherIndigo.copy(alpha = 0.12f)
+                                    else -> AetherSurfaceCard.copy(alpha = 0.45f)
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(13.dp)
+                                        .clip(RoundedCornerShape(2.5.dp))
+                                        .background(cellColor)
+                                        .then(
+                                            if (isToday) Modifier.border(1.2.dp, typeColor, RoundedCornerShape(2.5.dp))
+                                            else if (isWeekend && !isFuture && log?.status != CompletionStatus.COMPLETED) {
+                                                Modifier.border(0.5.dp, AetherIndigo.copy(alpha = 0.35f), RoundedCornerShape(2.5.dp))
+                                            } else Modifier
+                                        )
+                                        .clickable {
+                                            hoveredDateIso = dateIso
+                                        }
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.size(13.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Heatmap Legend and Weekend Callout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(AetherSurfaceCard.copy(alpha = 0.45f)))
+                    Text(if (isSpanish) "Sin reg." else "No log", fontSize = 10.sp, color = AetherTextMuted)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(AetherCoral.copy(alpha = 0.7f)))
+                    Text(if (isSpanish) "No hecho" else "Missed", fontSize = 10.sp, color = AetherTextMuted)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(AetherEmerald))
+                    Text(if (isSpanish) "Hecho" else "Done", fontSize = 10.sp, color = AetherTextMuted)
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AetherIndigo.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = if (isSpanish) "S y D = Fin de semana" else "S & S = Weekend",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AetherIndigo,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }

@@ -31,8 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CircadianAnchor
 import com.example.data.model.CompletionLog
+import com.example.data.model.CompletionStatus
 import com.example.data.model.DailySummary
 import com.example.data.model.HabitAnchor
+import com.example.data.util.AetherDateUtils
 import com.example.ui.components.*
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StringsProvider
@@ -43,6 +45,7 @@ import com.example.ui.viewmodel.AetherUiState
 fun HabitsScreen(
     state: AetherUiState,
     onToggleHabit: (HabitAnchor) -> Unit,
+    onMarkHabitNotDone: (HabitAnchor) -> Unit = {},
     onApplyGraceDay: (HabitAnchor) -> Unit,
     onEditHabit: (HabitAnchor) -> Unit = {},
     onDeleteHabit: (HabitAnchor) -> Unit = {},
@@ -51,12 +54,27 @@ fun HabitsScreen(
     onOpenHistory: () -> Unit = {},
     onOpenHabitHistory: (HabitAnchor) -> Unit = {},
     onOpenAchievements: () -> Unit = {},
+    onPreviousDay: () -> Unit = {},
+    onNextDay: () -> Unit = {},
+    onGoToToday: () -> Unit = {},
+    onSelectDate: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val view = LocalView.current
 
-    val completedCount = state.habits.count { it.isCompleted }
+    val todayIso = remember { AetherDateUtils.getTodayIso() }
+    val isViewingToday = state.selectedDateIso == todayIso
+
+    val completedCount = remember(state.habits, state.selectedDateLogs, isViewingToday) {
+        if (isViewingToday) {
+            state.habits.count { it.isCompleted }
+        } else {
+            state.habits.count { habit ->
+                state.selectedDateLogs.any { it.itemId == habit.id && it.status == CompletionStatus.COMPLETED }
+            }
+        }
+    }
     val totalCount = state.habits.size
     val totalGraceDays = state.habits.sumOf { it.graceDaysUsed }
     val consistencyPct = if (totalCount > 0) ((completedCount + totalGraceDays).coerceAtMost(totalCount) * 100 / totalCount) else 0
@@ -217,6 +235,18 @@ fun HabitsScreen(
                     levelInfo = state.userLevelInfo,
                     language = state.currentLanguage,
                     onOpenAchievements = onOpenAchievements
+                )
+            }
+
+            // Universal Date Navigation Bar (Navigate to any day to view & log habits/tasks)
+            item {
+                DateNavigationBar(
+                    selectedDateIso = state.selectedDateIso,
+                    language = state.currentLanguage,
+                    onPreviousDay = onPreviousDay,
+                    onNextDay = onNextDay,
+                    onGoToToday = onGoToToday,
+                    onSelectDate = onSelectDate
                 )
             }
 
@@ -405,6 +435,14 @@ fun HabitsScreen(
                                     }
                                 }
 
+                                val logForDay = state.selectedDateLogs.firstOrNull { it.itemId == habit.id }
+                                val isCompletedForDate = if (isViewingToday) {
+                                    habit.isCompleted || (logForDay?.status == CompletionStatus.COMPLETED)
+                                } else {
+                                    logForDay?.status == CompletionStatus.COMPLETED
+                                }
+                                val isMissedForDate = logForDay?.status == CompletionStatus.MISSED
+
                                 AetherSwipeToDismissContainer(
                                     onDismiss = requestDelete,
                                     modifier = Modifier.fillMaxWidth()
@@ -413,12 +451,20 @@ fun HabitsScreen(
                                         habit = habit,
                                         language = state.currentLanguage,
                                         recentSummaries = state.historySummaries,
-                                        logs = state.historyLogsForSelectedDay,
+                                        logs = state.selectedDateLogs,
+                                        isCompletedForDate = isCompletedForDate,
+                                        isMissedForDate = isMissedForDate,
                                         onToggle = {
                                             try {
                                                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                                             } catch (_: Exception) {}
                                             onToggleHabit(habit)
+                                        },
+                                        onMarkNotDone = {
+                                            try {
+                                                view.performHapticFeedback(HapticFeedbackConstants.REJECT)
+                                            } catch (_: Exception) {}
+                                            onMarkHabitNotDone(habit)
                                         },
                                         onApplyGrace = { onApplyGraceDay(habit) },
                                         onOpenHistory = { onOpenHabitHistory(habit) },
@@ -582,7 +628,10 @@ fun HabitAnchorCard(
     language: AppLanguage,
     recentSummaries: List<DailySummary> = emptyList(),
     logs: List<CompletionLog> = emptyList(),
+    isCompletedForDate: Boolean = habit.isCompleted,
+    isMissedForDate: Boolean = false,
     onToggle: () -> Unit,
+    onMarkNotDone: () -> Unit = {},
     onApplyGrace: () -> Unit,
     onOpenHistory: () -> Unit = {},
     onEdit: () -> Unit = {},
@@ -593,7 +642,7 @@ fun HabitAnchorCard(
 
     // 4.1 Card spring bounce animation
     val cardScale by animateFloatAsState(
-        targetValue = if (habit.isCompleted) 0.98f else 1f,
+        targetValue = if (isCompletedForDate) 0.98f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -629,8 +678,13 @@ fun HabitAnchorCard(
             )
             .testTag("habit_card_${habit.id}"),
         colors = CardDefaults.cardColors(
-            containerColor = if (habit.isCompleted) AetherSurface.copy(alpha = 0.6f) else AetherSurfaceCard
+            containerColor = when {
+                isCompletedForDate -> AetherSurface.copy(alpha = 0.6f)
+                isMissedForDate -> AetherCoral.copy(alpha = 0.05f)
+                else -> AetherSurfaceCard
+            }
         ),
+        border = if (isMissedForDate) androidx.compose.foundation.BorderStroke(1.dp, AetherCoral.copy(alpha = 0.35f)) else null,
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -697,19 +751,37 @@ fun HabitAnchorCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // 4.1 Animated Dopamine Tick Checkbox
                 AnimatedDopamineCheckbox(
-                    checked = habit.isCompleted,
+                    checked = isCompletedForDate,
                     onCheckedChange = { onToggle() },
                     modifier = Modifier.testTag("habit_checkbox_${habit.id}")
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = habit.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (habit.isCompleted) AetherTextMuted else AetherTextPrimary,
-                        textDecoration = if (habit.isCompleted) TextDecoration.LineThrough else null,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = habit.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (isCompletedForDate) AetherTextMuted else AetherTextPrimary,
+                            textDecoration = if (isCompletedForDate) TextDecoration.LineThrough else null,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (isMissedForDate) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = AetherCoral.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = if (isSpanish) "No Hecha" else "Missed",
+                                    color = AetherCoral,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = habit.description,
                         style = MaterialTheme.typography.bodySmall,
@@ -724,7 +796,7 @@ fun HabitAnchorCard(
             HabitWeeklyConsistency(
                 habitId = habit.id,
                 streakDays = habit.streakDays,
-                isCompletedToday = habit.isCompleted,
+                isCompletedToday = isCompletedForDate,
                 recentSummaries = recentSummaries,
                 logs = logs,
                 language = language,
@@ -738,13 +810,13 @@ fun HabitAnchorCard(
             val todayIso = remember { com.example.data.util.AetherDateUtils.getTodayIso() }
             val isGraceUsedToday = habit.graceDayLastUsedDate == todayIso
             val isGraceLimitReached = habit.graceDaysUsed >= habit.maxGraceDaysPerPeriod
-            val canApplyGrace = !habit.isCompleted && !isGraceUsedToday && !isGraceLimitReached
+            val canApplyGrace = !isCompletedForDate && !isGraceUsedToday && !isGraceLimitReached
             val remainingGrace = (habit.maxGraceDaysPerPeriod - habit.graceDaysUsed).coerceAtLeast(0)
 
             val graceBtnText = when {
                 isGraceUsedToday -> if (isSpanish) "🛡️ Gracia Activa" else "🛡️ Grace Active"
                 isGraceLimitReached -> if (isSpanish) "🛡️ Límite (0/${habit.maxGraceDaysPerPeriod})" else "🛡️ Limit (0/${habit.maxGraceDaysPerPeriod})"
-                habit.isCompleted -> if (isSpanish) "✓ Cumplido" else "✓ Done"
+                isCompletedForDate -> if (isSpanish) "✓ Cumplido" else "✓ Done"
                 else -> if (isSpanish) "🛡️ Usar Gracia ($remainingGrace/${habit.maxGraceDaysPerPeriod})" else "🛡️ Apply Grace ($remainingGrace/${habit.maxGraceDaysPerPeriod})"
             }
 
@@ -761,27 +833,65 @@ fun HabitAnchorCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                TextButton(
-                    onClick = onApplyGrace,
-                    enabled = canApplyGrace,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = AetherEmerald,
-                        disabledContentColor = AetherTextMuted.copy(alpha = 0.6f)
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Shield,
-                        contentDescription = null,
-                        tint = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = graceBtnText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f)
-                    )
+                    // "Marcar como no hecha" explicit button
+                    FilledTonalButton(
+                        onClick = onMarkNotDone,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (isMissedForDate) AetherCoral.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            contentColor = if (isMissedForDate) AetherCoral else AetherTextSecondary
+                        ),
+                        modifier = Modifier
+                            .height(28.dp)
+                            .testTag("habit_mark_not_done_btn_${habit.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = if (isMissedForDate) AetherCoral else AetherTextSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isMissedForDate) {
+                                if (isSpanish) "No Hecha" else "Missed"
+                            } else {
+                                if (isSpanish) "✕ No hecha" else "✕ Not done"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 11.sp,
+                            fontWeight = if (isMissedForDate) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onApplyGrace,
+                        enabled = canApplyGrace,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = AetherEmerald,
+                            disabledContentColor = AetherTextMuted.copy(alpha = 0.6f)
+                        ),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = graceBtnText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (canApplyGrace) AetherEmerald else AetherTextMuted.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
         }

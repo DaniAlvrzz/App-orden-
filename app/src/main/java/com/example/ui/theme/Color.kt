@@ -27,6 +27,7 @@ val AetherCyanDim = Color(0xFF00838F)
 val AetherElectricBlue = Color(0xFF2979FF)
 val AetherViolet = Color(0xFF7C4DFF)
 val AetherPurple = Color(0xFFB388FF)
+val AetherIndigo = Color(0xFF6366F1)
 
 // Bio-State Indicators
 val AetherEmerald = Color(0xFF00E676) // Recovery, Grace, Healthy

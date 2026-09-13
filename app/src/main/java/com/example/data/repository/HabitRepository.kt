@@ -31,7 +31,8 @@ interface HabitRepository {
     suspend fun updateHabit(habit: HabitAnchor)
     suspend fun deleteHabit(id: String)
     suspend fun restoreHabit(habit: HabitAnchor)
-    suspend fun toggleHabitComplete(habit: HabitAnchor): Result<Unit>
+    suspend fun toggleHabitComplete(habit: HabitAnchor, targetDateIso: String = AetherDateUtils.getTodayIso()): Result<Unit>
+    suspend fun markHabitNotDone(habit: HabitAnchor, targetDateIso: String = AetherDateUtils.getTodayIso()): Result<Unit>
     suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit>
     suspend fun getCognitiveReframe(userFeeling: String, readinessScore: Int): String
 }
@@ -85,56 +86,168 @@ class HabitRepositoryImpl(
         habitDao.insertHabit(habit.toEntity())
     }
 
-    override suspend fun toggleHabitComplete(habit: HabitAnchor): Result<Unit> {
+    override suspend fun toggleHabitComplete(habit: HabitAnchor, targetDateIso: String): Result<Unit> {
         val today = AetherDateUtils.getTodayIso()
-        val newCompleted = !habit.isCompleted
+        val isTargetToday = (targetDateIso == today)
 
-        // Mutual exclusivity: If Grace Day was used today, cannot mark as completed
-        if (newCompleted && habit.graceDayLastUsedDate == today) {
-            return Result.failure(IllegalStateException("GRACE_ALREADY_USED_TODAY"))
-        }
+        if (isTargetToday) {
+            val newCompleted = !habit.isCompleted
 
-        val (newStreak, newLastCompletedDate) = if (newCompleted) {
-            if (habit.lastCompletedDate == today) {
-                Pair(habit.streakDays, habit.lastCompletedDate)
-            } else {
-                Pair(habit.streakDays + 1, today)
+            // Mutual exclusivity: If Grace Day was used today, cannot mark as completed
+            if (newCompleted && habit.graceDayLastUsedDate == today) {
+                return Result.failure(IllegalStateException("GRACE_ALREADY_USED_TODAY"))
             }
-        } else {
-            if (habit.lastCompletedDate == today) {
-                // Undoing today's completion. Clearing lastCompletedDate outright would erase
-                // the record of the previous genuine completion, so derive it from the streak
-                // that remains: if a streak survives the undo, the last real completion was
-                // yesterday; if the streak drops to 0 there is no prior completion to point at.
-                val revertedStreak = maxOf(0, habit.streakDays - 1)
-                val previousCompletion = if (revertedStreak > 0) {
-                    AetherDateUtils.previousDay(today)
+
+            val (newStreak, newLastCompletedDate) = if (newCompleted) {
+                if (habit.lastCompletedDate == today) {
+                    Pair(habit.streakDays, habit.lastCompletedDate)
                 } else {
-                    ""
+                    Pair(habit.streakDays + 1, today)
                 }
-                Pair(revertedStreak, previousCompletion)
             } else {
-                Pair(habit.streakDays, habit.lastCompletedDate)
+                if (habit.lastCompletedDate == today) {
+                    val revertedStreak = maxOf(0, habit.streakDays - 1)
+                    val previousCompletion = if (revertedStreak > 0) {
+                        AetherDateUtils.previousDay(today)
+                    } else {
+                        ""
+                    }
+                    Pair(revertedStreak, previousCompletion)
+                } else {
+                    Pair(habit.streakDays, habit.lastCompletedDate)
+                }
             }
-        }
 
-        habitDao.updateHabit(
-            habit.toEntity().copy(
-                isCompleted = newCompleted,
-                streakDays = newStreak,
-                lastCompletedDate = newLastCompletedDate,
-                // Personal best only ever grows; it must survive future streak resets.
-                bestStreakDays = maxOf(habit.bestStreakDays, newStreak)
+            habitDao.updateHabit(
+                habit.toEntity().copy(
+                    isCompleted = newCompleted,
+                    streakDays = newStreak,
+                    lastCompletedDate = newLastCompletedDate,
+                    bestStreakDays = maxOf(habit.bestStreakDays, newStreak)
+                )
             )
-        )
 
-        if (newCompleted) {
-            logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.COMPLETED, today)
+            if (newCompleted) {
+                logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.COMPLETED, today)
+            } else {
+                completionLogDao.deleteLogForItemAndDate(habit.id, today)
+                recalculateDailySummary(today)
+            }
+            return Result.success(Unit)
         } else {
-            completionLogDao.deleteLogForItemAndDate(habit.id, today)
-            recalculateDailySummary(today)
+            // Retroactive or specific day toggle
+            val existingLogs = completionLogDao.getLogsByDate(targetDateIso).first()
+            val existingCompleted = existingLogs.any { it.itemId == habit.id && it.status == CompletionStatus.COMPLETED }
+
+            if (existingCompleted) {
+                // Was completed on targetDateIso: unmark it (mark as MISSED or delete)
+                completionLogDao.deleteLogForItemAndDate(habit.id, targetDateIso)
+                completionLogDao.insertLog(
+                    CompletionLogEntity(
+                        dateIso = targetDateIso,
+                        itemType = CompletionItemType.HABIT,
+                        itemId = habit.id,
+                        title = habit.title,
+                        status = CompletionStatus.MISSED,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                if (habit.lastCompletedDate == targetDateIso) {
+                    val revertedStreak = maxOf(0, habit.streakDays - 1)
+                    habitDao.updateHabit(
+                        habit.toEntity().copy(
+                            streakDays = revertedStreak,
+                            lastCompletedDate = if (revertedStreak > 0) AetherDateUtils.previousDay(targetDateIso) else ""
+                        )
+                    )
+                }
+                recalculateDailySummary(targetDateIso)
+            } else {
+                // Mark completed for targetDateIso
+                logActionAndRecalculate(CompletionItemType.HABIT, habit.id, habit.title, CompletionStatus.COMPLETED, targetDateIso)
+                val newStreak = habit.streakDays + 1
+                habitDao.updateHabit(
+                    habit.toEntity().copy(
+                        streakDays = newStreak,
+                        lastCompletedDate = targetDateIso,
+                        bestStreakDays = maxOf(habit.bestStreakDays, newStreak)
+                    )
+                )
+            }
+            return Result.success(Unit)
         }
-        return Result.success(Unit)
+    }
+
+    override suspend fun markHabitNotDone(habit: HabitAnchor, targetDateIso: String): Result<Unit> {
+        val today = AetherDateUtils.getTodayIso()
+        val isTargetToday = (targetDateIso == today)
+
+        if (isTargetToday) {
+            val revertedStreak = if (habit.lastCompletedDate == today) {
+                maxOf(0, habit.streakDays - 1)
+            } else {
+                habit.streakDays
+            }
+            val previousCompletion = if (revertedStreak > 0 && habit.lastCompletedDate == today) {
+                AetherDateUtils.previousDay(today)
+            } else if (habit.lastCompletedDate != today) {
+                habit.lastCompletedDate
+            } else {
+                ""
+            }
+            val updatedGraceDaysUsed = if (habit.graceDayLastUsedDate == today) {
+                maxOf(0, habit.graceDaysUsed - 1)
+            } else {
+                habit.graceDaysUsed
+            }
+
+            habitDao.updateHabit(
+                habit.toEntity().copy(
+                    isCompleted = false,
+                    streakDays = revertedStreak,
+                    lastCompletedDate = previousCompletion,
+                    graceDaysUsed = updatedGraceDaysUsed,
+                    graceDayLastUsedDate = if (habit.graceDayLastUsedDate == today) "" else habit.graceDayLastUsedDate
+                )
+            )
+
+            completionLogDao.deleteLogForItemAndDate(habit.id, today)
+            completionLogDao.insertLog(
+                CompletionLogEntity(
+                    dateIso = today,
+                    itemType = CompletionItemType.HABIT,
+                    itemId = habit.id,
+                    title = habit.title,
+                    status = CompletionStatus.MISSED,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+            recalculateDailySummary(today)
+            return Result.success(Unit)
+        } else {
+            completionLogDao.deleteLogForItemAndDate(habit.id, targetDateIso)
+            completionLogDao.insertLog(
+                CompletionLogEntity(
+                    dateIso = targetDateIso,
+                    itemType = CompletionItemType.HABIT,
+                    itemId = habit.id,
+                    title = habit.title,
+                    status = CompletionStatus.MISSED,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+            if (habit.lastCompletedDate == targetDateIso) {
+                val revertedStreak = maxOf(0, habit.streakDays - 1)
+                habitDao.updateHabit(
+                    habit.toEntity().copy(
+                        streakDays = revertedStreak,
+                        lastCompletedDate = if (revertedStreak > 0) AetherDateUtils.previousDay(targetDateIso) else ""
+                    )
+                )
+            }
+            recalculateDailySummary(targetDateIso)
+            return Result.success(Unit)
+        }
     }
 
     override suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit> {

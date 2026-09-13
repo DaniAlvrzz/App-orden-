@@ -210,6 +210,7 @@ fun AetherApp(
                     3 -> HabitsScreen(
                         state = state,
                         onToggleHabit = { viewModel.toggleHabit(it) },
+                        onMarkHabitNotDone = { viewModel.markHabitNotDone(it) },
                         onApplyGraceDay = { viewModel.applyGraceDay(it) },
                         onEditHabit = { viewModel.setEditingHabit(it) },
                         onDeleteHabit = { viewModel.deleteHabitWithUndo(it) },
@@ -217,7 +218,11 @@ fun AetherApp(
                         onOpenReframe = { viewModel.setShowReframe(true) },
                         onOpenHistory = { viewModel.openHistory() },
                         onOpenHabitHistory = { viewModel.openHabitHistory(it) },
-                        onOpenAchievements = { viewModel.setShowAchievementsDialog(true) }
+                        onOpenAchievements = { viewModel.setShowAchievementsDialog(true) },
+                        onPreviousDay = { viewModel.goToPreviousDay() },
+                        onNextDay = { viewModel.goToNextDay() },
+                        onGoToToday = { viewModel.goToToday() },
+                        onSelectDate = { viewModel.setSelectedDate(it) }
                     )
                     4 -> AetherAiScreen(
                         state = state,
@@ -487,6 +492,8 @@ fun AetherApp(
                     target = target,
                     logs = state.individualHistoryLogs,
                     language = state.currentLanguage,
+                    onToggleTargetForDate = { t, dateIso -> viewModel.toggleIndividualTargetForDate(t, dateIso) },
+                    onMarkNotDoneForDate = { t, dateIso -> viewModel.markIndividualTargetNotDoneForDate(t, dateIso) },
                     onDismiss = { viewModel.closeIndividualHistory() }
                 )
             }

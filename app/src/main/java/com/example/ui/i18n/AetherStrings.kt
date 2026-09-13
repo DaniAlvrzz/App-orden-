@@ -104,6 +104,11 @@ class StringsProvider(val language: AppLanguage) {
     val historyMissedSection: String get() = if (language == AppLanguage.SPANISH) "❌ PENDIENTES / NO ALCANZADOS" else "❌ MISSED / INCOMPLETE"
     val historyNoDayLogs: String get() = if (language == AppLanguage.SPANISH) "No hay registros detallados para este día." else "No detailed execution logs for this day."
     val historyTapDayHint: String get() = if (language == AppLanguage.SPANISH) "Toca cualquier día en el calendario para ver el desglose horario." else "Tap any calendar day to inspect hourly completion breakdown."
+    val historySubYearMonths: String get() = if (language == AppLanguage.SPANISH) "Cuadrícula de 12 Meses" else "12-Month Grid"
+    val historySubYearTimeline: String get() = if (language == AppLanguage.SPANISH) "Muro de 52 Semanas" else "52-Week Timeline"
+    val historyAnnualConsistency: String get() = if (language == AppLanguage.SPANISH) "Consistencia Anual" else "Annual Consistency"
+    val historyActiveDaysYear: String get() = if (language == AppLanguage.SPANISH) "Días Activos" else "Active Days"
+    val historyWeekendsNotice: String get() = if (language == AppLanguage.SPANISH) "S y D destacados en fin de semana" else "S & S highlighted for weekends"
     val btnHistoryTooltip: String get() = if (language == AppLanguage.SPANISH) "Ver Historial Persistente" else "View Persistent History"
 
     // Full Backup & Restore (Module 2)

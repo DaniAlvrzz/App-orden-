@@ -98,7 +98,10 @@ class AetherRepository(
     suspend fun updateTask(task: TaskItem) = taskRepo.updateTask(task)
     suspend fun restoreTask(task: TaskItem) = taskRepo.restoreTask(task)
     suspend fun reorderTasks(tasks: List<TaskItem>) = taskRepo.reorderTasks(tasks)
-    suspend fun toggleTaskComplete(task: TaskItem) = taskRepo.toggleTaskComplete(task)
+    suspend fun toggleTaskComplete(task: TaskItem, dateIso: String = AetherDateUtils.getTodayIso()) =
+        taskRepo.toggleTaskComplete(task, dateIso)
+    suspend fun setTaskCompletionForDate(task: TaskItem, isCompleted: Boolean, dateIso: String) =
+        taskRepo.setTaskCompletionForDate(task, isCompleted, dateIso)
     suspend fun setTaskAsFrog(taskId: String) = taskRepo.setTaskAsFrog(taskId)
     suspend fun deleteTask(taskId: String) = taskRepo.deleteTask(taskId)
     suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage) =
@@ -131,7 +134,10 @@ class AetherRepository(
     suspend fun updateHabit(habit: HabitAnchor) = habitRepo.updateHabit(habit)
     suspend fun deleteHabit(id: String) = habitRepo.deleteHabit(id)
     suspend fun restoreHabit(habit: HabitAnchor) = habitRepo.restoreHabit(habit)
-    suspend fun toggleHabitComplete(habit: HabitAnchor) = habitRepo.toggleHabitComplete(habit)
+    suspend fun toggleHabitComplete(habit: HabitAnchor, dateIso: String = AetherDateUtils.getTodayIso()) =
+        habitRepo.toggleHabitComplete(habit, dateIso)
+    suspend fun markHabitNotDone(habit: HabitAnchor, dateIso: String = AetherDateUtils.getTodayIso()): Result<Unit> =
+        habitRepo.markHabitNotDone(habit, dateIso)
     suspend fun applyGraceDay(habit: HabitAnchor): Result<Unit> = habitRepo.applyGraceDay(habit)
     suspend fun clearPendingHabitStreaks() = taskRepo.clearPendingHabitStreaks()
     suspend fun getCognitiveReframe(userFeeling: String, readinessScore: Int): String =

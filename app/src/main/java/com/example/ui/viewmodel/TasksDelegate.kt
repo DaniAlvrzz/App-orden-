@@ -112,21 +112,46 @@ class TasksDelegate(
         }
     }
 
-    fun toggleTaskComplete(task: TaskItem) {
+    fun toggleTaskComplete(task: TaskItem, targetDateIso: String? = null) {
         scope.launch {
-            val willBeCompleted = !task.isCompleted
-            taskRepository.toggleTaskComplete(task)
+            val date = targetDateIso ?: uiState.value.selectedDateIso
+            val today = AetherDateUtils.getTodayIso()
+            val isTargetToday = (date == today)
+            val willBeCompleted = if (isTargetToday) {
+                !task.isCompleted
+            } else {
+                !uiState.value.selectedDateLogs.any { it.itemId == task.id && it.status == com.example.data.model.CompletionStatus.COMPLETED }
+            }
+
+            taskRepository.toggleTaskComplete(task, date)
 
             val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
             if (willBeCompleted) {
-                if (task.isFrog) {
+                if (task.isFrog && isTargetToday) {
                     celebrateFrogCompletion(task.title)
                     unlockAchievement(AchievementId.FIRST_FROG)
                     showFeedback(if (isSpanish) "🐸 ¡ENHORABUENA! Te has comido tu sapo del día." else "🐸 CONGRATULATIONS! You ate your frog.")
                 } else {
-                    showFeedback(if (isSpanish) "✨ Tarea completada: ${task.title}" else "✨ Task completed: ${task.title}")
+                    val dateSuffix = if (!isTargetToday) " ($date)" else ""
+                    showFeedback(if (isSpanish) "✨ Tarea completada: ${task.title}$dateSuffix" else "✨ Task completed: ${task.title}$dateSuffix")
                 }
+            } else {
+                val dateSuffix = if (!isTargetToday) " ($date)" else ""
+                showFeedback(if (isSpanish) "Tarea desmarcada: ${task.title}$dateSuffix" else "Task unchecked: ${task.title}$dateSuffix")
             }
+        }
+    }
+
+    fun setTaskCompletionForDate(task: TaskItem, isCompleted: Boolean, targetDateIso: String) {
+        scope.launch {
+            taskRepository.setTaskCompletionForDate(task, isCompleted, targetDateIso)
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            val statusText = if (isCompleted) {
+                if (isSpanish) "✨ Completada" else "✨ Completed"
+            } else {
+                if (isSpanish) "Pendiente" else "Pending"
+            }
+            showFeedback("$statusText: ${task.title} ($targetDateIso)")
         }
     }
 

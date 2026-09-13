@@ -44,7 +44,8 @@ interface TaskRepository {
     suspend fun updateTask(task: TaskItem)
     suspend fun restoreTask(task: TaskItem)
     suspend fun reorderTasks(tasks: List<TaskItem>)
-    suspend fun toggleTaskComplete(task: TaskItem)
+    suspend fun toggleTaskComplete(task: TaskItem, targetDateIso: String = AetherDateUtils.getTodayIso())
+    suspend fun setTaskCompletionForDate(task: TaskItem, isCompleted: Boolean, targetDateIso: String)
     suspend fun setTaskAsFrog(taskId: String)
     suspend fun deleteTask(taskId: String)
 
@@ -67,7 +68,7 @@ interface TaskRepository {
     suspend fun recordFocusSession(session: FocusSession)
 
     suspend fun getYesterdayUnfinishedItems(targetDateIso: String? = null): Pair<List<HabitAnchor>, List<TaskItem>>
-    suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String)
+    suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String, targetDateIso: String? = null)
     suspend fun clearPendingHabitStreaks()
 
     suspend fun breakDownTask(taskTitle: String, minutes: Int, language: AppLanguage): List<String>
@@ -163,41 +164,97 @@ class TaskRepositoryImpl(
         }
     }
 
-    override suspend fun toggleTaskComplete(task: TaskItem) {
+    override suspend fun toggleTaskComplete(task: TaskItem, targetDateIso: String) {
         val today = AetherDateUtils.getTodayIso()
-        if (task.isPermanent) {
-            // Persistent / Recurring task:
-            // Toggles completion for TODAY only, exactly like an ephemeral task, but never
-            // archives — the daily rollover resets it fresh for tomorrow instead of archiving it.
-            val newCompleted = !task.isCompleted
-            val updated = task.copy(
-                isCompleted = newCompleted,
-                completedDate = if (newCompleted) today else ""
-            )
-            taskDao.updateTask(updated.toEntity())
+        val isTargetToday = (targetDateIso == today)
 
-            if (newCompleted) {
-                logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+        if (isTargetToday) {
+            if (task.isPermanent) {
+                val newCompleted = !task.isCompleted
+                val updated = task.copy(
+                    isCompleted = newCompleted,
+                    completedDate = if (newCompleted) today else ""
+                )
+                taskDao.updateTask(updated.toEntity())
+
+                if (newCompleted) {
+                    logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+                } else {
+                    completionLogDao.deleteLogForItemAndDate(task.id, today)
+                    recalculateDailySummary(today)
+                }
             } else {
-                completionLogDao.deleteLogForItemAndDate(task.id, today)
-                recalculateDailySummary(today)
+                val newCompleted = !task.isCompleted
+                val updated = task.copy(
+                    isCompleted = newCompleted,
+                    isArchived = newCompleted,
+                    completedDate = if (newCompleted) today else ""
+                )
+                taskDao.updateTask(updated.toEntity())
+
+                if (newCompleted) {
+                    logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+                } else {
+                    completionLogDao.deleteLogForItemAndDate(task.id, today)
+                    recalculateDailySummary(today)
+                }
             }
         } else {
-            // Ephemeral task:
-            // When marked as completed, archives from pending tasks and saves into history log.
-            val newCompleted = !task.isCompleted
-            val updated = task.copy(
-                isCompleted = newCompleted,
-                isArchived = newCompleted,
-                completedDate = if (newCompleted) today else ""
-            )
-            taskDao.updateTask(updated.toEntity())
+            // Retroactive or target date toggle
+            val existingLogs = completionLogDao.getLogsByDate(targetDateIso).first()
+            val existingCompleted = existingLogs.any { it.itemId == task.id && it.status == CompletionStatus.COMPLETED }
 
-            if (newCompleted) {
-                logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, today)
+            if (existingCompleted) {
+                // Uncomplete for this date: delete log
+                completionLogDao.deleteLogForItemAndDate(task.id, targetDateIso)
+                recalculateDailySummary(targetDateIso)
+                // If this non-permanent task was marked completed on this date, restore it to active
+                if (task.completedDate == targetDateIso) {
+                    val updated = task.copy(
+                        isCompleted = false,
+                        isArchived = false,
+                        completedDate = ""
+                    )
+                    taskDao.updateTask(updated.toEntity())
+                }
             } else {
-                completionLogDao.deleteLogForItemAndDate(task.id, today)
-                recalculateDailySummary(today)
+                // Complete for this date: insert log
+                logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, targetDateIso)
+                if (!task.isPermanent && (task.completedDate.isBlank() || task.isCompleted)) {
+                    val updated = task.copy(
+                        completedDate = targetDateIso
+                    )
+                    taskDao.updateTask(updated.toEntity())
+                }
+            }
+        }
+        widgetUpdater.updateWidgets()
+    }
+
+    override suspend fun setTaskCompletionForDate(task: TaskItem, isCompleted: Boolean, targetDateIso: String) {
+        val today = AetherDateUtils.getTodayIso()
+        if (targetDateIso == today) {
+            if (task.isCompleted != isCompleted) {
+                toggleTaskComplete(task, today)
+            }
+            return
+        }
+
+        val existingLogs = completionLogDao.getLogsByDate(targetDateIso).first()
+        val alreadyCompleted = existingLogs.any { it.itemId == task.id && it.status == CompletionStatus.COMPLETED }
+
+        if (isCompleted && !alreadyCompleted) {
+            logActionAndRecalculate(CompletionItemType.TASK, task.id, task.title, CompletionStatus.COMPLETED, targetDateIso)
+            if (!task.isPermanent && task.completedDate.isBlank()) {
+                val updated = task.copy(completedDate = targetDateIso)
+                taskDao.updateTask(updated.toEntity())
+            }
+        } else if (!isCompleted && alreadyCompleted) {
+            completionLogDao.deleteLogForItemAndDate(task.id, targetDateIso)
+            recalculateDailySummary(targetDateIso)
+            if (task.completedDate == targetDateIso) {
+                val updated = task.copy(isCompleted = false, isArchived = false, completedDate = "")
+                taskDao.updateTask(updated.toEntity())
             }
         }
         widgetUpdater.updateWidgets()
@@ -375,10 +432,11 @@ class TaskRepositoryImpl(
         return Pair(unfinishedHabits, unfinishedTasks)
     }
 
-    override suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String) {
-        val yesterdayIso = java.time.LocalDate.now().minusDays(1).toString()
+    override suspend fun logRetroactiveCompletion(itemType: CompletionItemType, itemId: String, title: String, targetDateIso: String?) {
+        val targetDate = targetDateIso ?: java.time.LocalDate.now().minusDays(1).toString()
+        completionLogDao.deleteLogForItemAndDate(itemId, targetDate)
         val log = CompletionLogEntity(
-            dateIso = yesterdayIso,
+            dateIso = targetDate,
             itemType = itemType,
             itemId = itemId,
             title = title,
@@ -386,7 +444,7 @@ class TaskRepositoryImpl(
             timestamp = System.currentTimeMillis()
         )
         completionLogDao.insertLog(log)
-        recalculateDailySummary(yesterdayIso)
+        recalculateDailySummary(targetDate)
 
         if (itemType == CompletionItemType.HABIT) {
             val habit = habitDao.getAllHabits().first().find { it.id == itemId }
@@ -401,7 +459,7 @@ class TaskRepositoryImpl(
                         streakDays = restoredStreak,
                         bestStreakDays = maxOf(habit.bestStreakDays, restoredStreak),
                         pendingStreakBeforeReset = 0,
-                        lastCompletedDate = yesterdayIso,
+                        lastCompletedDate = targetDate,
                         isCompleted = false
                     )
                 )
@@ -409,8 +467,7 @@ class TaskRepositoryImpl(
         } else if (itemType == CompletionItemType.TASK) {
             val task = taskDao.getAllTasks().first().find { it.id == itemId }
             if (task != null) {
-                // Retroactively completed: mark completed for yesterday and archive so it does not clutter today
-                taskDao.updateTask(task.copy(isCompleted = true, completedDate = yesterdayIso, isArchived = true))
+                taskDao.updateTask(task.copy(isCompleted = true, completedDate = targetDate, isArchived = true))
             }
         }
         widgetUpdater.updateWidgets()

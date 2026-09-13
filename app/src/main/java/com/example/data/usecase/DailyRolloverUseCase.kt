@@ -144,10 +144,22 @@ class DailyRolloverUseCase(
                         )
                     } else {
                         // Missed without grace day: store previous streak before resetting to 0.
-                        // lastCompletedDate is deliberately cleared here: leaving a stale date
-                        // behind desynchronises it from streakDays (which is now 0) and corrupts
-                        // the streak arithmetic in toggleHabitComplete on later days.
+                        // Insert an explicit MISSED log so lastDate never has missing records.
                         if (habit.streakDays > 0) brokenStreaks++
+                        val existingLogs = completionLogDao.getLogsByDate(lastDate).first()
+                        val alreadyLogged = existingLogs.any { it.itemId == habit.id }
+                        if (!alreadyLogged) {
+                            completionLogDao.insertLog(
+                                CompletionLogEntity(
+                                    dateIso = lastDate,
+                                    itemType = CompletionItemType.HABIT,
+                                    itemId = habit.id,
+                                    title = habit.title,
+                                    status = CompletionStatus.MISSED,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
                         habitDao.updateHabit(
                             habit.copy(
                                 isCompleted = false,

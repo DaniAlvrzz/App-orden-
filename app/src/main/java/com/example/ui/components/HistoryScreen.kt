@@ -4,7 +4,9 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -147,6 +149,9 @@ fun HistoryDialog(
                             },
                             onSelectYear = { year ->
                                 viewModel.selectHistoryYear(year)
+                            },
+                            onSelectDate = { dateIso ->
+                                viewModel.selectHistoryDate(dateIso)
                             }
                         )
                     }
@@ -180,7 +185,7 @@ fun HistoryDialog(
 }
 
 // -------------------------------------------------------------------------------------------------
-// LEVEL 1: YEAR VIEW (12 MONTH CARDS WITH MINI-HEATMAPS)
+// LEVEL 1: YEAR VIEW (12 MONTH CARDS WITH REAL CALENDAR ALIGNMENT + 52-WEEK HEATMAP)
 // -------------------------------------------------------------------------------------------------
 @Composable
 fun YearHistoryView(
@@ -188,9 +193,11 @@ fun YearHistoryView(
     strings: StringsProvider,
     locale: Locale,
     onSelectMonth: (year: Int, month: Int) -> Unit,
-    onSelectYear: (year: Int) -> Unit
+    onSelectYear: (year: Int) -> Unit,
+    onSelectDate: (dateIso: String) -> Unit = {}
 ) {
     val currentYear = LocalDate.now().year
+    val isSpanish = locale.language == "es"
     val availableYears = remember(state.historySummaries) {
         val yearsInDb = state.historySummaries.mapNotNull {
             it.dateIso.split("-").getOrNull(0)?.toIntOrNull()
@@ -199,20 +206,51 @@ fun YearHistoryView(
         all
     }
 
+    val yearPrefix = "${state.selectedHistoryYear}-"
+    val yearSummaries = remember(state.historySummaries, yearPrefix) {
+        state.historySummaries.filter { it.dateIso.startsWith(yearPrefix) }
+    }
+    val activeDaysInYear = remember(yearSummaries) { yearSummaries.count { it.completedCount > 0 } }
+    val avgYearRatio = remember(yearSummaries) {
+        if (yearSummaries.isNotEmpty()) yearSummaries.map { it.ratio }.average().toFloat() else 0f
+    }
+
+    var subViewMode by remember { mutableStateOf(0) } // 0 = 12 Meses Calendario, 1 = Muro 52 Semanas
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Horizontal Year Selector
-        Text(
-            text = strings.historySelectYear,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
-        )
+        // Horizontal Year Selector & Navigation
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = strings.historySelectYear,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
 
+            // Year KPI Quick Pill
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            ) {
+                Text(
+                    text = "$activeDaysInYear ${strings.historyActiveDaysYear} • ${(avgYearRatio * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // Year Chips Carousel
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
@@ -239,38 +277,79 @@ fun YearHistoryView(
             }
         }
 
-        Text(
-            text = "${strings.historyViewYear} ${state.selectedHistoryYear} • ${strings.historyAvgCompletion}",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // 12 Months Grid
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 150.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
+        // Sub-view mode selector: 12 Meses vs Muro Anual 52 Semanas
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items((1..12).toList()) { month ->
-                val ym = YearMonth.of(state.selectedHistoryYear, month)
-                val monthName = ym.month.getDisplayName(TextStyle.SHORT, locale).replaceFirstChar { it.uppercase() }
-                val prefix = String.format(Locale.US, "%04d-%02d", state.selectedHistoryYear, month)
-                val monthSummaries = state.historySummaries.filter { it.dateIso.startsWith(prefix) }
-                
-                val avgRatio = if (monthSummaries.isNotEmpty()) {
-                    monthSummaries.map { it.ratio }.average().toFloat()
-                } else 0f
+            FilterChip(
+                selected = subViewMode == 0,
+                onClick = { subViewMode = 0 },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.CalendarViewMonth,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                label = { Text(strings.historySubYearMonths) },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = subViewMode == 1,
+                onClick = { subViewMode = 1 },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.ViewWeek,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                label = { Text(strings.historySubYearTimeline) },
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-                MonthSummaryCard(
-                    monthName = monthName,
-                    monthNumber = month,
-                    year = state.selectedHistoryYear,
-                    summaries = monthSummaries,
-                    avgRatio = avgRatio,
-                    onClick = { onSelectMonth(state.selectedHistoryYear, month) }
-                )
+        if (subViewMode == 0) {
+            // 12 Months Grid with True Calendar Alignment
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 155.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items((1..12).toList()) { month ->
+                    val ym = YearMonth.of(state.selectedHistoryYear, month)
+                    val monthName = ym.month.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }
+                    val prefix = String.format(Locale.US, "%04d-%02d", state.selectedHistoryYear, month)
+                    val monthSummaries = state.historySummaries.filter { it.dateIso.startsWith(prefix) }
+                    
+                    val avgRatio = if (monthSummaries.isNotEmpty()) {
+                        monthSummaries.map { it.ratio }.average().toFloat()
+                    } else 0f
+
+                    MonthSummaryCard(
+                        monthName = monthName,
+                        monthNumber = month,
+                        year = state.selectedHistoryYear,
+                        summaries = monthSummaries,
+                        avgRatio = avgRatio,
+                        isSpanish = isSpanish,
+                        onSelectDate = onSelectDate,
+                        onClick = { onSelectMonth(state.selectedHistoryYear, month) }
+                    )
+                }
             }
+        } else {
+            // Continuous 52-Week Annual Heatmap Wall
+            AnnualContinuousHeatmapCard(
+                year = state.selectedHistoryYear,
+                summaries = yearSummaries,
+                strings = strings,
+                isSpanish = isSpanish,
+                onSelectDate = onSelectDate
+            )
         }
     }
 }
@@ -282,73 +361,418 @@ fun MonthSummaryCard(
     year: Int,
     summaries: List<DailySummary>,
     avgRatio: Float,
+    isSpanish: Boolean = true,
+    onSelectDate: ((String) -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val ym = YearMonth.of(year, monthNumber)
+    val ym = remember(year, monthNumber) { YearMonth.of(year, monthNumber) }
     val daysInMonth = ym.lengthOfMonth()
     val summaryMap = remember(summaries) { summaries.associateBy { it.dateIso } }
+    val todayIso = remember { LocalDate.now().toString() }
+    val today = remember { LocalDate.now() }
+
+    // First day of month offset (1 = Monday, 7 = Sunday)
+    val firstDayOfWeek = remember(year, monthNumber) {
+        LocalDate.of(year, monthNumber, 1).dayOfWeek.value
+    }
+    val offset = firstDayOfWeek - 1 // 0 for Monday, 6 for Sunday
+    val totalCells = offset + daysInMonth
+    val totalRows = (totalCells + 6) / 7
+
+    val weekdayHeaders = remember(isSpanish) {
+        if (isSpanish) listOf("L", "M", "X", "J", "V", "S", "D")
+        else listOf("M", "T", "W", "T", "F", "S", "S")
+    }
+
+    val activeDaysCount = remember(summaries) { summaries.count { it.completedCount > 0 } }
 
     Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header: Month name + completed days and % pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = monthName,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (activeDaysCount > 0) {
+                        Text(
+                            text = "$activeDaysCount/$daysInMonth d",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (summaries.isNotEmpty()) getRatioColor(avgRatio).copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                ) {
+                    Text(
+                        text = if (summaries.isNotEmpty()) "${(avgRatio * 100).toInt()}%" else "—",
+                        color = if (summaries.isNotEmpty()) getRatioColor(avgRatio) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            // Weekday Headers: L M X J V S D with Weekend Highlighting
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                weekdayHeaders.forEachIndexed { index, letter ->
+                    val isWeekend = index >= 5
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 1.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                if (isWeekend) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
+                                else Color.Transparent
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = letter,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (isWeekend) FontWeight.ExtraBold else FontWeight.Medium
+                            ),
+                            color = if (isWeekend) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(vertical = 1.5.dp)
+                        )
+                    }
+                }
+            }
+
+            // Real Calendar Days Grid (Properly offset by firstDayOfWeek)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (r in 0 until totalRows) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        for (c in 0 until 7) {
+                            val cellIndex = r * 7 + c
+                            val dayNum = cellIndex - offset + 1
+                            val isWeekend = c >= 5
+
+                            if (dayNum in 1..daysInMonth) {
+                                val dateIso = String.format(Locale.US, "%04d-%02d-%02d", year, monthNumber, dayNum)
+                                val summary = summaryMap[dateIso]
+                                val isToday = dateIso == todayIso
+                                val cellDate = LocalDate.of(year, monthNumber, dayNum)
+                                val isFuture = cellDate.isAfter(today)
+
+                                val cellColor = when {
+                                    summary != null && summary.ratio > 0f -> getRatioColor(summary.ratio)
+                                    summary != null && summary.ratio == 0f && summary.totalCount > 0 -> Color(0xFFEF4444).copy(alpha = 0.6f)
+                                    isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
+                                    isWeekend -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)
+                                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(1.5.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(cellColor)
+                                        .then(
+                                            if (isToday) Modifier.border(1.2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp))
+                                            else if (isWeekend && (summary == null || summary.ratio == 0f) && !isFuture) {
+                                                Modifier.border(0.6.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f), RoundedCornerShape(3.dp))
+                                            } else Modifier
+                                        )
+                                        .clickable {
+                                            if (onSelectDate != null) onSelectDate(dateIso)
+                                            else onClick()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isToday) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(3.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primary)
+                                        )
+                                    }
+                                }
+                            } else {
+                                Spacer(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(1.5.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnnualContinuousHeatmapCard(
+    year: Int,
+    summaries: List<DailySummary>,
+    strings: StringsProvider,
+    isSpanish: Boolean,
+    onSelectDate: (String) -> Unit
+) {
+    val summaryMap = remember(summaries) { summaries.associateBy { it.dateIso } }
+    val todayIso = remember { LocalDate.now().toString() }
+    val today = remember { LocalDate.now() }
+    
+    // We compute 53 weeks starting from the Monday of the first week of the year
+    val jan1 = remember(year) { LocalDate.of(year, 1, 1) }
+    val firstMonday = remember(jan1) {
+        val dow = jan1.dayOfWeek.value // 1 = Mon, 7 = Sun
+        jan1.minusDays((dow - 1).toLong())
+    }
+    
+    var hoveredDateIso by remember { mutableStateOf<String?>(null) }
+    val scrollState = rememberScrollState()
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = monthName,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = getRatioColor(avgRatio).copy(alpha = 0.2f)
-                ) {
+                Column {
                     Text(
-                        text = if (summaries.isNotEmpty()) "${(avgRatio * 100).toInt()}%" else "—",
-                        color = getRatioColor(avgRatio),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        text = if (isSpanish) "Muro Anual de Consistencia (52 Semanas)" else "Annual Consistency Wall (52 Weeks)",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isSpanish) "Ritmo continuo de lunes a domingo • Fines de semana destacados" 
+                               else "Continuous Monday-Sunday rhythm • Weekends highlighted",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Mini Heatmap Dots Preview (7 columns)
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                val totalWeeks = (daysInMonth + 6) / 7
-                for (w in 0 until totalWeeks) {
+            // Interactive date banner if a square is selected
+            if (hoveredDateIso != null) {
+                val hoveredSummary = summaryMap[hoveredDateIso]
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        for (d in 1..7) {
-                            val dayNum = w * 7 + d
-                            if (dayNum <= daysInMonth) {
-                                val dateIso = String.format(Locale.US, "%04d-%02d-%02d", year, monthNumber, dayNum)
-                                val summary = summaryMap[dateIso]
-                                val color = if (summary != null) getRatioColor(summary.ratio) else Color.Gray.copy(alpha = 0.2f)
+                        Text(
+                            text = "📅 $hoveredDateIso: ${if (hoveredSummary != null) "${hoveredSummary.completedCount}/${hoveredSummary.totalCount} completadas (${(hoveredSummary.ratio * 100).toInt()}%)" else if (isSpanish) "Sin registros" else "No entries"}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        TextButton(
+                            onClick = { onSelectDate(hoveredDateIso!!) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(if (isSpanish) "Ver día →" else "View day →", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            // Horizontally scrollable heatmap
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(vertical = 4.dp)
+            ) {
+                // Fixed Left labels column for days of week
+                Column(
+                    modifier = Modifier.padding(end = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    // Spacer to match month headers height
+                    Spacer(modifier = Modifier.height(16.dp))
+                    val rowDayLabels = if (isSpanish) listOf("L", "M", "X", "J", "V", "S", "D") else listOf("M", "T", "W", "T", "F", "S", "S")
+                    rowDayLabels.forEachIndexed { idx, label ->
+                        val isWeekend = idx >= 5
+                        Box(
+                            modifier = Modifier.size(13.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 8.sp,
+                                fontWeight = if (isWeekend) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isWeekend) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+
+                // 53 week columns
+                for (w in 0 until 53) {
+                    val weekMonday = firstMonday.plusWeeks(w.toLong())
+                    
+                    // Check if a new month starts in this week to render month label
+                    val monthLabel = (0..6).map { weekMonday.plusDays(it.toLong()) }
+                        .firstOrNull { it.year == year && it.dayOfMonth == 1 }
+                        ?.let {
+                            if (isSpanish) when (it.monthValue) {
+                                1 -> "Ene"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Abr"; 5 -> "May"; 6 -> "Jun"
+                                7 -> "Jul"; 8 -> "Ago"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dic"
+                            } else when (it.monthValue) {
+                                1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"; 5 -> "May"; 6 -> "Jun"
+                                7 -> "Jul"; 8 -> "Aug"; 9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; else -> "Dec"
+                            }
+                        }
+
+                    Column(
+                        modifier = Modifier.padding(horizontal = 1.5.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        // Month label cell
+                        Box(
+                            modifier = Modifier
+                                .width(13.dp)
+                                .height(16.dp),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            if (monthLabel != null) {
+                                Text(
+                                    text = monthLabel,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        // 7 Day cells in this week (Mon to Sun)
+                        for (d in 0..6) {
+                            val currentDay = weekMonday.plusDays(d.toLong())
+                            val isInYear = currentDay.year == year
+                            val dateIso = currentDay.toString()
+                            val summary = summaryMap[dateIso]
+                            val isWeekend = d >= 5
+                            val isToday = dateIso == todayIso
+                            val isFuture = currentDay.isAfter(today)
+
+                            if (isInYear) {
+                                val cellColor = when {
+                                    summary != null && summary.ratio > 0f -> getRatioColor(summary.ratio)
+                                    summary != null && summary.ratio == 0f && summary.totalCount > 0 -> Color(0xFFEF4444).copy(alpha = 0.6f)
+                                    isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
+                                    isWeekend -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.09f)
+                                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)
+                                }
+
                                 Box(
                                     modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(color)
+                                        .size(13.dp)
+                                        .clip(RoundedCornerShape(2.5.dp))
+                                        .background(cellColor)
+                                        .then(
+                                            if (isToday) Modifier.border(1.2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(2.5.dp))
+                                            else if (isWeekend && !isFuture && (summary == null || summary.ratio == 0f)) {
+                                                Modifier.border(0.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f), RoundedCornerShape(2.5.dp))
+                                            } else Modifier
+                                        )
+                                        .clickable {
+                                            hoveredDateIso = dateIso
+                                        }
                                 )
                             } else {
-                                Spacer(modifier = Modifier.size(10.dp))
+                                Spacer(modifier = Modifier.size(13.dp))
                             }
                         }
                     }
+                }
+            }
+
+            // Heatmap Legend and Weekend Callout
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isSpanish) "Menos" else "Less",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)))
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFEF4444).copy(alpha = 0.7f)))
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFF59E0B)))
+                    Box(modifier = Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF10B981)))
+                    Text(
+                        text = if (isSpanish) "Más" else "More",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = if (isSpanish) "S & D = Fin de semana" else "S & S = Weekend",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
         }

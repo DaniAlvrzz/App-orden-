@@ -78,10 +78,11 @@ class HabitsDelegate(
         }
     }
 
-    fun toggleHabitComplete(habit: HabitAnchor) {
+    fun toggleHabitComplete(habit: HabitAnchor, targetDateIso: String? = null) {
         scope.launch {
+            val date = targetDateIso ?: uiState.value.selectedDateIso
             val willBeCompleted = !habit.isCompleted
-            val result = habitRepository.toggleHabitComplete(habit)
+            val result = habitRepository.toggleHabitComplete(habit, date)
             val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
 
             if (result.isSuccess) {
@@ -89,6 +90,8 @@ class HabitsDelegate(
                     uiState.value = uiState.value.copy(habitConfettiKey = System.currentTimeMillis())
                     unlockAchievement(AchievementId.FIRST_HABIT)
                     showFeedback(if (isSpanish) "🌱 Hábito completado: ${habit.title}" else "🌱 Habit completed: ${habit.title}")
+                } else {
+                    showFeedback(if (isSpanish) "Hábito desmarcado: ${habit.title}" else "Habit unchecked: ${habit.title}")
                 }
             } else {
                 val err = result.exceptionOrNull()?.message ?: ""
@@ -103,6 +106,25 @@ class HabitsDelegate(
                         else "Could not update habit."
                     )
                 }
+            }
+        }
+    }
+
+    fun markHabitNotDone(habit: HabitAnchor, targetDateIso: String? = null) {
+        scope.launch {
+            val date = targetDateIso ?: uiState.value.selectedDateIso
+            val result = habitRepository.markHabitNotDone(habit, date)
+            val isSpanish = uiState.value.currentLanguage == AppLanguage.SPANISH
+            if (result.isSuccess) {
+                showFeedback(
+                    if (isSpanish) "❌ Marcado como no hecho: ${habit.title}"
+                    else "❌ Marked as not done: ${habit.title}"
+                )
+            } else {
+                showFeedback(
+                    if (isSpanish) "No se pudo marcar como no hecho."
+                    else "Could not mark as not done."
+                )
             }
         }
     }

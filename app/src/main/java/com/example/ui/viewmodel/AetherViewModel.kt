@@ -120,7 +120,10 @@ data class AetherUiState(
     val quickNotes: List<QuickNoteItem> = emptyList(),
     val pomodoroPhase: FocusPhase = FocusPhase.WORK,
     val currentPomodoroRound: Int = 1,
-    val totalFocusMinutes: Int = 0
+    val totalFocusMinutes: Int = 0,
+    // Active Date Navigation (Allows navigating to any day)
+    val selectedDateIso: String = LocalDate.now().toString(),
+    val selectedDateLogs: List<CompletionLog> = emptyList()
 ) {
     val deepWorkMinutesAllocated: Int
         get() = tasks
@@ -251,6 +254,7 @@ class AetherViewModel(
     init {
         performDailyRolloverCheck()
         observeData()
+        observeSelectedDateLogs(LocalDate.now().toString())
     }
 
     private fun performDailyRolloverCheck() {
@@ -494,6 +498,39 @@ class AetherViewModel(
         loadLogsForSelectedDate(dateIso)
     }
 
+    // --- Active Date Navigation (Navigate to any day & log tasks/habits) ---
+    private var selectedDateLogsJob: kotlinx.coroutines.Job? = null
+
+    fun setSelectedDate(dateIso: String) {
+        _uiState.value = _uiState.value.copy(selectedDateIso = dateIso)
+        observeSelectedDateLogs(dateIso)
+    }
+
+    fun selectDate(dateIso: String) = setSelectedDate(dateIso)
+
+    fun goToPreviousDay() {
+        val current = try { LocalDate.parse(_uiState.value.selectedDateIso) } catch (e: Exception) { LocalDate.now() }
+        setSelectedDate(current.minusDays(1).toString())
+    }
+
+    fun goToNextDay() {
+        val current = try { LocalDate.parse(_uiState.value.selectedDateIso) } catch (e: Exception) { LocalDate.now() }
+        setSelectedDate(current.plusDays(1).toString())
+    }
+
+    fun goToToday() {
+        setSelectedDate(LocalDate.now().toString())
+    }
+
+    private fun observeSelectedDateLogs(dateIso: String) {
+        selectedDateLogsJob?.cancel()
+        selectedDateLogsJob = viewModelScope.launch {
+            repository.getLogsByDate(dateIso).collect { logs ->
+                _uiState.value = _uiState.value.copy(selectedDateLogs = logs)
+            }
+        }
+    }
+
     // --- Quick Notes & Retroactive Logging ---
     fun addQuickNote(content: String) = tasksDelegate.addQuickNote(content)
     fun deleteQuickNote(id: String) = tasksDelegate.deleteQuickNote(id)
@@ -577,6 +614,62 @@ class AetherViewModel(
                 graceDaysUsed = habit.graceDaysUsed
             )
         )
+    }
+
+    fun toggleIndividualTargetForDate(target: IndividualHistoryTarget, dateIso: String) {
+        when (target.itemType) {
+            CompletionItemType.TASK -> {
+                val task = _uiState.value.tasks.firstOrNull { it.id == target.id }
+                    ?: _uiState.value.archivedTasks.firstOrNull { it.id == target.id }
+                    ?: TaskItem(
+                        id = target.id,
+                        title = target.title,
+                        description = target.subtitle,
+                        isPermanent = target.isPermanent,
+                        isFrog = target.isFrog
+                    )
+                tasksDelegate.toggleTaskComplete(task, dateIso)
+            }
+            CompletionItemType.HABIT -> {
+                val habit = _uiState.value.habits.firstOrNull { it.id == target.id }
+                    ?: HabitAnchor(
+                        id = target.id,
+                        title = target.title,
+                        description = target.subtitle,
+                        anchor = target.anchor ?: CircadianAnchor.ALL_DAY
+                    )
+                habitsDelegate.toggleHabitComplete(habit, dateIso)
+            }
+            else -> {}
+        }
+    }
+
+    fun markIndividualTargetNotDoneForDate(target: IndividualHistoryTarget, dateIso: String) {
+        when (target.itemType) {
+            CompletionItemType.HABIT -> {
+                val habit = _uiState.value.habits.firstOrNull { it.id == target.id }
+                    ?: HabitAnchor(
+                        id = target.id,
+                        title = target.title,
+                        description = target.subtitle,
+                        anchor = target.anchor ?: CircadianAnchor.ALL_DAY
+                    )
+                habitsDelegate.markHabitNotDone(habit, dateIso)
+            }
+            CompletionItemType.TASK -> {
+                val task = _uiState.value.tasks.firstOrNull { it.id == target.id }
+                    ?: _uiState.value.archivedTasks.firstOrNull { it.id == target.id }
+                    ?: TaskItem(
+                        id = target.id,
+                        title = target.title,
+                        description = target.subtitle,
+                        isPermanent = target.isPermanent,
+                        isFrog = target.isFrog
+                    )
+                tasksDelegate.setTaskCompletionForDate(task, false, dateIso)
+            }
+            else -> {}
+        }
     }
 
     fun closeIndividualHistory() {
@@ -766,7 +859,10 @@ class AetherViewModel(
     ) = tasksDelegate.addTask(title, description, energyLevel, priorityType, estimatedMinutes, category, makeFrog, isPermanent)
     fun updateTask(task: TaskItem) = tasksDelegate.updateTask(task)
     fun setEditingTask(task: TaskItem?) { if (task != null) tasksDelegate.openTaskEditor(task) else tasksDelegate.closeTaskEditor() }
-    fun toggleTask(task: TaskItem) = tasksDelegate.toggleTaskComplete(task)
+    fun toggleTask(task: TaskItem) = tasksDelegate.toggleTaskComplete(task, _uiState.value.selectedDateIso)
+    fun toggleTaskForDate(task: TaskItem, dateIso: String) = tasksDelegate.toggleTaskComplete(task, dateIso)
+    fun setTaskCompletionForDate(task: TaskItem, isCompleted: Boolean, dateIso: String) =
+        tasksDelegate.setTaskCompletionForDate(task, isCompleted, dateIso)
     fun promoteToFrog(taskId: String) = tasksDelegate.setTaskAsFrog(taskId)
     fun deleteTask(taskId: String) {
         val task = _uiState.value.tasks.firstOrNull { it.id == taskId } ?: return
@@ -861,7 +957,10 @@ class AetherViewModel(
         habitsDelegate.addHabit(title, description, anchor, streakDays, reframingTip)
     fun updateHabit(habit: HabitAnchor) = habitsDelegate.updateHabit(habit)
     fun setEditingHabit(habit: HabitAnchor?) { if (habit != null) habitsDelegate.openHabitEditor(habit) else habitsDelegate.closeHabitEditor() }
-    fun toggleHabit(habit: HabitAnchor) = habitsDelegate.toggleHabitComplete(habit)
+    fun toggleHabit(habit: HabitAnchor) = habitsDelegate.toggleHabitComplete(habit, _uiState.value.selectedDateIso)
+    fun toggleHabitForDate(habit: HabitAnchor, dateIso: String) = habitsDelegate.toggleHabitComplete(habit, dateIso)
+    fun markHabitNotDone(habit: HabitAnchor) = habitsDelegate.markHabitNotDone(habit, _uiState.value.selectedDateIso)
+    fun markHabitNotDoneForDate(habit: HabitAnchor, dateIso: String) = habitsDelegate.markHabitNotDone(habit, dateIso)
     fun applyGraceDay(habit: HabitAnchor) = habitsDelegate.applyGraceDay(habit)
     fun deleteHabit(id: String) {
         val habit = _uiState.value.habits.firstOrNull { it.id == id } ?: return
