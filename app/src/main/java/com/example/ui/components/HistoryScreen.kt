@@ -368,8 +368,8 @@ fun MonthSummaryCard(
     val ym = remember(year, monthNumber) { YearMonth.of(year, monthNumber) }
     val daysInMonth = ym.lengthOfMonth()
     val summaryMap = remember(summaries) { summaries.associateBy { it.dateIso } }
-    val todayIso = remember { LocalDate.now().toString() }
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
+    val todayIso = today.toString()
 
     // First day of month offset (1 = Monday, 7 = Sunday)
     val firstDayOfWeek = remember(year, monthNumber) {
@@ -552,8 +552,8 @@ fun AnnualContinuousHeatmapCard(
     onSelectDate: (String) -> Unit
 ) {
     val summaryMap = remember(summaries) { summaries.associateBy { it.dateIso } }
-    val todayIso = remember { LocalDate.now().toString() }
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
+    val todayIso = today.toString()
     
     // We compute 53 weeks starting from the Monday of the first week of the year
     val jan1 = remember(year) { LocalDate.of(year, 1, 1) }

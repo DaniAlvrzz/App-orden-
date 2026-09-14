@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.util.Log
 import com.example.data.local.*
 import com.example.data.model.AetherFullBackup
 import com.example.data.util.AetherDateUtils
@@ -64,6 +65,7 @@ class BackupRepositoryImpl(
             destinationFile.writeText(jsonContent)
             Result.success(destinationFile.absolutePath)
         } catch (e: Exception) {
+            Log.w("BackupRepository", "Failed to export full backup to file: ${destinationFile.absolutePath}", e)
             Result.failure(e)
         }
     }
@@ -109,6 +111,7 @@ class BackupRepositoryImpl(
             widgetUpdater.updateWidgets()
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.w("BackupRepository", "Failed to restore from backup JSON", e)
             Result.failure(e)
         }
     }

@@ -66,7 +66,7 @@ fun HabitWeeklyConsistency(
     modifier: Modifier = Modifier
 ) {
     val isSpanish = language == AppLanguage.SPANISH
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
 
     // Start of the CURRENT week (Monday)
     val startOfWeek = remember(today) {

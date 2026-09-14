@@ -44,8 +44,8 @@ fun DateNavigationBar(
     val isSpanish = language == AppLanguage.SPANISH
     val locale = if (isSpanish) Locale.forLanguageTag("es-ES") else Locale.ENGLISH
 
-    val today = remember { LocalDate.now() }
-    val todayIso = remember(today) { today.toString() }
+    val today = LocalDate.now()
+    val todayIso = today.toString()
     val selectedDate = remember(selectedDateIso) {
         try { LocalDate.parse(selectedDateIso) } catch (e: Exception) { today }
     }

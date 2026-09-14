@@ -91,12 +91,10 @@ fun IndividualHistoryDialog(
             }
             CompletionItemType.HABIT -> {
                 when (target.anchor) {
-                    CircadianAnchor.MORNING_LIGHT -> Triple(Icons.Default.WbSunny, AetherAmber, if (isSpanish) "Hábito • Luz Solar" else "Habit • Sunlight")
-                    CircadianAnchor.HYDRATION_ELECTROLYTES -> Triple(Icons.Default.WaterDrop, AetherCyan, if (isSpanish) "Hábito • Hidratación" else "Habit • Hydration")
-                    CircadianAnchor.CAFFEINE_CUTOFF -> Triple(Icons.Default.Schedule, AetherCoral, if (isSpanish) "Hábito • Límite Cafeína" else "Habit • Caffeine")
-                    CircadianAnchor.ZONE_2_MOVEMENT -> Triple(Icons.Default.DirectionsRun, AetherEmerald, if (isSpanish) "Hábito • Movimiento" else "Habit • Movement")
-                    CircadianAnchor.DIGITAL_SUNSET -> Triple(Icons.Default.NightsStay, AetherPurple, if (isSpanish) "Hábito • Ocaso Digital" else "Habit • Digital Sunset")
-                    CircadianAnchor.ALL_DAY, null -> Triple(Icons.Default.AllInclusive, AetherCyan, if (isSpanish) "Hábito Diario" else "Daily Habit")
+                    CircadianAnchor.MORNING -> Triple(Icons.Default.WbSunny, AetherAmber, if (isSpanish) "Hábito • Mañana" else "Habit • Morning")
+                    CircadianAnchor.AFTERNOON -> Triple(Icons.Default.DirectionsRun, AetherEmerald, if (isSpanish) "Hábito • Tarde" else "Habit • Afternoon")
+                    CircadianAnchor.EVENING -> Triple(Icons.Default.NightsStay, AetherPurple, if (isSpanish) "Hábito • Noche" else "Habit • Evening")
+                    CircadianAnchor.ALL_DAY, null -> Triple(Icons.Default.AllInclusive, AetherCyan, if (isSpanish) "Hábito • Todo el Día" else "Habit • All Day")
                 }
             }
             CompletionItemType.MEAL -> Triple(Icons.Default.Restaurant, AetherEmerald, if (isSpanish) "Nutrición" else "Meal")
@@ -282,7 +280,7 @@ fun IndividualSelectedDayCard(
     onMarkNotDone: (dateIso: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
     val inspectedDate = try { LocalDate.parse(inspectedDateIso) } catch (e: Exception) { today }
     val isCompleted = inspectedLog?.status == CompletionStatus.COMPLETED
     val isMissed = inspectedLog?.status == CompletionStatus.MISSED
@@ -436,7 +434,7 @@ fun IndividualWeekHistoryView(
     onToggleTargetForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> },
     onMarkNotDoneForDate: (IndividualHistoryTarget, String) -> Unit = { _, _ -> }
 ) {
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
     val todayIso = today.toString()
 
     val currentMonday = remember(weekOffset) {
@@ -708,7 +706,7 @@ fun IndividualMonthHistoryView(
     val ym = remember(year, month) { YearMonth.of(year, month) }
     val monthName = ym.month.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase() }
     val daysInMonth = ym.lengthOfMonth()
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
     val todayIso = today.toString()
 
     // Calculate completions for this month
@@ -1120,8 +1118,8 @@ fun IndividualMonthMiniHeatmapCard(
     onSelectDate: ((String) -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    val todayIso = remember { LocalDate.now().toString() }
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
+    val todayIso = today.toString()
 
     // First day of month offset (1 = Monday, 7 = Sunday)
     val firstDayOfWeek = remember(year, monthNumber) {
@@ -1288,8 +1286,8 @@ fun IndividualAnnualContinuousHeatmapCard(
     isSpanish: Boolean,
     onSelectDate: (String) -> Unit
 ) {
-    val todayIso = remember { LocalDate.now().toString() }
-    val today = remember { LocalDate.now() }
+    val today = LocalDate.now()
+    val todayIso = today.toString()
     
     val jan1 = remember(year) { LocalDate.of(year, 1, 1) }
     val firstMonday = remember(jan1) {

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -63,7 +64,7 @@ fun HabitsScreen(
     val strings = remember(state.currentLanguage) { StringsProvider(state.currentLanguage) }
     val view = LocalView.current
 
-    val todayIso = remember { AetherDateUtils.getTodayIso() }
+    val todayIso = AetherDateUtils.getTodayIso()
     val isViewingToday = state.selectedDateIso == todayIso
 
     val completedCount = remember(state.habits, state.selectedDateLogs, isViewingToday) {
@@ -457,13 +458,17 @@ fun HabitsScreen(
                                         onToggle = {
                                             try {
                                                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                            } catch (_: Exception) {}
+                                            } catch (e: Exception) {
+                                                Log.w("HabitsScreen", "onToggle performHapticFeedback failed", e)
+                                            }
                                             onToggleHabit(habit)
                                         },
                                         onMarkNotDone = {
                                             try {
                                                 view.performHapticFeedback(HapticFeedbackConstants.REJECT)
-                                            } catch (_: Exception) {}
+                                            } catch (e: Exception) {
+                                                Log.w("HabitsScreen", "onMarkNotDone performHapticFeedback failed", e)
+                                            }
                                             onMarkHabitNotDone(habit)
                                         },
                                         onApplyGrace = { onApplyGraceDay(habit) },
@@ -651,20 +656,16 @@ fun HabitAnchorCard(
     )
 
     val windowLabel = when (habit.anchor) {
-        CircadianAnchor.MORNING_LIGHT -> if (isSpanish) "AL DESPERTAR" else "MORNING (06:00-08:00)"
-        CircadianAnchor.HYDRATION_ELECTROLYTES -> if (isSpanish) "DESPERTAR INMEDIATO" else "EARLY MORNING"
-        CircadianAnchor.CAFFEINE_CUTOFF -> if (isSpanish) "LÍMITE 14:00" else "CUTOFF 14:00"
-        CircadianAnchor.ZONE_2_MOVEMENT -> if (isSpanish) "TARDE CIRCADIANO" else "AFTERNOON (16:00-18:00)"
-        CircadianAnchor.DIGITAL_SUNSET -> if (isSpanish) "NOCHE 22:00" else "NIGHT (22:00)"
-        CircadianAnchor.ALL_DAY -> if (isSpanish) "TODO EL DÍA (FLEXIBLE)" else "ALL DAY (FLEXIBLE)"
+        CircadianAnchor.MORNING -> if (isSpanish) "MAÑANA" else "MORNING"
+        CircadianAnchor.AFTERNOON -> if (isSpanish) "TARDE" else "AFTERNOON"
+        CircadianAnchor.EVENING -> if (isSpanish) "NOCHE" else "EVENING"
+        CircadianAnchor.ALL_DAY -> if (isSpanish) "TODO EL DÍA" else "ALL DAY"
     }
 
     val (anchorIcon, anchorTint) = when (habit.anchor) {
-        CircadianAnchor.MORNING_LIGHT -> Pair(Icons.Default.WbSunny, AetherAmber)
-        CircadianAnchor.HYDRATION_ELECTROLYTES -> Pair(Icons.Default.WaterDrop, AetherCyan)
-        CircadianAnchor.CAFFEINE_CUTOFF -> Pair(Icons.Default.Schedule, AetherCoral)
-        CircadianAnchor.ZONE_2_MOVEMENT -> Pair(Icons.Default.DirectionsRun, AetherEmerald)
-        CircadianAnchor.DIGITAL_SUNSET -> Pair(Icons.Default.NightsStay, AetherPurple)
+        CircadianAnchor.MORNING -> Pair(Icons.Default.WbSunny, AetherAmber)
+        CircadianAnchor.AFTERNOON -> Pair(Icons.Default.DirectionsRun, AetherEmerald)
+        CircadianAnchor.EVENING -> Pair(Icons.Default.NightsStay, AetherPurple)
         CircadianAnchor.ALL_DAY -> Pair(Icons.Default.AllInclusive, AetherCyan)
     }
 
@@ -807,7 +808,7 @@ fun HabitAnchorCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val todayIso = remember { com.example.data.util.AetherDateUtils.getTodayIso() }
+            val todayIso = com.example.data.util.AetherDateUtils.getTodayIso()
             val isGraceUsedToday = habit.graceDayLastUsedDate == todayIso
             val isGraceLimitReached = habit.graceDaysUsed >= habit.maxGraceDaysPerPeriod
             val canApplyGrace = !isCompletedForDate && !isGraceUsedToday && !isGraceLimitReached
@@ -900,33 +901,23 @@ fun HabitAnchorCard(
 
 fun getAnchorDetails(anchor: CircadianAnchor, isSpanish: Boolean): Triple<String, androidx.compose.ui.graphics.vector.ImageVector, Color> {
     return when (anchor) {
-        CircadianAnchor.MORNING_LIGHT -> Triple(
-            if (isSpanish) "Luz Solar Matutina (Mañana)" else "Morning Sunlight (Early)",
+        CircadianAnchor.MORNING -> Triple(
+            if (isSpanish) "Mañana" else "Morning",
             Icons.Default.WbSunny,
             AetherAmber
         )
-        CircadianAnchor.HYDRATION_ELECTROLYTES -> Triple(
-            if (isSpanish) "Hidratación y Carga Mineral" else "Hydration & Mineral Charge",
-            Icons.Default.WaterDrop,
-            AetherCyan
-        )
-        CircadianAnchor.ZONE_2_MOVEMENT -> Triple(
-            if (isSpanish) "Movimiento Aeróbico Zona 2" else "Zone 2 Movement",
+        CircadianAnchor.AFTERNOON -> Triple(
+            if (isSpanish) "Tarde" else "Afternoon",
             Icons.Default.DirectionsRun,
             AetherEmerald
         )
-        CircadianAnchor.CAFFEINE_CUTOFF -> Triple(
-            if (isSpanish) "Límite de Cafeína (14:00)" else "Caffeine Cutoff (14:00)",
-            Icons.Default.Schedule,
-            AetherCoral
-        )
-        CircadianAnchor.DIGITAL_SUNSET -> Triple(
-            if (isSpanish) "Ocaso Digital (Noche)" else "Digital Sunset (Night)",
+        CircadianAnchor.EVENING -> Triple(
+            if (isSpanish) "Noche" else "Evening",
             Icons.Default.NightsStay,
             AetherPurple
         )
         CircadianAnchor.ALL_DAY -> Triple(
-            if (isSpanish) "A lo Largo del Día (Flexible)" else "Throughout the Day (Flexible)",
+            if (isSpanish) "Todo el Día" else "All Day",
             Icons.Default.AllInclusive,
             AetherCyan
         )

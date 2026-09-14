@@ -67,7 +67,7 @@ class StringsProvider(val language: AppLanguage) {
     val editHabitTitle: String get() = if (language == AppLanguage.SPANISH) "Editar Hábito Ancla" else "Edit Anchor Habit"
     val habitTitleLabel: String get() = if (language == AppLanguage.SPANISH) "Nombre del Hábito" else "Habit Name"
     val habitDescLabel: String get() = if (language == AppLanguage.SPANISH) "Descripción / Micro-paso" else "Description / Micro-step"
-    val habitAnchorLabel: String get() = if (language == AppLanguage.SPANISH) "Momento Circadiano (Anclaje)" else "Circadian Window (Anchor)"
+    val habitAnchorLabel: String get() = if (language == AppLanguage.SPANISH) "Momento del Día" else "Time of Day"
     val habitTipLabel: String get() = if (language == AppLanguage.SPANISH) "Frase de Reencuadre / Mantra" else "Reframing Tip / Mantra"
     val habitStreakLabel: String get() = if (language == AppLanguage.SPANISH) "Días de Racha Actuales" else "Current Streak Days"
     val itemDeleted: String get() = if (language == AppLanguage.SPANISH) "Elemento eliminado" else "Item deleted"

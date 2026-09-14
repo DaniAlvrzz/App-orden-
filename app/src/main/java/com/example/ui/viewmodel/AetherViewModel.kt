@@ -596,12 +596,10 @@ class AetherViewModel(
     fun openHabitHistory(habit: HabitAnchor) {
         val isSpanish = _uiState.value.currentLanguage == AppLanguage.SPANISH
         val anchorDesc = when (habit.anchor) {
-            CircadianAnchor.MORNING_LIGHT -> if (isSpanish) "Luz Solar Matutina" else "Morning Light"
-            CircadianAnchor.HYDRATION_ELECTROLYTES -> if (isSpanish) "Hidratación y Minerales" else "Hydration & Minerals"
-            CircadianAnchor.CAFFEINE_CUTOFF -> if (isSpanish) "Límite Cafeína 14:00" else "Caffeine Cutoff"
-            CircadianAnchor.ZONE_2_MOVEMENT -> if (isSpanish) "Movimiento Zona 2" else "Zone 2 Movement"
-            CircadianAnchor.DIGITAL_SUNSET -> if (isSpanish) "Ocaso Digital" else "Digital Sunset"
-            CircadianAnchor.ALL_DAY -> if (isSpanish) "A lo largo del día" else "Throughout the Day"
+            CircadianAnchor.MORNING -> if (isSpanish) "Mañana" else "Morning"
+            CircadianAnchor.AFTERNOON -> if (isSpanish) "Tarde" else "Afternoon"
+            CircadianAnchor.EVENING -> if (isSpanish) "Noche" else "Evening"
+            CircadianAnchor.ALL_DAY -> if (isSpanish) "Todo el Día" else "All Day"
         }
         openIndividualHistory(
             IndividualHistoryTarget(

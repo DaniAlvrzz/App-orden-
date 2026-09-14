@@ -82,7 +82,26 @@ fun AetherOSTheme(
         AppThemeMode.DARK -> true
     }
 
-    MyApplicationTheme(darkTheme = isDark, dynamicColor = dynamicColor, content = content)
+    val colorScheme = if (isDark) AetherDarkColorScheme else AetherLightColorScheme
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = colorScheme.background.toArgb()
+                window.navigationBarColor = colorScheme.background.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !isDark
+            }
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
 }
 
 @Composable

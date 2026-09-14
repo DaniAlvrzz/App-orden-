@@ -1,11 +1,14 @@
 package com.example.data.util
 
+import android.util.Log
 import com.example.ui.i18n.AppLanguage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 object AetherDateUtils {
+    private const val TAG = "AetherDateUtils"
+
     fun getTodayIso(): String {
         return LocalDate.now().toString()
     }
@@ -15,6 +18,7 @@ object AetherDateUtils {
         return try {
             LocalDate.parse(dateIso).minusDays(1).toString()
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse previousDay for $dateIso", e)
             ""
         }
     }
@@ -33,6 +37,7 @@ object AetherDateUtils {
             val toDate = LocalDate.parse(toIso)
             java.time.temporal.ChronoUnit.DAYS.between(fromDate, toDate)
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to calculate daysBetween for $fromIso and $toIso", e)
             1L
         }
     }
@@ -49,6 +54,7 @@ object AetherDateUtils {
             val firstMondayAfterFrom = fromDate.plusDays(1).with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.MONDAY))
             !firstMondayAfterFrom.isAfter(toDate)
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to check hasMondayBetween for $fromIso and $toIso", e)
             false
         }
     }
@@ -76,6 +82,7 @@ object AetherDateUtils {
             }
             gap.reversed()
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to calculate datesBetweenExclusive for $fromIso and $toIso", e)
             emptyList()
         }
     }

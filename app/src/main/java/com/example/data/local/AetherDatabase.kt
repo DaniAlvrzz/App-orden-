@@ -29,7 +29,7 @@ import java.time.LocalDate
         FocusSessionEntity::class
     ],
     version = 13,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AetherDatabase : RoomDatabase() {
@@ -407,7 +407,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-1",
                         title = "Luz Solar Matutina (Anclaje Fotónico)",
                         description = "10-15 minutos de luz exterior directa para sincronizar el núcleo supraquiasmático.",
-                        anchor = CircadianAnchor.MORNING_LIGHT,
+                        anchor = CircadianAnchor.MORNING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -417,7 +417,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-2",
                         title = "500ml Agua con Electrolitos Minerales",
                         description = "Rehidratar el tejido cerebral inmediatamente al despertar.",
-                        anchor = CircadianAnchor.HYDRATION_ELECTROLYTES,
+                        anchor = CircadianAnchor.MORNING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -427,7 +427,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-3",
                         title = "Corte de Cafeína a las 14:00",
                         description = "Permite que la adenosina se aclare y protege la fase de sueño profundo.",
-                        anchor = CircadianAnchor.CAFFEINE_CUTOFF,
+                        anchor = CircadianAnchor.AFTERNOON,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -437,7 +437,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-4",
                         title = "Caminata de Descompresión Zona 2",
                         description = "20 min de movimiento suave para aclarar lactato y reiniciar foco.",
-                        anchor = CircadianAnchor.ZONE_2_MOVEMENT,
+                        anchor = CircadianAnchor.AFTERNOON,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -447,7 +447,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-5",
                         title = "Digital Sunset (Pantallas fuera a las 22:00)",
                         description = "Reducción de fotones azules para estimular melatonina natural.",
-                        anchor = CircadianAnchor.DIGITAL_SUNSET,
+                        anchor = CircadianAnchor.EVENING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -460,7 +460,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-1",
                         title = "Morning Sunlight Photonic Anchor",
                         description = "10-15 minutes direct outdoor light to reset master circadian clock (SCN).",
-                        anchor = CircadianAnchor.MORNING_LIGHT,
+                        anchor = CircadianAnchor.MORNING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -470,7 +470,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-2",
                         title = "500ml Water + Mineral Electrolytes",
                         description = "Rehydrate neural tissue immediately upon waking.",
-                        anchor = CircadianAnchor.HYDRATION_ELECTROLYTES,
+                        anchor = CircadianAnchor.MORNING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -480,7 +480,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-3",
                         title = "Caffeine Stop at 14:00",
                         description = "Allows adenosine clearance to safeguard Stage 3 Deep Sleep.",
-                        anchor = CircadianAnchor.CAFFEINE_CUTOFF,
+                        anchor = CircadianAnchor.AFTERNOON,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -490,7 +490,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-4",
                         title = "Zone 2 Decompression Stroll",
                         description = "20 mins low intensity movement for lactate clearance and reset.",
-                        anchor = CircadianAnchor.ZONE_2_MOVEMENT,
+                        anchor = CircadianAnchor.AFTERNOON,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -500,7 +500,7 @@ abstract class AetherDatabase : RoomDatabase() {
                         id = "habit-5",
                         title = "Digital Sunset (Screens Dark at 22:00)",
                         description = "Suppress blue photons to stimulate natural melatonin synthesis.",
-                        anchor = CircadianAnchor.DIGITAL_SUNSET,
+                        anchor = CircadianAnchor.EVENING,
                         isCompleted = false,
                         streakDays = 0,
                         graceDaysUsed = 0,
@@ -819,11 +819,11 @@ abstract class AetherDatabase : RoomDatabase() {
                 mealDao.insertMeals(spanishMeals)
 
                 val spanishHabits = listOf(
-                    HabitAnchor("habit-1", "Ancla Fotónica de Luz Solar Matutina", "10-15 minutos de luz natural directa para calibrar el núcleo supraquiasmático (SCN).", CircadianAnchor.MORNING_LIGHT, true, 12, 1, "Fallar un día es humano; retomar hoy consolida tu línea base."),
-                    HabitAnchor("habit-2", "500ml de Agua con Electrolitos Minerales", "Rehidratación celular inmediata al despertar para encender la función ejecutiva.", CircadianAnchor.HYDRATION_ELECTROLYTES, true, 18, 0, "La hidratación celular potencia la claridad mental."),
-                    HabitAnchor("habit-3", "Límite de Cafeína a las 14:00 (Depuración de Adenosina)", "Permite la semivida de 8 horas para proteger la fase profunda del sueño.", CircadianAnchor.CAFFEINE_CUTOFF, false, 7, 2, "Protege tu arquitectura de sueño sin culpa."),
-                    HabitAnchor("habit-4", "Caminata de Descompresión en Zona 2", "20 minutos de movimiento suave para depurar lactato y reiniciar el foco.", CircadianAnchor.ZONE_2_MOVEMENT, false, 4, 1, "El movimiento rítmico calma el sistema nervioso."),
-                    HabitAnchor("habit-5", "Atardecer Digital (Apagar Pantallas a las 22:00)", "Bloqueo de fotones azules para inducir la secreción endógena de melatonina.", CircadianAnchor.DIGITAL_SUNSET, false, 6, 1, "La noche está reservada para la regeneración biológica.")
+                    HabitAnchor("habit-1", "Ancla Fotónica de Luz Solar Matutina", "10-15 minutos de luz natural directa para calibrar el núcleo supraquiasmático (SCN).", CircadianAnchor.MORNING, true, 12, 1, "Fallar un día es humano; retomar hoy consolida tu línea base."),
+                    HabitAnchor("habit-2", "500ml de Agua con Electrolitos Minerales", "Rehidratación celular inmediata al despertar para encender la función ejecutiva.", CircadianAnchor.MORNING, true, 18, 0, "La hidratación celular potencia la claridad mental."),
+                    HabitAnchor("habit-3", "Límite de Cafeína a las 14:00 (Depuración de Adenosina)", "Permite la semivida de 8 horas para proteger la fase profunda del sueño.", CircadianAnchor.AFTERNOON, false, 7, 2, "Protege tu arquitectura de sueño sin culpa."),
+                    HabitAnchor("habit-4", "Caminata de Descompresión en Zona 2", "20 minutos de movimiento suave para depurar lactato y reiniciar el foco.", CircadianAnchor.AFTERNOON, false, 4, 1, "El movimiento rítmico calma el sistema nervioso."),
+                    HabitAnchor("habit-5", "Atardecer Digital (Apagar Pantallas a las 22:00)", "Bloqueo de fotones azules para inducir la secreción endógena de melatonina.", CircadianAnchor.EVENING, false, 6, 1, "La noche está reservada para la regeneración biológica.")
                 )
                 habitDao.insertHabits(spanishHabits.map {
                     HabitEntity(
@@ -1121,11 +1121,11 @@ abstract class AetherDatabase : RoomDatabase() {
                 mealDao.insertMeals(englishMeals)
 
                 val englishHabits = listOf(
-                    HabitAnchor("habit-1", "Morning Sunlight Photonic Anchor", "10-15 minutes direct outdoor light to reset master circadian clock (SCN).", CircadianAnchor.MORNING_LIGHT, true, 12, 1, "Missing once is human; returning today is your baseline."),
-                    HabitAnchor("habit-2", "500ml Water + Mineral Electrolytes", "Rehydrate neural tissue immediately upon waking.", CircadianAnchor.HYDRATION_ELECTROLYTES, true, 18, 0, "Cellular hydration primes executive function."),
-                    HabitAnchor("habit-3", "Caffeine Stop at 14:00 (Adenosine Clearance)", "Allows 8h half-life decay to safeguard Stage 3 Deep Sleep.", CircadianAnchor.CAFFEINE_CUTOFF, false, 7, 2, "Protect your sleep architecture without guilt."),
-                    HabitAnchor("habit-4", "Zone 2 Decompression Stroll", "20 mins low intensity movement for lactate clearance and cognitive reset.", CircadianAnchor.ZONE_2_MOVEMENT, false, 4, 1, "Movement calms the nervous system."),
-                    HabitAnchor("habit-5", "Digital Sunset (Screens Dark at 22:00)", "Suppress blue photons to stimulate natural melatonin synthesis.", CircadianAnchor.DIGITAL_SUNSET, false, 6, 1, "The night belongs to biological rejuvenation.")
+                    HabitAnchor("habit-1", "Morning Sunlight Photonic Anchor", "10-15 minutes direct outdoor light to reset master circadian clock (SCN).", CircadianAnchor.MORNING, true, 12, 1, "Missing once is human; returning today is your baseline."),
+                    HabitAnchor("habit-2", "500ml Water + Mineral Electrolytes", "Rehydrate neural tissue immediately upon waking.", CircadianAnchor.MORNING, true, 18, 0, "Cellular hydration primes executive function."),
+                    HabitAnchor("habit-3", "Caffeine Stop at 14:00 (Adenosine Clearance)", "Allows 8h half-life decay to safeguard Stage 3 Deep Sleep.", CircadianAnchor.AFTERNOON, false, 7, 2, "Protect your sleep architecture without guilt."),
+                    HabitAnchor("habit-4", "Zone 2 Decompression Stroll", "20 mins low intensity movement for lactate clearance and cognitive reset.", CircadianAnchor.AFTERNOON, false, 4, 1, "Movement calms the nervous system."),
+                    HabitAnchor("habit-5", "Digital Sunset (Screens Dark at 22:00)", "Suppress blue photons to stimulate natural melatonin synthesis.", CircadianAnchor.EVENING, false, 6, 1, "The night belongs to biological rejuvenation.")
                 )
                 habitDao.insertHabits(englishHabits.map {
                     HabitEntity(

@@ -3,11 +3,9 @@ package com.example.data.model
 import com.squareup.moshi.JsonClass
 
 enum class CircadianAnchor(val label: String, val idealWindow: String) {
-    MORNING_LIGHT("Morning Photonic Anchor (Sunlight)", "Within 30m of waking"),
-    HYDRATION_ELECTROLYTES("Hydration & Mineral Charge", "Upon waking + Post-lunch"),
-    ZONE_2_MOVEMENT("Zone 2 Aerobic Movement", "Midday or Post-Deep Work"),
-    CAFFEINE_CUTOFF("Adenosine/Caffeine Cutoff", "8-10 hours before sleep"),
-    DIGITAL_SUNSET("Digital Sunset & Melatonin Prep", "60m before bed"),
+    MORNING("Morning", "Start of the day"),
+    AFTERNOON("Afternoon", "Midday"),
+    EVENING("Evening", "End of the day"),
     ALL_DAY("Throughout the Day / Flexible", "Any time during the day")
 }
 

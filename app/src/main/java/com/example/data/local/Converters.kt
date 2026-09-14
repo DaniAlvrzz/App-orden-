@@ -127,13 +127,13 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromCircadianAnchor(value: CircadianAnchor?): String = value?.name ?: CircadianAnchor.MORNING_LIGHT.name
+    fun fromCircadianAnchor(value: CircadianAnchor?): String = value?.name ?: CircadianAnchor.MORNING.name
 
     @TypeConverter
     fun toCircadianAnchor(value: String?): CircadianAnchor = try {
-        CircadianAnchor.valueOf(value ?: CircadianAnchor.MORNING_LIGHT.name)
+        CircadianAnchor.valueOf(value ?: CircadianAnchor.MORNING.name)
     } catch (e: Exception) {
-        CircadianAnchor.MORNING_LIGHT
+        CircadianAnchor.MORNING
     }
 
     @TypeConverter

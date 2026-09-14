@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.work.*
 import com.example.MainActivity
@@ -112,7 +113,7 @@ class FocusTimerWorker(
                     workRequest
                 )
             } catch (e: Exception) {
-                // Ignore if WorkManager not initialized in unit tests
+                Log.w("FocusTimerWorker", "Failed to schedule focus timer via WorkManager", e)
             }
         }
 
@@ -120,7 +121,7 @@ class FocusTimerWorker(
             try {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_TAG)
             } catch (e: Exception) {
-                // Ignore if WorkManager not initialized
+                Log.w("FocusTimerWorker", "Failed to cancel focus timer via WorkManager", e)
             }
         }
     }
