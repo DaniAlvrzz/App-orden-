@@ -81,7 +81,7 @@ class AetherOsUnitTest {
             id = "h1",
             title = "Morning Light Photons",
             description = "Circadian anchor",
-            anchor = CircadianAnchor.MORNING_LIGHT,
+            anchor = CircadianAnchor.MORNING,
             isCompleted = false,
             streakDays = 14,
             graceDaysUsed = 0
@@ -108,7 +108,7 @@ class AetherOsUnitTest {
             id = "h_test",
             title = "Focus 25",
             description = "Daily focus",
-            anchor = CircadianAnchor.ZONE_2_MOVEMENT,
+            anchor = CircadianAnchor.AFTERNOON,
             isCompleted = false,
             streakDays = 3
         )
@@ -152,7 +152,7 @@ class AetherOsUnitTest {
             id = "h1",
             title = "Morning Light",
             description = "Photons",
-            anchor = CircadianAnchor.MORNING_LIGHT,
+            anchor = CircadianAnchor.MORNING,
             isCompleted = false,
             streakDays = 15,
             graceDaysUsed = 1,
